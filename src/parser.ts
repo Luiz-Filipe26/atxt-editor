@@ -1,0 +1,272 @@
+import { TokenType, type Token } from "./lexer";
+import { TokenStream } from "./tokenStream";
+import {
+    NodeType,
+    type ASTNode,
+    type DocumentNode,
+    type BlockNode,
+    type TextNode,
+    type AnnotationNode,
+    type PropertyNode,
+} from "./types/ast";
+import type { CompilerError } from "./types/errors";
+
+export class Parser {
+    private stream: TokenStream;
+    private compilerErrors: CompilerError[] = [];
+
+    constructor(tokens: Token[]) {
+        this.stream = new TokenStream(tokens);
+    }
+
+    private pushError(message: string, token?: Token) {
+        const currentToken = token ?? this.stream.peek();
+        this.compilerErrors.push({
+            type: "PARSER",
+            message,
+            line: currentToken.line,
+            column: currentToken.column,
+        });
+    }
+
+    public parse(): { document: DocumentNode; errors: CompilerError[] } {
+        const root: DocumentNode = {
+            type: NodeType.DOCUMENT,
+            line: 1,
+            column: 1,
+            children: [],
+        };
+
+        while (!this.stream.isAtEnd()) {
+            const node = this.parseNextNode();
+            if (node) root.children.push(node);
+        }
+
+        return { document: root, errors: this.compilerErrors };
+    }
+
+    private parseNextNode(): ASTNode | null {
+        const token = this.stream.advance();
+        switch (token.type) {
+            case TokenType.ANNOTATION_OPEN:
+                return this.parseAnnotation(token);
+            case TokenType.BLOCK_OPEN:
+                return this.parseBlock(token);
+            case TokenType.NEWLINE:
+            case TokenType.TEXT:
+                return this.parseAggregatedText(token);
+            case TokenType.EOF:
+                return null;
+            default:
+                this.pushError(
+                    `Token inesperado solto no documento: '${token.literal}'`,
+                    token,
+                );
+                return null;
+        }
+    }
+
+    private parseAnnotation(openingToken: Token): AnnotationNode {
+        const isSetAnnotation = this.consumeSetDirective();
+        const props = this.parseProperties();
+        this.consumeAnnotationClosure();
+
+        return {
+            type: NodeType.ANNOTATION,
+            line: openingToken.line,
+            column: openingToken.column,
+            isSet: isSetAnnotation,
+            properties: props,
+            target: this.resolveAnnotationTarget(),
+        };
+    }
+
+    private resolveAnnotationTarget(): ASTNode | null {
+        if (this.stream.isAtEnd()) return null;
+
+        if (this.stream.isTargetingBlock()) {
+            this.stream.skipWhitespaceTokens();
+            return this.parseBlock(this.stream.advance());
+        }
+
+        if (this.stream.hasTextOnSameLine()) {
+            return this.consumeTargetLine();
+        }
+
+        this.stream.skipToNextLine();
+        return this.consumeTargetLine();
+    }
+
+    private consumeTargetLine(): TextNode | null {
+        if (this.stream.isAtEnd()) return null;
+
+        const startToken = this.stream.peek();
+        let aggregatedText = "";
+
+        while (!this.stream.isAtEnd()) {
+            const token = this.stream.peek();
+
+            if (token.type === TokenType.NEWLINE) {
+                break;
+            }
+
+            if (token.type === TokenType.TEXT) {
+                aggregatedText += this.stream.advance().literal;
+            } else {
+                break;
+            }
+        }
+
+        return {
+            type: NodeType.TEXT,
+            line: startToken.line,
+            column: startToken.column,
+            content: aggregatedText,
+        };
+    }
+
+    private consumeSetDirective(): boolean {
+        if (
+            this.stream.peek().type === TokenType.IDENTIFIER &&
+            this.stream.peek().literal === "SET"
+        ) {
+            this.stream.advance();
+            return true;
+        }
+        return false;
+    }
+
+    private parseProperties(): PropertyNode[] {
+        const props: PropertyNode[] = [];
+
+        while (
+            !this.stream.isAtEnd() &&
+            this.stream.peek().type !== TokenType.ANNOTATION_CLOSE
+        ) {
+            if (this.stream.match(TokenType.SEMICOLON)) continue;
+
+            const keyToken = this.stream.peek();
+            const key = this.parsePropertyKey();
+            if (!key) continue;
+
+            if (!this.consumeColon(key)) continue;
+
+            const value = this.parsePropertyValue(key);
+            if (!value) continue;
+
+            props.push({
+                type: NodeType.PROPERTY,
+                line: keyToken.line,
+                column: keyToken.column,
+                key: key,
+                value: value,
+            });
+
+            this.requirePropertySeparator(key);
+        }
+
+        return props;
+    }
+
+    private parsePropertyKey(): string | null {
+        if (this.stream.peek().type !== TokenType.IDENTIFIER) {
+            this.pushError(
+                `Esperado o nome da propriedade, encontrado '${this.stream.peek().literal}'.`,
+            );
+            this.synchronizeToNextProperty();
+            return null;
+        }
+        return this.stream.advance().literal;
+    }
+
+    private consumeColon(propertyName: string): boolean {
+        if (this.stream.peek().type !== TokenType.COLON) {
+            this.pushError(
+                `Esperado ":" após a propriedade "${propertyName}", encontrado "${this.stream.peek().literal}".`,
+            );
+            this.synchronizeToNextProperty();
+            return false;
+        }
+        this.stream.advance();
+        return true;
+    }
+
+    private parsePropertyValue(propertyName: string): string | null {
+        const valueType = this.stream.peek().type;
+        if (valueType !== TokenType.VALUE && valueType !== TokenType.IDENTIFIER) {
+            this.pushError(
+                `Esperado valor para "${propertyName}", encontrado '${this.stream.peek().literal}'.`,
+            );
+            this.synchronizeToNextProperty();
+            return null;
+        }
+        return this.stream.advance().literal;
+    }
+
+    private requirePropertySeparator(propertyName: string): void {
+        const afterValue = this.stream.peek().type;
+        if (afterValue === TokenType.SEMICOLON) {
+            this.stream.advance();
+        } else if (afterValue !== TokenType.ANNOTATION_CLOSE) {
+            this.pushError(
+                `Esperado ';' após o valor da propriedade '${propertyName}'.`,
+            );
+            this.synchronizeToNextProperty();
+        }
+    }
+
+    private consumeAnnotationClosure(): void {
+        if (!this.stream.match(TokenType.ANNOTATION_CLOSE)) {
+            this.pushError("Anotação não foi fechada corretamente com ']]'.");
+        }
+    }
+
+    private synchronizeToNextProperty() {
+        while (!this.stream.isAtEnd()) {
+            if (this.stream.match(TokenType.SEMICOLON)) return;
+            if (this.stream.peek().type === TokenType.ANNOTATION_CLOSE) return;
+            this.stream.advance();
+        }
+    }
+
+    private parseBlock(blockToken: Token): BlockNode {
+        const children: ASTNode[] = [];
+        while (
+            !this.stream.isAtEnd() &&
+            this.stream.peek().type !== TokenType.BLOCK_CLOSE
+        ) {
+            const node = this.parseNextNode();
+            if (node) children.push(node);
+        }
+
+        if (!this.stream.match(TokenType.BLOCK_CLOSE)) {
+            this.pushError("Bloco não foi fechado. Esperado '}'.");
+        }
+
+        return {
+            type: NodeType.BLOCK,
+            line: blockToken.line,
+            column: blockToken.column,
+            children: children,
+        };
+    }
+
+    private parseAggregatedText(startToken: Token): TextNode {
+        let aggregatedText = startToken.literal;
+
+        while (
+            !this.stream.isAtEnd() &&
+            (this.stream.peek().type === TokenType.TEXT ||
+                this.stream.peek().type === TokenType.NEWLINE)
+        ) {
+            aggregatedText += this.stream.advance().literal;
+        }
+
+        return {
+            type: NodeType.TEXT,
+            line: startToken.line,
+            column: startToken.column,
+            content: aggregatedText,
+        };
+    }
+}
