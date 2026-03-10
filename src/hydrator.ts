@@ -10,6 +10,8 @@ import type { CompilerError } from "./types/errors";
 export interface IRNode {
     type: "BLOCK" | "TEXT";
     props: Record<string, any>;
+    line?: number;
+    column?: number;
 }
 
 export interface IRBlock extends IRNode {
@@ -35,6 +37,8 @@ export class Hydrator {
         const rootBlock: IRBlock = {
             type: "BLOCK",
             props: {},
+            line: document.line,
+            column: document.column,
             children: this.transformNodeList(document.children),
         };
 
@@ -58,9 +62,7 @@ export class Hydrator {
 
             if (node.type === NodeType.ANNOTATION && node.isSet) {
                 const validatedProps = this.validateProperties(node);
-
                 const remainingSiblings = nodes.slice(i + 1);
-
                 const childrenToWrap = node.target
                     ? [node.target, ...remainingSiblings]
                     : remainingSiblings;
@@ -68,9 +70,10 @@ export class Hydrator {
                 output.push({
                     type: "BLOCK",
                     props: validatedProps,
+                    line: node.line,
+                    column: node.column,
                     children: this.transformNodeList(childrenToWrap),
                 } as IRBlock);
-
                 break;
             }
 
@@ -96,6 +99,8 @@ export class Hydrator {
             return {
                 type: "BLOCK",
                 props: { ...activeProps },
+                line: node.line,
+                column: node.column,
                 children: this.transformNodeList(node.children),
             } as IRBlock;
         }
@@ -104,6 +109,8 @@ export class Hydrator {
             return {
                 type: "TEXT",
                 props: { ...activeProps },
+                line: node.line,
+                column: node.column,
                 content: node.content,
             } as IRText;
         }

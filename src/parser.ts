@@ -54,7 +54,7 @@ export class Parser {
                 return this.parseBlock(token);
             case TokenType.NEWLINE:
             case TokenType.TEXT:
-                return this.parseAggregatedText(token);
+                return this.parseTextLine(token);
             case TokenType.EOF:
                 return null;
             default:
@@ -251,22 +251,37 @@ export class Parser {
         };
     }
 
-    private parseAggregatedText(startToken: Token): TextNode {
-        let aggregatedText = startToken.literal;
+    private parseTextLine(startToken: Token): TextNode {
+        let content = startToken.literal;
 
-        while (
-            !this.stream.isAtEnd() &&
-            (this.stream.peek().type === TokenType.TEXT ||
-                this.stream.peek().type === TokenType.NEWLINE)
-        ) {
-            aggregatedText += this.stream.advance().literal;
+        if (startToken.type === TokenType.NEWLINE) {
+            return this.buildTextNode(startToken, content);
         }
 
+        while (!this.stream.isAtEnd()) {
+            const nextToken = this.stream.peek();
+            if (
+                nextToken.type !== TokenType.TEXT &&
+                nextToken.type !== TokenType.NEWLINE
+            ) {
+                break;
+            }
+            if (nextToken.type === TokenType.NEWLINE) {
+                content += this.stream.advance().literal;
+                break;
+            }
+            content += this.stream.advance().literal;
+        }
+
+        return this.buildTextNode(startToken, content);
+    }
+
+    private buildTextNode(startToken: Token, content: string): TextNode {
         return {
             type: NodeType.TEXT,
             line: startToken.line,
             column: startToken.column,
-            content: aggregatedText,
+            content: content,
         };
     }
 }

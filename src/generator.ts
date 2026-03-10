@@ -24,7 +24,6 @@ export class Generator {
     private classCounter = 0;
 
     public generate(root: IRBlock): string {
-        // <- Agora retorna só string
         this.classCache.clear();
         this.cssRules = [];
         this.classCounter = 0;
@@ -58,26 +57,26 @@ ${html}
 
         const classAttribute = className ? ` class="${className}"` : "";
 
+        let dataAttributes = "";
+        if (node.line !== undefined && node.column !== undefined) {
+            dataAttributes = ` data-line="${node.line}" data-column="${node.column}"`;
+        }
+
         if (node.type === "BLOCK") {
             const block = node as IRBlock;
             const childrenHtml = block.children
                 .map((child: IRNode) => this.renderNode(child))
                 .join("");
 
-            if (!className) return childrenHtml;
-
             const tag = this.requiresBlockTag(node.props) ? "div" : "span";
-            return `<${tag}${classAttribute}>${childrenHtml}</${tag}>`;
+            return `<${tag}${classAttribute}${dataAttributes}>${childrenHtml}</${tag}>`;
         }
 
         if (node.type === "TEXT") {
             const textNode = node as IRText;
-            if (!className) {
-                return textNode.content;
-            }
-
             const tag = this.requiresBlockTag(node.props) ? "div" : "span";
-            return `<${tag}${classAttribute}>${textNode.content}</${tag}>`;
+
+            return `<${tag}${classAttribute}${dataAttributes}>${textNode.content}</${tag}>`;
         }
 
         return "";
