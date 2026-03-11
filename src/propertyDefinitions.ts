@@ -10,6 +10,7 @@ const isNumber = (val: string) => /^-?\d+$/.test(val);
 export const PROPERTY_REGISTRY: Record<string, PropertyDefinition> = {
     fill: { scope: "block", validate: (val) => val.trim().length > 0 },
     radius: { scope: "block", validate: isNumber },
+    indent: { scope: "block", validate: isNumber },
     padding: {
         scope: "block",
         validate: (val) => val.split(" ").every(isNumber),

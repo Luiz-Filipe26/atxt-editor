@@ -1,4 +1,5 @@
 import type { IRBlock, IRNode, IRText } from "./hydrator";
+import { dedent } from "./stringUtils";
 
 const CSS_MAPPER: Record<string, string> = {
     fill: "background-color",
@@ -31,20 +32,22 @@ export class Generator {
         const html = this.renderNode(root);
         const dynamicCss = this.cssRules.join("\n");
 
-        const baseCss = `
-.atxt-document-root {
-    white-space: pre-wrap;
-    word-break: break-word;
-}`;
+        const baseCss = dedent`
+            .atxt-document-root {
+                white-space: pre-wrap;
+                word-break: break-word;
+            }
+        `;
 
-        return `
-<div class="atxt-document-root">
-    <style>
-${baseCss}
-${dynamicCss}
-    </style>
-${html}
-</div>`;
+        return dedent`
+            <div class="atxt-document-root">
+                <style>
+                    ${baseCss}
+                    ${dynamicCss}
+                </style>
+                ${html}
+            </div>
+        `;
     }
 
     private renderNode(node: IRNode): string {

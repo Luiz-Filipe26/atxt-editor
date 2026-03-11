@@ -147,12 +147,17 @@ export class Hydrator {
         }
 
         if (node.type === NodeType.BLOCK) {
+            const children = this.transformNodeList(node.children, activeProps);
+
+            if (blockProps.indent) {
+                this.applyLiteralIndentation(children, blockProps.indent);
+            }
             return {
                 type: "BLOCK",
                 props: blockProps,
                 line: node.line,
                 column: node.column,
-                children: this.transformNodeList(node.children, activeProps),
+                children: children,
             } as IRBlock;
         }
 
@@ -167,6 +172,26 @@ export class Hydrator {
         }
 
         throw new Error(`Tipo de nó desconhecido no Hydrator: ${node.type}`);
+    }
+
+    private applyLiteralIndentation(children: IRNode[], indentValue: string): void {
+        const spacesCount = parseInt(indentValue, 10);
+        if (isNaN(spacesCount) || spacesCount <= 0) return;
+
+        const literalSpaces = " ".repeat(spacesCount);
+        let isLineStart = true;
+
+        for (const child of children) {
+            if (child.type !== "TEXT") continue
+            const textNode = child as IRText;
+
+            if (textNode.content === "\n") {
+                isLineStart = true;
+            } else if (isLineStart) {
+                textNode.content = literalSpaces + textNode.content;
+                isLineStart = false;
+            }
+        }
     }
 
     private validateProperties(node: AnnotationNode): Record<string, any> {

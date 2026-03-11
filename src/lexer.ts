@@ -111,6 +111,11 @@ export class Lexer {
         return this.modeStack[this.modeStack.length - 1];
     }
 
+    private isAtLineStart(): boolean {
+        if (this.tokens.length === 0) return true;
+        return this.tokens[this.tokens.length - 1].type === TokenType.NEWLINE;
+    }
+
     private pushError(message: string, line?: number, column?: number) {
         this.compilerErrors.push({
             type: "LEXER",
@@ -156,6 +161,16 @@ export class Lexer {
 
     private handleNormalMode(char: string) {
         switch (char) {
+            case " ":
+            case "\t":
+                if (this.isAtLineStart()) {
+                    break;
+                }
+                this.consumeText(char);
+                break;
+            case "\n":
+                this.addToken(TokenType.NEWLINE, "\n");
+                break;
             case "{":
                 this.addToken(TokenType.BLOCK_OPEN);
                 break;
