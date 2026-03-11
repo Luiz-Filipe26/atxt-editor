@@ -1,4 +1,4 @@
-import { PROPERTY_REGISTRY } from "./annotationTransformations";
+import { PROPERTY_REGISTRY } from "./propertyDefinitions";
 import {
     NodeType,
     type ASTNode,
@@ -54,8 +54,12 @@ export class Hydrator {
         });
     }
 
-    private transformNodeList(nodes: ASTNode[]): IRNode[] {
+    private transformNodeList(
+        nodes: ASTNode[],
+        inheritedProps: Record<string, any> = {},
+    ): IRNode[] {
         const output: IRNode[] = [];
+        const backpack = { ...inheritedProps };
 
         for (let i = 0; i < nodes.length; i++) {
             const node = nodes[i];
@@ -72,20 +76,53 @@ export class Hydrator {
                     props: validatedProps,
                     line: node.line,
                     column: node.column,
-                    children: this.transformNodeList(childrenToWrap),
+                    children: this.transformNodeList(childrenToWrap, backpack),
                 } as IRBlock);
                 break;
             }
 
             if (node.type === NodeType.ANNOTATION && !node.isSet) {
-                if (node.target) {
-                    const validatedProps = this.validateProperties(node);
-                    output.push(this.transformSingleNode(node.target, validatedProps));
+                const annotation = node as AnnotationNode;
+                const targetProps: Record<string, any> = {};
+
+                for (const prop of annotation.properties) {
+                    if (prop.toggle === "minus") {
+                        delete backpack[prop.key];
+                        continue;
+                    }
+
+                    const propertyDef = this.registry[prop.key];
+                    if (!propertyDef) {
+                        this.pushError(
+                            `Aviso: Propriedade '${prop.key}' ignorada.`,
+                            prop.line,
+                            prop.column,
+                        );
+                        continue;
+                    }
+
+                    const isValid = propertyDef.validate(prop.value);
+                    if (!isValid) continue;
+
+                    if (prop.toggle === "plus") {
+                        backpack[prop.key] = prop.value;
+                    } else {
+                        targetProps[prop.key] = prop.value;
+                    }
+                }
+
+                if (annotation.target) {
+                    output.push(
+                        this.transformSingleNode(annotation.target, {
+                            ...backpack,
+                            ...targetProps,
+                        }),
+                    );
                 }
                 continue;
             }
 
-            output.push(this.transformSingleNode(node, {}));
+            output.push(this.transformSingleNode(node, backpack));
         }
 
         return output;
@@ -95,20 +132,34 @@ export class Hydrator {
         node: ASTNode,
         activeProps: Record<string, any>,
     ): IRNode {
+        const blockProps: Record<string, any> = {};
+        const inlineProps: Record<string, any> = {};
+
+        for (const [key, value] of Object.entries(activeProps)) {
+            const propDef = this.registry[key];
+            if (!propDef) continue;
+
+            if (propDef.scope === "block") {
+                blockProps[key] = value;
+            } else if (propDef.scope === "inline") {
+                inlineProps[key] = value;
+            }
+        }
+
         if (node.type === NodeType.BLOCK) {
             return {
                 type: "BLOCK",
-                props: { ...activeProps },
+                props: blockProps,
                 line: node.line,
                 column: node.column,
-                children: this.transformNodeList(node.children),
+                children: this.transformNodeList(node.children, activeProps),
             } as IRBlock;
         }
 
         if (node.type === NodeType.TEXT) {
             return {
                 type: "TEXT",
-                props: { ...activeProps },
+                props: inlineProps,
                 line: node.line,
                 column: node.column,
                 content: node.content,
@@ -126,27 +177,27 @@ export class Hydrator {
 
             if (!propertyDef) {
                 this.pushError(
-                    `Aviso: Propriedade desconhecida '${propNode.key}'. Ela será ignorada.`,
+                    `Aviso: Propriedade desconhecida '${propNode.key}'.`,
                     propNode.line,
                     propNode.column,
                 );
                 continue;
             }
 
-            const validatedValue = propertyDef.validate(propNode.value);
+            if (propNode.toggle === "minus") continue;
 
-            if (validatedValue === null) {
+            const isValid = propertyDef.validate(propNode.value);
+            if (!isValid) {
                 this.pushError(
-                    `Aviso: Valor inválido '${propNode.value}' para a propriedade '${propNode.key}'.`,
+                    `Aviso: Valor inválido '${propNode.value}'.`,
                     propNode.line,
                     propNode.column,
                 );
                 continue;
             }
 
-            validProps[propNode.key] = validatedValue;
+            validProps[propNode.key] = propNode.value;
         }
-
         return validProps;
     }
 }

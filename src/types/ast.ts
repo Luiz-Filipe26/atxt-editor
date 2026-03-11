@@ -33,6 +33,7 @@ export interface PropertyNode extends BaseNode {
     type: "PROPERTY";
     key: string;
     value: string;
+    toggle?: "plus" | "minus";
 }
 
 export interface AnnotationNode extends BaseNode {

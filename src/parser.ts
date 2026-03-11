@@ -71,13 +71,16 @@ export class Parser {
         const props = this.parseProperties();
         this.consumeAnnotationClosure();
 
+        const hasNormalProps = props.some((p) => p.toggle === undefined);
+        const needsTarget = !isSetAnnotation && hasNormalProps;
+
         return {
             type: NodeType.ANNOTATION,
             line: openingToken.line,
             column: openingToken.column,
             isSet: isSetAnnotation,
             properties: props,
-            target: this.resolveAnnotationTarget(),
+            target: needsTarget ? this.resolveAnnotationTarget() : null,
         };
     }
 
@@ -146,8 +149,32 @@ export class Parser {
             if (this.stream.match(TokenType.SEMICOLON)) continue;
 
             const keyToken = this.stream.peek();
-            const key = this.parsePropertyKey();
-            if (!key) continue;
+            const rawKey = this.parsePropertyKey();
+            if (!rawKey) continue;
+
+            let toggle: PropertyNode["toggle"] = undefined;
+            let key = rawKey;
+
+            if (rawKey.startsWith("+")) {
+                toggle = "plus";
+                key = rawKey.substring(1);
+            } else if (rawKey.startsWith("-")) {
+                toggle = "minus";
+                key = rawKey.substring(1);
+            }
+
+            if (toggle === "minus") {
+                props.push({
+                    type: NodeType.PROPERTY,
+                    line: keyToken.line,
+                    column: keyToken.column,
+                    key,
+                    value: "",
+                    toggle,
+                });
+                this.requirePropertySeparator(rawKey);
+                continue;
+            }
 
             if (!this.consumeColon(key)) continue;
 
@@ -158,11 +185,12 @@ export class Parser {
                 type: NodeType.PROPERTY,
                 line: keyToken.line,
                 column: keyToken.column,
-                key: key,
-                value: value,
+                key,
+                value,
+                toggle,
             });
 
-            this.requirePropertySeparator(key);
+            this.requirePropertySeparator(rawKey);
         }
 
         return props;

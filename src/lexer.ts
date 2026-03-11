@@ -18,7 +18,8 @@ export type TokenType = (typeof TokenType)[keyof typeof TokenType];
 
 export const LexerMode = {
     NORMAL: "NORMAL",
-    ANNOTATION: "ANNOTATION",
+    ANNOTATION_KEY: "ANNOTATION_KEY",
+    ANNOTATION_VALUE: "ANNOTATION_VALUE",
 } as const;
 
 export type LexerMode = (typeof LexerMode)[keyof typeof LexerMode];
@@ -133,6 +134,10 @@ export class Lexer {
         }
     }
 
+    private replaceCurrentMode(mode: LexerMode) {
+        this.modeStack[this.modeStack.length - 1] = mode;
+    }
+
     private scanToken() {
         const char = this.scanner.advance();
 
@@ -140,8 +145,11 @@ export class Lexer {
             case LexerMode.NORMAL:
                 this.handleNormalMode(char);
                 break;
-            case LexerMode.ANNOTATION:
-                this.handleAnnotationMode(char);
+            case LexerMode.ANNOTATION_KEY:
+                this.handleAnnotationKeyMode(char);
+                break;
+            case LexerMode.ANNOTATION_VALUE:
+                this.handleAnnotationValueMode(char);
                 break;
         }
     }
@@ -157,7 +165,7 @@ export class Lexer {
             case "[":
                 if (this.scanner.match("[")) {
                     this.addToken(TokenType.ANNOTATION_OPEN, "[[");
-                    this.pushMode(LexerMode.ANNOTATION);
+                    this.pushMode(LexerMode.ANNOTATION_KEY);
                 } else {
                     this.consumeText(char);
                 }
@@ -178,17 +186,11 @@ export class Lexer {
         }
     }
 
-    private handleAnnotationMode(char: string) {
+    private handleAnnotationKeyMode(char: string) {
         switch (char) {
             case ":":
                 this.addToken(TokenType.COLON);
-                break;
-            case ";":
-                this.addToken(TokenType.SEMICOLON);
-                break;
-            case '"':
-            case "'":
-                this.consumeString(char);
+                this.replaceCurrentMode(LexerMode.ANNOTATION_VALUE);
                 break;
             case "]":
                 if (this.scanner.match("]")) {
@@ -202,10 +204,43 @@ export class Lexer {
             case "\n":
                 break;
             default:
-                if (this.isValueChar(char)) {
-                    this.consumeIdentifierOrValue();
+                if (char === "+" || char === "-" || this.isKeyChar(char)) {
+                    this.consumePropertyKey();
                 } else {
-                    this.pushError("Caracter inválido na anotação!");
+                    this.pushError(`Caracter inválido no nome da propriedade: '${char}'`);
+                }
+                break;
+        }
+    }
+
+    private handleAnnotationValueMode(char: string) {
+        switch (char) {
+            case ";":
+                this.addToken(TokenType.SEMICOLON);
+                this.replaceCurrentMode(LexerMode.ANNOTATION_KEY);
+                break;
+            case "]":
+                if (this.scanner.match("]")) {
+                    this.addToken(TokenType.ANNOTATION_CLOSE, "]]");
+                    this.popMode();
+                }
+                break;
+            case '"':
+            case "'":
+                this.consumeString(char);
+                break;
+            case " ":
+            case "\r":
+            case "\t":
+            case "\n":
+                break;
+            default:
+                if (this.isValueChar(char)) {
+                    this.consumePropertyValue();
+                } else {
+                    this.pushError(
+                        `Caracter inválido no valor da propriedade: '${char}'`,
+                    );
                 }
                 break;
         }
@@ -286,8 +321,8 @@ export class Lexer {
         this.addToken(TokenType.TEXT, content);
     }
 
-    private consumeIdentifierOrValue() {
-        while (this.isValueChar(this.scanner.peek())) {
+    private consumePropertyKey() {
+        while (this.isKeyChar(this.scanner.peek())) {
             this.scanner.advance();
         }
 
@@ -295,8 +330,21 @@ export class Lexer {
         this.addToken(TokenType.IDENTIFIER, value);
     }
 
+    private consumePropertyValue() {
+        while (this.isValueChar(this.scanner.peek())) {
+            this.scanner.advance();
+        }
+
+        const value = this.scanner.getMarkedSubstring();
+        this.addToken(TokenType.VALUE, value);
+    }
+
     private isTrigger(char: string): boolean {
         return char === "[" || char === "{" || char === "}";
+    }
+
+    private isKeyChar(char: string): boolean {
+        return /[a-zA-Z0-9_\-]/.test(char);
     }
 
     private isValueChar(char: string): boolean {
