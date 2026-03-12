@@ -36,9 +36,11 @@ export interface PropertyNode extends BaseNode {
     toggle?: "plus" | "minus";
 }
 
+export type AnnotationDirective = "SET" | "DEFINE" | "NORMAL";
+
 export interface AnnotationNode extends BaseNode {
     type: "ANNOTATION";
-    isSet: boolean;
+    directive: AnnotationDirective;
     properties: PropertyNode[];
     target: ASTNode | null;
 }

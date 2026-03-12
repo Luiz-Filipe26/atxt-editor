@@ -1,8 +1,8 @@
 import atxtExample from "./example.atxt?raw";
-import { Lexer } from "./lexer";
-import { Parser } from "./parser";
-import { Hydrator } from "./hydrator";
-import { Generator } from "./generator";
+import { Lexer } from "./core/lexer";
+import { Parser } from "./core/parser";
+import { Hydrator } from "./core/hydrator";
+import { Generator } from "./core/generator";
 
 const STORAGE_KEY = "atxt_saved_content";
 

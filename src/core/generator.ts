@@ -1,5 +1,5 @@
 import type { IRBlock, IRNode, IRText } from "./hydrator";
-import { dedent } from "./stringUtils";
+import { dedent } from "../utils/stringUtils";
 
 const CSS_MAPPER: Record<string, string> = {
     fill: "background-color",
@@ -71,23 +71,15 @@ export class Generator {
                 .map((child: IRNode) => this.renderNode(child))
                 .join("");
 
-            const tag = this.requiresBlockTag(node.props) ? "div" : "span";
-            return `<${tag}${classAttribute}${dataAttributes}>${childrenHtml}</${tag}>`;
+            return `<div${classAttribute}${dataAttributes}>${childrenHtml}</div>`;
         }
 
         if (node.type === "TEXT") {
             const textNode = node as IRText;
-            const tag = this.requiresBlockTag(node.props) ? "div" : "span";
-
-            return `<${tag}${classAttribute}${dataAttributes}>${textNode.content}</${tag}>`;
+            return `<span${classAttribute}${dataAttributes}>${textNode.content}</span>`;
         }
 
         return "";
-    }
-
-    private requiresBlockTag(props: Record<string, any>): boolean {
-        const blockProperties = ["align", "margin", "width", "height"];
-        return Object.keys(props).some((key) => blockProperties.includes(key));
     }
 
     private resolveClass(props: Record<string, any>): string {

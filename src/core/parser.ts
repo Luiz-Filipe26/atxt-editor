@@ -8,8 +8,9 @@ import {
     type TextNode,
     type AnnotationNode,
     type PropertyNode,
-} from "./types/ast";
-import type { CompilerError } from "./types/errors";
+    type AnnotationDirective,
+} from "../types/ast";
+import type { CompilerError } from "../types/errors";
 
 export class Parser {
     private stream: TokenStream;
@@ -67,18 +68,18 @@ export class Parser {
     }
 
     private parseAnnotation(openingToken: Token): AnnotationNode {
-        const isSetAnnotation = this.consumeSetDirective();
+        const directive = this.consumeDirective();
         const props = this.parseProperties();
         this.consumeAnnotationClosure();
 
         const hasNormalProps = props.some((p) => p.toggle === undefined);
-        const needsTarget = !isSetAnnotation && hasNormalProps;
+        const needsTarget = directive === "NORMAL" && hasNormalProps;
 
         return {
             type: NodeType.ANNOTATION,
             line: openingToken.line,
             column: openingToken.column,
-            isSet: isSetAnnotation,
+            directive: directive,
             properties: props,
             target: needsTarget ? this.resolveAnnotationTarget() : null,
         };
@@ -128,15 +129,20 @@ export class Parser {
         };
     }
 
-    private consumeSetDirective(): boolean {
-        if (
-            this.stream.peek().type === TokenType.IDENTIFIER &&
-            this.stream.peek().literal === "SET"
-        ) {
-            this.stream.advance();
-            return true;
+    private consumeDirective(): AnnotationDirective {
+        const peekToken = this.stream.peek();
+
+        if (peekToken.type === TokenType.IDENTIFIER) {
+            if (peekToken.literal === "SET") {
+                this.stream.advance();
+                return "SET";
+            }
+            if (peekToken.literal === "DEFINE") {
+                this.stream.advance();
+                return "DEFINE";
+            }
         }
-        return false;
+        return "NORMAL";
     }
 
     private parseProperties(): PropertyNode[] {
