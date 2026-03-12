@@ -11,7 +11,7 @@ const outputEl = document.getElementById("output") as HTMLDivElement;
 
 function runCompiler(source: string) {
     console.clear();
-    console.group("🚀 Iniciando Compilação ATXT");
+    console.group("🚀 Starting ATXT Compilation");
 
     try {
         const lexer = new Lexer(source);
@@ -44,17 +44,14 @@ function runCompiler(source: string) {
 
         const allErrors = [...lexerErrors, ...parserErrors, ...hydratorErrors];
         if (allErrors.length > 0) {
-            console.warn(
-                `⚠️ Total de erros encontrados: ${allErrors.length}`,
-                allErrors,
-            );
+            console.warn(`⚠️ Total errors found: ${allErrors.length}`, allErrors);
         } else {
-            console.log("✅ Compilação concluída sem erros.");
+            console.log("✅ Compilation finished with no errors.");
         }
 
         outputEl.innerHTML = finalHtml;
     } catch (e) {
-        console.error("❌ Falha crítica na esteira:", e);
+        console.error("❌ Critical failure in pipeline:", e);
     }
 
     console.groupEnd();

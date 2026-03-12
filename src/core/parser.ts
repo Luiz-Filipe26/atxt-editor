@@ -60,7 +60,7 @@ export class Parser {
                 return null;
             default:
                 this.pushError(
-                    `Token inesperado solto no documento: '${token.literal}'`,
+                    `Unexpected loose token in document: '${token.literal}'`,
                     token,
                 );
                 return null;
@@ -201,7 +201,7 @@ export class Parser {
     private parsePropertyKey(): string | null {
         if (this.stream.peek().type !== TokenType.IDENTIFIER) {
             this.pushError(
-                `Esperado o nome da propriedade, encontrado '${this.stream.peek().literal}'.`,
+                `Expected property name, found '${this.stream.peek().literal}'.`,
             );
             this.synchronizeToNextProperty();
             return null;
@@ -212,7 +212,7 @@ export class Parser {
     private consumeColon(propertyName: string): boolean {
         if (this.stream.peek().type !== TokenType.COLON) {
             this.pushError(
-                `Esperado ":" após a propriedade "${propertyName}", encontrado "${this.stream.peek().literal}".`,
+                `Expected ':' after property '${propertyName}', found '${this.stream.peek().literal}'.`,
             );
             this.synchronizeToNextProperty();
             return false;
@@ -225,7 +225,7 @@ export class Parser {
         const valueType = this.stream.peek().type;
         if (valueType !== TokenType.VALUE && valueType !== TokenType.IDENTIFIER) {
             this.pushError(
-                `Esperado valor para "${propertyName}", encontrado '${this.stream.peek().literal}'.`,
+                `Expected value for '${propertyName}', found '${this.stream.peek().literal}'.`,
             );
             this.synchronizeToNextProperty();
             return null;
@@ -238,16 +238,14 @@ export class Parser {
         if (afterValue === TokenType.SEMICOLON) {
             this.stream.advance();
         } else if (afterValue !== TokenType.ANNOTATION_CLOSE) {
-            this.pushError(
-                `Esperado ';' após o valor da propriedade '${propertyName}'.`,
-            );
+            this.pushError(`Expected ';' after property value '${propertyName}'.`);
             this.synchronizeToNextProperty();
         }
     }
 
     private consumeAnnotationClosure(): void {
         if (!this.stream.match(TokenType.ANNOTATION_CLOSE)) {
-            this.pushError("Anotação não foi fechada corretamente com ']]'.");
+            this.pushError("Annotation was not closed with ']]'.");
         }
     }
 
@@ -270,7 +268,7 @@ export class Parser {
         }
 
         if (!this.stream.match(TokenType.BLOCK_CLOSE)) {
-            this.pushError("Bloco não foi fechado. Esperado '}'.");
+            this.pushError("Unclosed block. Expected '}'.");
         }
 
         return {

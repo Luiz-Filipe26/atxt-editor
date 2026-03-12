@@ -80,9 +80,7 @@ export class Lexer {
         if (this.modeStack.length > 1) {
             this.modeStack.pop();
         } else {
-            this.pushError(
-                "Erro fatal: Tentativa de dar pop() no modo base (NORMAL).",
-            );
+            this.pushError("Fatal error: Attempted to pop() the base mode (NORMAL).");
         }
     }
 
@@ -162,7 +160,7 @@ export class Lexer {
                     this.addToken(TokenType.ANNOTATION_CLOSE, "]]");
                     this.popMode();
                 } else {
-                    this.pushError("Esperado ']' para fechar a anotação.");
+                    this.pushError("Expected ']' to close annotation.");
                 }
                 break;
             case " ":
@@ -174,7 +172,7 @@ export class Lexer {
                 if (char === "+" || char === "-" || this.isKeyChar(char)) {
                     this.consumePropertyKey();
                 } else {
-                    this.pushError(`Caracter inválido no nome da propriedade: '${char}'`);
+                    this.pushError(`Invalid character in property name: '${char}'`);
                 }
                 break;
         }
@@ -191,7 +189,7 @@ export class Lexer {
                     this.addToken(TokenType.ANNOTATION_CLOSE, "]]");
                     this.popMode();
                 } else {
-                    this.pushError("Esperado ']' para fechar a anotação.");
+                    this.pushError("Expected ']' to close annotation.");
                 }
                 break;
             case '"':
@@ -207,9 +205,7 @@ export class Lexer {
                 if (this.isValueChar(char)) {
                     this.consumePropertyValue();
                 } else {
-                    this.pushError(
-                        `Caracter inválido no valor da propriedade: '${char}'`,
-                    );
+                    this.pushError(`Invalid character in property value: '${char}'`);
                 }
                 break;
         }
@@ -246,7 +242,7 @@ export class Lexer {
         while (!this.scanner.isAtEnd() && this.scanner.peek() !== quoteChar) {
             if (this.scanner.peek() === "\n") {
                 this.pushError(
-                    "Quebra de linha não permitida dentro de valores entre aspas.",
+                    "Line break not allowed inside quoted values.",
                     this.scanner.line,
                     this.scanner.column,
                 );
@@ -266,7 +262,7 @@ export class Lexer {
 
         if (this.scanner.isAtEnd() || this.scanner.peek() !== quoteChar) {
             this.pushError(
-                `String não finalizada. Faltou fechar com '${quoteChar}'.`,
+                `Unterminated string. Missing closing '${quoteChar}'.`,
                 this.scanner.line,
                 startColumn,
             );

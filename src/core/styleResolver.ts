@@ -21,7 +21,7 @@ export class StyleResolver {
 
         if (!classProp) {
             this.pushError(
-                "A diretiva DEFINE exige a propriedade 'class'.",
+                "DEFINE directive requires a 'class' property.",
                 annotation.line,
                 annotation.column,
             );
@@ -59,7 +59,7 @@ export class StyleResolver {
                 Object.assign(bag, this.classRegistry[cls]);
             } else {
                 this.pushError(
-                    `Aviso: Classe base '${cls}' não encontrada no compose.`,
+                    `Warning: Base class '${cls}' not found in compose.`,
                     composeProp.line,
                     composeProp.column,
                 );
@@ -79,7 +79,7 @@ export class StyleResolver {
                 bag[prop.key] = prop.value;
             } else {
                 this.pushError(
-                    `Aviso: Propriedade '${prop.key}' inválida ou desconhecida ignorada no DEFINE.`,
+                    `Warning: Invalid or unknown property '${prop.key}' ignored in DEFINE.`,
                     prop.line,
                     prop.column,
                 );
@@ -100,7 +100,7 @@ export class StyleResolver {
                 Object.assign(bag, this.classRegistry[cls]);
             } else {
                 this.pushError(
-                    `Aviso: Classe '${cls}' não encontrada.`,
+                    `Warning: Class '${cls}' not found.`,
                     classProp.line,
                     classProp.column,
                 );
@@ -119,7 +119,7 @@ export class StyleResolver {
             const propertyDef = this.registry[prop.key];
             if (!propertyDef) {
                 this.pushError(
-                    `Aviso: Propriedade desconhecida '${prop.key}'.`,
+                    `Warning: Unknown property '${prop.key}'.`,
                     prop.line,
                     prop.column,
                 );
@@ -128,7 +128,7 @@ export class StyleResolver {
 
             if (!propertyDef.validate(prop.value)) {
                 this.pushError(
-                    `Aviso: Valor inválido '${prop.value}'.`,
+                    `Warning: Invalid value '${prop.value}' for property '${prop.key}'.`,
                     prop.line,
                     prop.column,
                 );

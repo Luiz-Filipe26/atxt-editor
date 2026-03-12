@@ -184,7 +184,7 @@ export class Hydrator {
             } as IRText;
         }
 
-        throw new Error(`Tipo de nó desconhecido no Hydrator: ${node.type}`);
+        throw new Error(`Unknown node type in Hydrator: ${node.type}`);
     }
 
     private routePropertiesByScope(activeProps: Record<string, any>): {
