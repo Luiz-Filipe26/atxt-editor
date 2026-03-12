@@ -1,62 +1,103 @@
-# ATXT: Motor de Renderização Declarativo para Documentos
+# ATXT — Annotated Text
 
-O **ATXT** é uma linguagem de marcação e um compilador projetados para criar documentos com controle visual rigoroso mantendo a portabilidade do texto puro. Ele foi desenvolvido para cenários onde o Markdown é insuficiente em termos de layout e o DOCX é excessivamente complexo para controle de versão.
+ATXT is a document protocol. Its canonical form is a plain-text file that compiles to HTML, PDF, and DOCX through pluggable output generators.
 
-## 🎯 Propósito
+It occupies the space between Markdown (too limited for rich documents) and DOCX (opaque, binary, undiffable). An `.atxt` file is human-readable, Git-diffable, and expressive enough to produce corporate-grade documents.
 
-O ATXT serve para gerar documentos estilizados (como manuais, relatórios e e-books) onde o design — margens, alinhamentos, bordas e tipografia — precisa ser declarado diretamente no fluxo do texto de forma legível.
+→ [Language Specification](./SPEC.md)
 
-- **Fidelidade de Whitespace:** Preserva espaços e quebras de linha originais do autor.
-- **Geometria Dinâmica:** Alterna automaticamente entre elementos `inline` e `block` baseando-se nas propriedades aplicadas.
-- **Versionamento Amigável:** Por ser texto puro, permite `diffs` claros em sistemas como Git, permitindo auditoria de mudanças visuais e de conteúdo.
+---
 
-## 🚀 Exemplo de Sintaxe
+## The problem
 
-O ATXT utiliza anotações `[[ ]]` para definir propriedades aplicadas ao texto subsequente ou a blocos delimitados por `{ }`.
+Word documents are binary ZIP archives. Tracking changes in a `.docx` with Git produces noise, not signal. Markdown is diffable but cannot express the formatting requirements of a contract, a report, or a technical manual.
+
+ATXT is the answer to: _what if a rich document were also plain text?_
+
+---
+
+## Syntax overview
+
+ATXT uses `[[ ]]` annotations to declare properties. Properties apply to the next line, an inline span, or a delimited block `{ }`.
 
 ```atxt
-[[ SET font: "Garamond, serif"; size: 19; line-height: 1.8; align: justify ]]
+[[DEFINE class: heading; size: 26; weight: bold; align: center]]
+[[DEFINE class: warning-block; fill: #fff8f0; padding: 24; border: 2px solid #e0a060; radius: 6]]
 
-[[ align: center; size: 48; weight: 800; margin: "40 0 20 0" ]]
-O MANIFESTO DE AETHELGARD
+[[SET font: Georgia, serif; size: 15; line-height: 1.8; align: justify]]
 
-[[ fill: #fdf2e9; border: "1px solid #e59866"; padding: 30; radius: 12 ]] {
-    [[ align: center; size: 22; weight: bold; decoration: underline ]]
-    AVISO AOS NAVEGANTES
+[[class: heading]]
+SOFTWARE DEVELOPMENT SERVICES AGREEMENT
 
-    É estritamente proibido o uso de propulsores a carvão...
+This Agreement is entered into as of March 12, 2026, by and between
+Meridian Software Studio LLC ("Service Provider") and Calloway Enterprises
+Inc. ("Client"). The parties agree as follows.
 
+[[class: warning-block]] {
+    [[+weight: bold]]LIMITATION OF LIABILITY[[-weight]]
+
+    In no event shall either party be liable for indirect or consequential
+    damages. Total liability shall not exceed the [[+weight: bold]]Contract Price[[-weight]].
 }
-
-Texto com formatação [[ weight: bold; color: red ]] inline integrada perfeitamente.
 ```
 
-## 🛠️ Especificações Técnicas (MVP)
+Shorthand sugar for common cases:
 
-O compilador opera em uma esteira de quatro estágios independentes:
+```atxt
+# Heading 1
+## Heading 2
+> Blockquote
+- List item
+**bold**  _italic_  ~~strikethrough~~
+```
 
-1. **Lexer:** Scanner com suporte a estados e escape de caracteres estruturais via `\`.
-2. **Parser:** Geração de AST (Abstract Syntax Tree) com suporte a diretivas globais (`SET`), locais e de bloco.
-3. **Hydrator:** Validação de propriedades e resolução de escopo léxico (conversão de tipos e unidades).
-4. **Generator:** Produção de HTML autossuficiente com CSS encapsulado, garantindo portabilidade em diferentes ambientes web.
+---
 
-### Propriedades Suportadas
+## Compiler pipeline
 
-- **Tipografia:** `font`, `size`, `weight`, `style`, `color`, `line-height`, `decoration`.
-- **Layout (Box Model):** `margin`, `padding`, `align`, `fill` (background), `radius`, `border`, `width`, `height`.
+```
+Source .atxt → Lexer → Parser → Hydrator → IR → Generator
+```
 
-## 💻 Instalação e Uso
+| Stage         | Responsibility                                                |
+| ------------- | ------------------------------------------------------------- |
+| **Lexer**     | Tokenizes raw text. Manages annotation mode stack.            |
+| **Parser**    | Builds the AST. Resolves annotation targets. Expands symbols. |
+| **Hydrator**  | Resolves classes and properties. Produces the IR.             |
+| **Generator** | Consumes the IR. Produces the target format.                  |
 
-O projeto utiliza **Vite** e **TypeScript**.
+Generators are pluggable. The same IR produces HTML today; DOCX and PDF generators are planned.
+
+---
+
+## The `.atz` package
+
+An `.atz` file is a ZIP archive containing a `main.atxt` document alongside its assets (images, data sources, transform pipelines). The `.atxt` source remains plain text inside the package and is independently versionable with Git.
+
+---
+
+## Getting started
+
+The project uses **Vite** and **TypeScript**.
 
 ```bash
-# Instalação
-
 npm install
-
-# Desenvolvimento
-
 npm run dev
 ```
 
-O ATXT Studio será iniciado, oferecendo um ambiente de edição com Preview em tempo real e saída de log da árvore sintática no console para depuração técnica.
+This starts the ATXT Studio — a live editor with real-time preview and AST inspection in the console.
+
+---
+
+## Status
+
+Active development. See the [Language Specification](./SPEC.md) for the formal definition of the language, compiler pipeline, property system, and IR invariants.
+
+---
+
+## Design principles
+
+- **Turing-incomplete by design.** ATXT describes documents. It does not execute programs.
+- **Output-agnostic.** The source is independent of the rendering target.
+- **Diffable.** Every meaningful change produces a clean, minimal diff.
+- **Extensible without compiler changes.** Custom classes and symbols are defined in the document itself.

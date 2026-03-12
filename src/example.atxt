@@ -1,39 +1,99 @@
-[[ SET font: "Garamond, serif"; size: 19; line-height: 1.8; color: #2c3e50; align: justify ]]
+[[DEFINE class: document-body; font: Georgia, serif; size: 15; line-height: 1.8; color: #1a1a1a; align: justify]]
+[[DEFINE class: heading; size: 26; weight: bold; color: #1a1a1a; align: center]]
+[[DEFINE class: subheading; size: 13; weight: normal; style: italic; color: #555555; align: center]]
+[[DEFINE class: section-title; size: 16; weight: bold; color: #1a1a1a; decoration: underline]]
+[[DEFINE class: clause-block; padding: 20; margin: 10; border: 1px solid #cccccc; radius: 4]]
+[[DEFINE class: warning-block; fill: #fff8f0; padding: 24; margin: 20; border: 2px solid #e0a060; radius: 6]]
+[[DEFINE class: footer-text; size: 12; style: italic; color: #888888; align: right]]
+[[DEFINE class: signature-label; size: 11; color: #888888]]
+[[DEFINE class: signature-value; size: 13; weight: bold; decoration: underline]]
 
-[[ align: center; size: 48; weight: 800; color: #1a1a1a; margin: "40 0 20 0" ]]
-O MANIFESTO DE AETHELGARD: A CIDADE DAS NUVENS
+[[SET class: document-body]]
 
-Nascida das cinzas de uma era industrial esquecida, Aethelgard não é apenas uma construção de metal e engrenagens; é o último suspiro de esperança da humanidade. Suspensa a cinco mil metros acima do Mar de Fuligem, a cidade flutua graças ao esforço incessante de mil caldeiras a éter que rugem como dragões aprisionados no subsolo metálico.
+[[class: heading]]
+SOFTWARE DEVELOPMENT SERVICES AGREEMENT
 
-[[ size: 32; weight: bold; color: #8e44ad; margin: "40 0 50 0" ]]
-A Arquitetura do Impossível
+[[class: subheading]]
+Contract No. ATXT-2026-0042
 
-O design da metrópole desafia as leis da gravidade e da sanidade. Cada torre, cada passarela de bronze e cada jardim suspenso foi projetado para balançar levemente com as correntes de jato, evitando que a estrutura rígida se parta sob a pressão atmosférica.
+This Agreement is entered into as of March 12, 2026, by and between Meridian Software Studio LLC, a company organized under the laws of Delaware ("Service Provider"), and Calloway Enterprises Inc., a company organized under the laws of California ("Client"). The parties agree as follows.
 
-[[ weight: bold; style: italic; color: #e67e22 ]]
-Diz a lenda que o primeiro parafuso foi fixado pelo próprio Grande Arquiteto, cujas mãos eram feitas de prata e cujos olhos brilhavam com o azul das baterias galvânicas.
+[[class: section-title]]
+1. Scope of Services
 
-[[ fill: #fdf2e9; border: "1px solid #e59866"; padding: 30; radius: 12; margin: "30 50" ]] {
-    [[ align: center; size: 22; weight: bold; color: #d35400; decoration: underline ]]
-AVISO AOS NAVEGANTES DO CÉU
+The Service Provider agrees to design, develop, and deliver the software described in Exhibit A attached hereto ("the Software"). All deliverables shall be provided in accordance with the milestones and technical specifications set forth in Exhibit A. Any modification to the agreed scope must be documented in a written amendment signed by both parties.
 
-    É estritamente proibido o uso de propulsores a carvão dentro do perímetro urbano. O resíduo negro danifica os filtros de ar dos níveis inferiores e compromete a visibilidade das docas de desembarque. Aqueles que desobedecerem terão suas licenças de voo revogadas e suas bússolas confiscadas.
+[[class: section-title]]
+2. Compensation and Payment Terms
+
+[[class: clause-block]] {
+    The Client agrees to pay the Service Provider a total fixed fee of [[+weight: bold]]USD 48,000[[-weight]] ("Contract Price"), distributed as follows:
+
+    [[+style: italic]]30%[[-style]] upon execution of this Agreement.
+    [[+style: italic]]40%[[-style]] upon delivery of the Beta Release milestone.
+    [[+style: italic]]30%[[-style]] upon final acceptance of the Software.
+
+    Invoices are due within [[+weight: bold]]15 calendar days[[-weight]] of issuance. Overdue payments accrue interest at 1.5% per month.
 }
 
-[[ size: 32; weight: bold; color: #8e44ad; margin: "40 0 10 0" ]]
-O Mercado das Maravilhas Mecânicas
+[[class: section-title]]
+3. Intellectual Property
 
-No coração do Nível Prata, o comércio floresce. Não se troca apenas moedas por pão, mas sim segredos por tecnologia. É possível encontrar desde corações mecânicos que batem no ritmo de uma valsa até mapas estelares que mostram constelações que já morreram há milênios.
+Upon receipt of full payment, the Service Provider assigns to the Client all rights, title, and interest in the Software, including all source code, documentation, and related materials. Prior to full payment, all deliverables remain the exclusive property of the Service Provider.
 
-[[ bouncingText: true; color: #2980b9; weight: bold; size: 24; align: center; margin: "20 0" ]]
-CUIDADO COM OS GATUNOS DE VAPOR!
+[[class: section-title]]
+4. Confidentiality
 
-Abaixo das passarelas, onde o vapor é mais denso, vivem os esquecidos. Eles se movem com [[ weight : bold ]] a agilidade de sombras, escalando tubulações de bronze e sobrevivendo dos restos de óleo e graxa que escorrem dos palácios superiores. Para eles, a cidade não é um milagre, mas uma gaiola dourada que os separa do mundo que um dia foi verde.
+Each party agrees to hold the other's Confidential Information in strict confidence, to use it solely for the purposes of this Agreement, and to disclose it only to employees or contractors with a need to know. This obligation survives termination of this Agreement for a period of [[+weight: bold]]three (3) years[[-weight]].
 
-[[ size: 32; weight: bold; color: #8e44ad; margin: "40 0 10 0" ]]
-O Crepúsculo Elétrico
+[[class: warning-block]] {
+    [[+weight: bold; size: 14]]LIMITATION OF LIABILITY[[-weight; -size]]
 
-Quando o sol se põe atrás das montanhas de gelo no horizonte, Aethelgard se transforma. Milhões de lâmpadas de filamento de tungstênio acendem simultaneamente, criando uma constelação artificial visível a centenas de quilômetros. É neste momento que os poetas se reúnem nas sacadas de ferro forjado para observar o abismo abaixo, perguntando-se se algum dia a humanidade voltará a caminhar sobre a terra, ou se estamos condenados a flutuar para sempre entre o céu e o esquecimento.
+    In no event shall either party be liable for indirect, incidental, special, or consequential damages arising out of or related to this Agreement, even if advised of the possibility of such damages. The total cumulative liability of the Service Provider under this Agreement shall not exceed the Contract Price.
+}
 
-[[ align: right; style: italic; color: #7f8c8d; margin: "50 0" ]]
-Registrado por Julian, o Escriba do Nível Oito.
+[[class: section-title]]
+5. Term and Termination
+
+This Agreement commences on the date first written above and continues until final delivery and acceptance of the Software, unless earlier terminated. Either party may terminate this Agreement upon [[+weight: bold]]30 days[[-weight]] written notice if the other party materially breaches any provision and fails to cure such breach within that period.
+
+[[class: section-title]]
+6. Governing Law
+
+This Agreement shall be governed by and construed in accordance with the laws of the State of Delaware, without regard to its conflict of law provisions. Any dispute arising hereunder shall be resolved by binding arbitration in Wilmington, Delaware.
+
+[[class: section-title]]
+Signatures
+
+{
+    [[SET class: signature-label]]
+
+    Service Provider
+
+    [[class: signature-value]]
+    Meridian Software Studio LLC
+
+    Authorized Signature: _______________________________
+
+    Name / Title: _______________________________
+
+    Date: _______________________________
+}
+
+{
+    [[SET class: signature-label]]
+
+    Client
+
+    [[class: signature-value]]
+    Calloway Enterprises Inc.
+
+    Authorized Signature: _______________________________
+
+    Name / Title: _______________________________
+
+    Date: _______________________________
+}
+
+[[class: footer-text]]
+ATXT-2026-0042 — Generated with ATXT. Source is plain text. Track changes with Git.
