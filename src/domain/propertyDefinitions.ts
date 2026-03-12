@@ -13,11 +13,11 @@ export const PROPERTY_REGISTRY: Record<string, PropertyDefinition> = {
     indent: { scope: "block", validate: isNumber },
     padding: {
         scope: "block",
-        validate: (val) => val.split(" ").every(isNumber),
+        validate: (val) => val.trim().split(/\s+/).every(isNumber),
     },
     margin: {
         scope: "block",
-        validate: (val) => val.split(" ").every(isNumber),
+        validate: (val) => val.trim().split(/\s+/).every(isNumber),
     },
     border: { scope: "block", validate: (val) => val.trim().length > 0 },
     width: { scope: "block", validate: isNumber },
@@ -35,9 +35,9 @@ export const PROPERTY_REGISTRY: Record<string, PropertyDefinition> = {
         validate: (val) => {
             const allowedWords = ["normal", "bold", "bolder", "lighter"];
             if (allowedWords.includes(val)) return true;
-
+            if (!/^\d+$/.test(val)) return false;
             const num = parseInt(val, 10);
-            return !isNaN(num) && num >= 1 && num <= 1000;
+            return num >= 1 && num <= 1000;
         },
     },
     style: {

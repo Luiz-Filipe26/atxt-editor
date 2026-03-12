@@ -161,6 +161,8 @@ export class Lexer {
                 if (this.scanner.match("]")) {
                     this.addToken(TokenType.ANNOTATION_CLOSE, "]]");
                     this.popMode();
+                } else {
+                    this.pushError("Esperado ']' para fechar a anotação.");
                 }
                 break;
             case " ":
@@ -188,6 +190,8 @@ export class Lexer {
                 if (this.scanner.match("]")) {
                     this.addToken(TokenType.ANNOTATION_CLOSE, "]]");
                     this.popMode();
+                } else {
+                    this.pushError("Esperado ']' para fechar a anotação.");
                 }
                 break;
             case '"':

@@ -93,11 +93,7 @@ export class Parser {
             return this.parseBlock(this.stream.advance());
         }
 
-        if (this.stream.hasTextOnSameLine()) {
-            return this.consumeTargetLine();
-        }
-
-        this.stream.skipToNextLine();
+        this.stream.skipWhitespaceTokens();
         return this.consumeTargetLine();
     }
 

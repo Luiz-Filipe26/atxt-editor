@@ -21,8 +21,11 @@ export class TokenStream {
     }
 
     advance(): Token {
-        if (!this.isAtEnd()) this.current++;
-        return this.previous();
+        if (!this.isAtEnd()) {
+            this.current++;
+            return this.previous();
+        }
+        return this.peek();
     }
 
     match(...types: TokenType[]): Token | null {
