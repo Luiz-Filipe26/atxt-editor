@@ -67,23 +67,9 @@ export class TokenStream {
         );
     }
 
-    hasTextOnSameLine(): boolean {
-        return this.lookahead(
-            (t) => t.type === TokenType.TEXT && /^[ \t]*$/.test(t.literal),
-            (t) => t.type === TokenType.TEXT && !/^[ \t]*$/.test(t.literal),
-        );
-    }
-
     skipWhitespaceTokens(): void {
         while (!this.isAtEnd() && this.isBlankToken(this.peek())) {
             this.advance();
-        }
-    }
-
-    skipToNextLine(): void {
-        while (!this.isAtEnd()) {
-            const token = this.advance();
-            if (token.type === TokenType.NEWLINE) break;
         }
     }
 }
