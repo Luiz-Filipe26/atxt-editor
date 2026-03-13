@@ -37,6 +37,8 @@ export class Lexer {
     private tokens: Token[] = [];
     private compilerErrors: CompilerError[] = [];
     private modeStack: LexerMode[] = [LexerMode.NORMAL];
+    private readonly VALUE_STOP_CHARS = ["]", ";", "\n", "\r", '"', "'"];
+    private readonly TRIGGER_CHARS = ["[", "{", "}"];
 
     constructor(source: string) {
         this.scanner = new Scanner(source);
@@ -296,16 +298,16 @@ export class Lexer {
     }
 
     private consumePropertyValue() {
-        while (this.isValueChar(this.scanner.peek())) {
+        while (!this.scanner.isAtEnd() && this.isValueChar(this.scanner.peek())) {
             this.scanner.advance();
         }
 
-        const value = this.scanner.getMarkedSubstring();
+        const value = this.scanner.getMarkedSubstring().trimEnd();
         this.addToken(TokenType.VALUE, value);
     }
 
     private isTrigger(char: string): boolean {
-        return char === "[" || char === "{" || char === "}";
+        return this.TRIGGER_CHARS.includes(char);
     }
 
     private isKeyChar(char: string): boolean {
@@ -313,7 +315,7 @@ export class Lexer {
     }
 
     private isValueChar(char: string): boolean {
-        return /[a-zA-Z0-9_\-#.,]/.test(char);
+        return !this.VALUE_STOP_CHARS.includes(char);
     }
 
     private addToken(type: TokenType, literal?: string) {
