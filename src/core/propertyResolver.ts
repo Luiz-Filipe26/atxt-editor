@@ -1,8 +1,9 @@
 import { getPropertyDefinition } from "../domain/propertyDefinitions";
+import type { ResolvedProps } from "../types/ir";
 import type { AnnotationNode, PropertyNode } from "../types/ast";
 
 export class PropertyResolver {
-    private classRegistry: Record<string, Record<string, string>> = {};
+    private classRegistry: Record<string, ResolvedProps> = {};
     private pushError: (message: string, line: number, column: number) => void;
 
     constructor(
@@ -29,7 +30,7 @@ export class PropertyResolver {
 
         const className = classProp.value;
         const composeProp = annotation.properties.find((p) => p.key === "compose");
-        const bag: Record<string, string> = {};
+        const bag: ResolvedProps = {};
 
         this.inheritComposedClasses(bag, composeProp);
         this.assignExplicitProperties(bag, annotation.properties);
@@ -37,19 +38,19 @@ export class PropertyResolver {
         this.classRegistry[className] = bag;
     }
 
-    public resolveProperties(properties: PropertyNode[]): Record<string, any> {
-        const result: Record<string, any> = {};
+    public resolveProperties(properties: PropertyNode[]): ResolvedProps {
+        const result: ResolvedProps = {};
         this.applyClassProperties(result, properties);
         this.applyInlineProperties(result, properties);
         return result;
     }
 
-    public routePropertiesByScope(props: Record<string, any>): {
-        blockProps: Record<string, any>;
-        inlineProps: Record<string, any>;
+    public routePropertiesByScope(props: ResolvedProps): {
+        blockProps: ResolvedProps;
+        inlineProps: ResolvedProps;
     } {
-        const blockProps: Record<string, any> = {};
-        const inlineProps: Record<string, any> = {};
+        const blockProps: ResolvedProps = {};
+        const inlineProps: ResolvedProps = {};
 
         for (const [key, value] of Object.entries(props)) {
             const propDef = getPropertyDefinition(key);
@@ -62,7 +63,7 @@ export class PropertyResolver {
     }
 
     private inheritComposedClasses(
-        bag: Record<string, string>,
+        bag: ResolvedProps,
         composeProp?: PropertyNode,
     ): void {
         if (!composeProp) return;
@@ -82,7 +83,7 @@ export class PropertyResolver {
     }
 
     private assignExplicitProperties(
-        bag: Record<string, string>,
+        bag: ResolvedProps,
         properties: PropertyNode[],
     ): void {
         for (const prop of properties) {
@@ -102,7 +103,7 @@ export class PropertyResolver {
     }
 
     private applyClassProperties(
-        bag: Record<string, any>,
+        bag: ResolvedProps,
         properties: PropertyNode[],
     ): void {
         const classProp = properties.find((p) => p.key === "class" && !p.toggle);
@@ -123,7 +124,7 @@ export class PropertyResolver {
     }
 
     private applyInlineProperties(
-        bag: Record<string, any>,
+        bag: ResolvedProps,
         properties: PropertyNode[],
     ): void {
         for (const prop of properties) {

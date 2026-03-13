@@ -5,31 +5,15 @@ import {
     type DocumentNode,
     type AnnotationNode,
 } from "../types/ast";
+import type { IRNode, IRBlock, IRText, ResolvedProps } from "../types/ir";
 import type { CompilerError } from "../types/errors";
-
-export interface IRNode {
-    type: "BLOCK" | "TEXT";
-    props: Record<string, any>;
-    line?: number;
-    column?: number;
-}
-
-export interface IRBlock extends IRNode {
-    type: "BLOCK";
-    children: IRNode[];
-}
-
-export interface IRText extends IRNode {
-    type: "TEXT";
-    content: string;
-}
 
 export class Hydrator {
     private compilerErrors: CompilerError[] = [];
-    private styleResolver: PropertyResolver;
+    private propertyResolver: PropertyResolver;
 
     constructor() {
-        this.styleResolver = new PropertyResolver(this.pushError.bind(this));
+        this.propertyResolver = new PropertyResolver(this.pushError.bind(this));
     }
 
     public hydrate(document: DocumentNode): {
@@ -37,7 +21,7 @@ export class Hydrator {
         errors: CompilerError[];
     } {
         this.compilerErrors = [];
-        this.styleResolver.reset();
+        this.propertyResolver.reset();
 
         const rootBlock: IRBlock = {
             type: "BLOCK",
@@ -61,10 +45,10 @@ export class Hydrator {
 
     private transformNodeList(
         nodes: ASTNode[],
-        inheritedProps: Record<string, any> = {},
+        inheritedProps: ResolvedProps = {},
     ): IRNode[] {
         const output: IRNode[] = [];
-        const backpack = { ...inheritedProps };
+        const backpack: ResolvedProps = { ...inheritedProps };
 
         for (let i = 0; i < nodes.length; i++) {
             const node = nodes[i];
@@ -73,7 +57,7 @@ export class Hydrator {
                 const annotation = node as AnnotationNode;
 
                 if (annotation.directive === "DEFINE") {
-                    this.styleResolver.defineClass(annotation);
+                    this.propertyResolver.defineClass(annotation);
                     continue;
                 }
 
@@ -105,11 +89,13 @@ export class Hydrator {
         annotation: AnnotationNode,
         allNodes: ASTNode[],
         currentIndex: number,
-        backpack: Record<string, any>,
+        backpack: ResolvedProps,
     ): IRBlock {
-        const { blockProps } = this.styleResolver.resolveProperties(
+        const resolved = this.propertyResolver.resolveProperties(
             annotation.properties,
         );
+        const { blockProps } =
+            this.propertyResolver.routePropertiesByScope(resolved);
         const remainingSiblings = allNodes.slice(currentIndex + 1);
         const childrenToWrap = annotation.target
             ? [annotation.target, ...remainingSiblings]
@@ -126,9 +112,9 @@ export class Hydrator {
 
     private processNormalDirective(
         annotation: AnnotationNode,
-        backpack: Record<string, any>,
+        backpack: ResolvedProps,
     ): IRNode | null {
-        const targetProps = this.styleResolver.resolveProperties(
+        const targetProps = this.propertyResolver.resolveProperties(
             annotation.properties,
         );
 
@@ -153,10 +139,10 @@ export class Hydrator {
 
     private transformSingleNode(
         node: ASTNode,
-        activeProps: Record<string, any>,
+        activeProps: ResolvedProps,
     ): IRNode {
         const { blockProps, inlineProps } =
-            this.styleResolver.routePropertiesByScope(activeProps);
+            this.propertyResolver.routePropertiesByScope(activeProps);
 
         if (node.type === NodeType.BLOCK) {
             const children = this.transformNodeList(node.children, activeProps);

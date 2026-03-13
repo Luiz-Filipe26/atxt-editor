@@ -1,4 +1,5 @@
-import type { IRBlock, IRNode, IRText } from "./hydrator";
+import type { IRBlock, IRNode, IRText } from "../types/ir";
+import type { ResolvedProps } from "../types/ir";
 import { getCssMapping, type CssUnit } from "../domain/cssPropertyMapping";
 import { dedent } from "../utils/stringUtils";
 
@@ -72,11 +73,11 @@ export class Generator {
         return "";
     }
 
-    private resolveClass(props: Record<string, any>): string {
+    private resolveClass(props: ResolvedProps): string {
         const signature = JSON.stringify(
             Object.keys(props)
                 .sort()
-                .reduce((obj: Record<string, any>, key) => {
+                .reduce((obj: ResolvedProps, key) => {
                     obj[key] = props[key];
                     return obj;
                 }, {}),
@@ -95,14 +96,14 @@ export class Generator {
         return newClassName;
     }
 
-    private buildCssRule(className: string, props: Record<string, any>): string {
+    private buildCssRule(className: string, props: ResolvedProps): string {
         let cssBody = "";
 
         for (const [key, value] of Object.entries(props)) {
             const mapping = getCssMapping(key);
             if (!mapping) continue;
 
-            const formattedValue = this.formatCssValue(String(value), mapping.unit);
+            const formattedValue = this.formatCssValue(value, mapping.unit);
             cssBody += `  ${mapping.cssProperty}: ${formattedValue};\n`;
         }
 
