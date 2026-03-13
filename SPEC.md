@@ -213,12 +213,13 @@ raw_text
 
 ## 5. Directives
 
-A directive is a special annotation whose first property key is an uppercase word. The three built-in directives are `SET`, `DEFINE`, and `NORMAL` (the absence of a directive keyword is the `NORMAL` case).
+A directive is a special annotation whose first property key is an uppercase word. The four built-in directives are `SET`, `DEFINE`, `HIDE`, and `NORMAL` (the absence of a directive keyword is the `NORMAL` case).
 
 ```ebnf
 directive
   = set_directive
   | define_directive
+  | hide_directive
   | normal_directive
   ;
 
@@ -227,6 +228,9 @@ set_directive
 
 define_directive
   = ANNOTATION_OPEN "DEFINE" define_body ANNOTATION_CLOSE ;
+
+hide_directive
+  = ANNOTATION_OPEN "HIDE" [ property_list ] ANNOTATION_CLOSE annotation_target ;
 
 normal_directive
   = annotation ;   (* no uppercase keyword — the default case *)
@@ -246,6 +250,27 @@ normal_directive
 
 A `NORMAL` annotation is the default case — any annotation that carries no uppercase directive keyword. It applies its properties to its resolved target and does not propagate.
 
+### 5.4 HIDE
+
+`[[HIDE]]` is a source-level suppression directive. The Parser consumes its target and discards it entirely — the target never reaches the AST or the IR. It is the appropriate tool for author notes, draft passages, and any content that has no role in the rendered document.
+
+`[[HIDE]]` accepts optional properties following the same syntax as other directives, but those properties are discarded along with the target. They serve only as documentation for the author reading the source:
+
+
+
+```atxt
+[[HIDE]]
+This line is suppressed.
+
+[[HIDE class: draft]]
+This line is suppressed and will emerge styled as draft when reactivated.
+
+[[HIDE class: draft]] {
+    This entire block is suppressed.
+    It may contain multiple paragraphs and annotations.
+}
+```
+
 ---
 
 ## 6. Property System
@@ -258,6 +283,8 @@ Every valid property is declared in the property registry. A property declaratio
 - `validate`: a predicate on the string value
 
 Properties not in the registry are rejected at hydration time with a `HYDRATOR` error.
+
+Boolean properties are validated case-insensitively. `True`, `TRUE`, and `true` are all accepted.
 
 ### 6.2 Built-in Properties
 
@@ -274,6 +301,9 @@ Properties not in the registry are rejected at hydration time with a `HYDRATOR` 
 | `width` | Number |
 | `height` | Number |
 | `align` | `left` \| `center` \| `right` \| `justify` |
+| `hidden` | `true` \| `false` (case-insensitive) |
+
+A node with `hidden: true` arrives in the IR and is skipped by the Generator in standard rendering mode. Because the node is present in the IR, WYSIWYG tools may implement a revision mode that renders hidden nodes with a distinct visual treatment, allowing the author to reactivate them by removing the property.
 
 #### Inline-scope properties
 
@@ -473,6 +503,8 @@ Each stage has exclusive responsibility:
 | Hydrator | AST | IR | Know about rendering targets |
 | Generator | IR | Target format | Know about source syntax |
 
+The Generator skips any IR node carrying `hidden: true` in standard rendering mode. WYSIWYG tools may override this behavior to implement revision mode.
+
 ---
 
 ## 11. Intermediate Representation
@@ -579,6 +611,7 @@ interface CompilerError {
 | `}` with no matching `{` | `Unexpected block close` |
 | EOF with unclosed block | `Unexpected end of file: unclosed block` |
 | Toggle-only annotation with explicit target | `Toggle annotations cannot have a target` |
+| `HIDE` with no resolvable target | `HIDE directive has no target` |
 
 ### 13.3 Hydrator Errors
 

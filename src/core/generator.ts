@@ -51,6 +51,13 @@ export class Generator {
     }
 
     private renderNode(node: IRNode): string {
+        if (
+            node.type === "BLOCK" &&
+            node.props["hidden"]?.toLowerCase() === "true"
+        ) {
+            return "";
+        }
+
         let className = "";
         const propKeys = Object.keys(node.props);
 

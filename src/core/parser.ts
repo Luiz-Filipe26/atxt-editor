@@ -67,10 +67,15 @@ export class Parser {
         }
     }
 
-    private parseAnnotation(openingToken: Token): AnnotationNode {
+    private parseAnnotation(openingToken: Token): AnnotationNode | null {
         const directive = this.consumeDirective();
         const props = this.parseProperties();
         this.consumeAnnotationClosure();
+
+        if (directive === "HIDE") {
+            this.resolveAnnotationTarget();
+            return null;
+        }
 
         const hasNormalProps = props.some((p) => p.toggle === undefined);
         const needsTarget = directive === "NORMAL" && hasNormalProps;
@@ -126,18 +131,12 @@ export class Parser {
     }
 
     private consumeDirective(): AnnotationDirective {
-        const peekToken = this.stream.peek();
-
-        if (peekToken.type === TokenType.IDENTIFIER) {
-            if (peekToken.literal === "SET") {
-                this.stream.advance();
-                return "SET";
-            }
-            if (peekToken.literal === "DEFINE") {
-                this.stream.advance();
-                return "DEFINE";
-            }
-        }
+        const token = this.stream.peek();
+        if (
+            token.type === TokenType.IDENTIFIER &&
+            ["SET", "DEFINE", "HIDE"].includes(token.literal)
+        )
+            return this.stream.advance().literal as AnnotationDirective;
         return "NORMAL";
     }
 

@@ -8,6 +8,10 @@ export interface PropertyDefinition {
 const isNumber = (val: string) => /^-?\d+$/.test(val);
 
 export const PROPERTY_REGISTRY: Record<string, PropertyDefinition> = {
+    hidden: {
+        scope: "block",
+        validate: (v) => ["true", "false"].includes(v.toLowerCase()),
+    },
     fill: { scope: "block", validate: (val) => val.trim().length > 0 },
     radius: { scope: "block", validate: isNumber },
     indent: { scope: "block", validate: isNumber },
