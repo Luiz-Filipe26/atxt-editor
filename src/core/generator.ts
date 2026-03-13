@@ -1,23 +1,6 @@
 import type { IRBlock, IRNode, IRText } from "./hydrator";
+import { getCssMapping, type CssUnit } from "../domain/cssPropertyMapping";
 import { dedent } from "../utils/stringUtils";
-
-const CSS_MAPPER: Record<string, string> = {
-    fill: "background-color",
-    radius: "border-radius",
-    padding: "padding",
-    margin: "margin",
-    border: "border",
-    width: "width",
-    height: "height",
-    align: "text-align",
-    color: "color",
-    font: "font-family",
-    size: "font-size",
-    weight: "font-weight",
-    style: "font-style",
-    "line-height": "line-height",
-    decoration: "text-decoration",
-};
 
 export class Generator {
     private classCache = new Map<string, string>();
@@ -116,30 +99,25 @@ export class Generator {
         let cssBody = "";
 
         for (const [key, value] of Object.entries(props)) {
-            if (CSS_MAPPER[key]) {
-                const formattedValue = this.formatCssValue(key, String(value));
-                cssBody += `  ${CSS_MAPPER[key]}: ${formattedValue};\n`;
-                continue;
-            }
+            const mapping = getCssMapping(key);
+            if (!mapping) continue;
+
+            const formattedValue = this.formatCssValue(String(value), mapping.unit);
+            cssBody += `  ${mapping.cssProperty}: ${formattedValue};\n`;
         }
 
         return `.${className} {\n${cssBody}}`;
     }
 
-    private formatCssValue(key: string, value: string): string {
-        const needsPx = ["size", "radius", "width", "height"];
-        const multiPx = ["margin", "padding"];
-
-        if (needsPx.includes(key)) {
-            return /^-?\d+$/.test(value) ? `${value}px` : value;
+    private formatCssValue(value: string, unit: CssUnit): string {
+        if (unit === "px-fallback") {
+            return /^-?\d+(\.\d+)?$/.test(value) ? `${value}px` : value;
         }
 
-        if (multiPx.includes(key)) {
+        if (unit === "multi-px-fallback") {
             return value
                 .split(" ")
-                .map((v) => {
-                    return /^-?\d+$/.test(v) && v !== "0" ? `${v}px` : v;
-                })
+                .map((v) => (/^-?\d+(\.\d+)?$/.test(v) && v !== "0" ? `${v}px` : v))
                 .join(" ");
         }
 

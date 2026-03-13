@@ -1,8 +1,7 @@
-import { PROPERTY_REGISTRY } from "../domain/propertyDefinitions";
+import { getPropertyDefinition } from "../domain/propertyDefinitions";
 import type { AnnotationNode, PropertyNode } from "../types/ast";
 
-export class StyleResolver {
-    private registry = PROPERTY_REGISTRY;
+export class PropertyResolver {
     private classRegistry: Record<string, Record<string, string>> = {};
     private pushError: (message: string, line: number, column: number) => void;
 
@@ -40,11 +39,26 @@ export class StyleResolver {
 
     public resolveProperties(properties: PropertyNode[]): Record<string, any> {
         const result: Record<string, any> = {};
-
         this.applyClassProperties(result, properties);
         this.applyInlineProperties(result, properties);
-
         return result;
+    }
+
+    public routePropertiesByScope(props: Record<string, any>): {
+        blockProps: Record<string, any>;
+        inlineProps: Record<string, any>;
+    } {
+        const blockProps: Record<string, any> = {};
+        const inlineProps: Record<string, any> = {};
+
+        for (const [key, value] of Object.entries(props)) {
+            const propDef = getPropertyDefinition(key);
+            if (!propDef) continue;
+            if (propDef.scope === "block") blockProps[key] = value;
+            else if (propDef.scope === "inline") inlineProps[key] = value;
+        }
+
+        return { blockProps, inlineProps };
     }
 
     private inheritComposedClasses(
@@ -74,7 +88,7 @@ export class StyleResolver {
         for (const prop of properties) {
             if (prop.key === "class" || prop.key === "compose") continue;
 
-            const propertyDef = this.registry[prop.key];
+            const propertyDef = getPropertyDefinition(prop.key);
             if (propertyDef && propertyDef.validate(prop.value)) {
                 bag[prop.key] = prop.value;
             } else {
@@ -116,7 +130,7 @@ export class StyleResolver {
             const isAlreadyHandled = prop.key === "class" || prop.toggle === "minus";
             if (isAlreadyHandled) continue;
 
-            const propertyDef = this.registry[prop.key];
+            const propertyDef = getPropertyDefinition(prop.key);
             if (!propertyDef) {
                 this.pushError(
                     `Warning: Unknown property '${prop.key}'.`,

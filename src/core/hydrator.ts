@@ -1,5 +1,4 @@
-import { PROPERTY_REGISTRY } from "../domain/propertyDefinitions";
-import { StyleResolver } from "./styleResolver";
+import { PropertyResolver } from "./propertyResolver";
 import {
     NodeType,
     type ASTNode,
@@ -26,12 +25,11 @@ export interface IRText extends IRNode {
 }
 
 export class Hydrator {
-    private registry = PROPERTY_REGISTRY;
     private compilerErrors: CompilerError[] = [];
-    private styleResolver: StyleResolver;
+    private styleResolver: PropertyResolver;
 
     constructor() {
-        this.styleResolver = new StyleResolver(this.pushError.bind(this));
+        this.styleResolver = new PropertyResolver(this.pushError.bind(this));
     }
 
     public hydrate(document: DocumentNode): {
@@ -109,7 +107,7 @@ export class Hydrator {
         currentIndex: number,
         backpack: Record<string, any>,
     ): IRBlock {
-        const validatedProps = this.styleResolver.resolveProperties(
+        const { blockProps } = this.styleResolver.resolveProperties(
             annotation.properties,
         );
         const remainingSiblings = allNodes.slice(currentIndex + 1);
@@ -119,7 +117,7 @@ export class Hydrator {
 
         return {
             type: "BLOCK",
-            props: validatedProps,
+            props: blockProps,
             line: annotation.line,
             column: annotation.column,
             children: this.transformNodeList(childrenToWrap, backpack),
@@ -130,8 +128,9 @@ export class Hydrator {
         annotation: AnnotationNode,
         backpack: Record<string, any>,
     ): IRNode | null {
-        const targetProps: Record<string, any> =
-            this.styleResolver.resolveProperties(annotation.properties);
+        const targetProps = this.styleResolver.resolveProperties(
+            annotation.properties,
+        );
 
         for (const prop of annotation.properties) {
             if (prop.key === "class") continue;
@@ -157,7 +156,7 @@ export class Hydrator {
         activeProps: Record<string, any>,
     ): IRNode {
         const { blockProps, inlineProps } =
-            this.routePropertiesByScope(activeProps);
+            this.styleResolver.routePropertiesByScope(activeProps);
 
         if (node.type === NodeType.BLOCK) {
             const children = this.transformNodeList(node.children, activeProps);
@@ -185,27 +184,6 @@ export class Hydrator {
         }
 
         throw new Error(`Unknown node type in Hydrator: ${node.type}`);
-    }
-
-    private routePropertiesByScope(activeProps: Record<string, any>): {
-        blockProps: Record<string, any>;
-        inlineProps: Record<string, any>;
-    } {
-        const blockProps: Record<string, any> = {};
-        const inlineProps: Record<string, any> = {};
-
-        for (const [key, value] of Object.entries(activeProps)) {
-            const propDef = this.registry[key];
-            if (!propDef) continue;
-
-            if (propDef.scope === "block") {
-                blockProps[key] = value;
-            } else if (propDef.scope === "inline") {
-                inlineProps[key] = value;
-            }
-        }
-
-        return { blockProps, inlineProps };
     }
 
     private applyLiteralIndentation(

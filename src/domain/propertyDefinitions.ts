@@ -7,7 +7,7 @@ export interface PropertyDefinition {
 
 const isNumber = (val: string) => /^-?\d+$/.test(val);
 
-export const PROPERTY_REGISTRY: Record<string, PropertyDefinition> = {
+const PROPERTY_REGISTRY: Record<string, PropertyDefinition> = {
     hidden: {
         scope: "block",
         validate: (v) => ["true", "false"].includes(v.toLowerCase()),
@@ -55,3 +55,7 @@ export const PROPERTY_REGISTRY: Record<string, PropertyDefinition> = {
             ["none", "underline", "line-through", "overline"].includes(val),
     },
 };
+
+export function getPropertyDefinition(key: string): PropertyDefinition | null {
+    return PROPERTY_REGISTRY[key] ?? null;
+}
