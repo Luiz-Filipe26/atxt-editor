@@ -56,7 +56,7 @@ export class PropertyResolver {
             const propDef = getPropertyDefinition(key);
             if (!propDef) continue;
             if (propDef.scope === "block") blockProps[key] = value;
-            else if (propDef.scope === "inline") inlineProps[key] = value;
+            else inlineProps[key] = value;
         }
 
         return { blockProps, inlineProps };

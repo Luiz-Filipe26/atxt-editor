@@ -37,10 +37,6 @@ export class Scanner {
         return true;
     }
 
-    substring(start: number, end: number): string {
-        return this.source.substring(start, end);
-    }
-
     mark() {
         this.markStart = this.current;
         this.markLine = this.line;

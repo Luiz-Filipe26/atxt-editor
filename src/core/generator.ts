@@ -56,21 +56,19 @@ export class Generator {
             dataAttributes = ` data-line="${node.line}" data-column="${node.column}"`;
         }
 
-        if (node.type === "BLOCK") {
-            const block = node as IRBlock;
-            const childrenHtml = block.children
-                .map((child: IRNode) => this.renderNode(child))
-                .join("");
-
-            return `<div${classAttribute}${dataAttributes}>${childrenHtml}</div>`;
+        switch (node.type) {
+            case "BLOCK": {
+                const block = node as IRBlock;
+                const childrenHtml = block.children
+                    .map((child: IRNode) => this.renderNode(child))
+                    .join("");
+                return `<div${classAttribute}${dataAttributes}>${childrenHtml}</div>`;
+            }
+            case "TEXT": {
+                const textNode = node as IRText;
+                return `<span${classAttribute}${dataAttributes}>${textNode.content}</span>`;
+            }
         }
-
-        if (node.type === "TEXT") {
-            const textNode = node as IRText;
-            return `<span${classAttribute}${dataAttributes}>${textNode.content}</span>`;
-        }
-
-        return "";
     }
 
     private resolveClass(props: ResolvedProps): string {
