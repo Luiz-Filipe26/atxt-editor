@@ -6,7 +6,7 @@ import type {
     AnnotationNode,
     BlockNode,
     TextNode,
-} from "../../../src/types/ast";
+} from "@/types/ast";
 
 function parse(source: string) {
     const { tokens } = new Lexer(source).tokenize();
