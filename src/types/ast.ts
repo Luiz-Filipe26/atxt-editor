@@ -14,14 +14,16 @@ export interface BaseNode {
     column: number;
 }
 
+export type BlockContentNode = BlockNode | TextNode | AnnotationNode;
+
 export interface DocumentNode extends BaseNode {
     type: "DOCUMENT";
-    children: ASTNode[];
+    children: BlockContentNode[];
 }
 
 export interface BlockNode extends BaseNode {
     type: "BLOCK";
-    children: ASTNode[];
+    children: BlockContentNode[];
 }
 
 export interface TextNode extends BaseNode {
@@ -38,11 +40,13 @@ export interface PropertyNode extends BaseNode {
 
 export type AnnotationDirective = "SET" | "DEFINE" | "NORMAL" | "HIDE";
 
+export type TargetNode = BlockNode | TextNode;
+
 export interface AnnotationNode extends BaseNode {
     type: "ANNOTATION";
     directive: AnnotationDirective;
     properties: PropertyNode[];
-    target: ASTNode | null;
+    target: TargetNode | null;
 }
 
-export type ASTNode = DocumentNode | BlockNode | TextNode | AnnotationNode;
+export type ASTNode = DocumentNode | BlockContentNode | PropertyNode;
