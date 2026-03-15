@@ -301,6 +301,7 @@ Boolean properties are validated case-insensitively. `True`, `TRUE`, and `true` 
 | `width` | Number |
 | `height` | Number |
 | `align` | `left` \| `center` \| `right` \| `justify` |
+| `kind` | See §6.5 |
 | `hidden` | `true` \| `false` (case-insensitive) |
 
 A node with `hidden: true` arrives in the IR and is skipped by the Generator in standard rendering mode. Because the node is present in the IR, WYSIWYG tools may implement a revision mode that renders hidden nodes with a distinct visual treatment, allowing the author to reactivate them by removing the property.
@@ -333,6 +334,77 @@ Within a single node, properties are resolved in ascending priority:
 4. Properties declared inline on the annotation
 
 Higher-priority values overwrite lower-priority values for the same key.
+
+### 6.5 The `kind` Property
+
+`kind` declares the semantic nature of a block. It is a block-scope property and participates in the property registry like any other. Its values are document-semantic names with no commitment to any output format.
+
+#### Valid values and their HTML equivalents
+
+| `kind` value | HTML tag | Notes |
+|---|---|---|
+| `paragraph` | `<p>` | Inline text container. Valid only on leaf blocks (see below). |
+| `heading1` | `<h1>` | |
+| `heading2` | `<h2>` | |
+| `heading3` | `<h3>` | |
+| `heading4` | `<h4>` | |
+| `heading5` | `<h5>` | |
+| `quote` | `<blockquote>` | |
+| `code` | `<pre>` | |
+| `list` | `<ul>` | |
+| `ordered-list` | `<ol>` | |
+| `item` | `<li>` | |
+| `aside` | `<aside>` | |
+| `section` | `<section>` | |
+| `article` | `<article>` | |
+| `header` | `<header>` | |
+| `footer` | `<footer>` | |
+
+A block with no `kind` property renders as `<div>` in the HTML Generator. A text node with no `kind` renders as `<span>`.
+
+#### Leaf-node promotion
+
+A **leaf block** is an `IRBlock` whose `children` array contains only `IRText` nodes — no nested `IRBlock`. This is a structural property of the IR, not a property declared in the source.
+
+The HTML Generator applies the following rule: if a leaf block carries no explicit `kind`, it is promoted to `paragraph` automatically. This means plain text lines produce `<p>` elements without any annotation from the author.
+
+```atxt
+This line produces a <p> element automatically.
+
+[[fill: #f0f0f0]]
+This annotated line also produces a <p> because it is still a leaf block.
+```
+
+A non-leaf block (containing at least one child `IRBlock`) is never promoted. It renders as `<div>` unless an explicit `kind` is declared.
+
+#### Structural compatibility
+
+Certain `kind` values imply inline containment in the HTML model (notably `paragraph`). When a block declared with such a `kind` contains child blocks, the resulting HTML would be structurally invalid. The HTML Generator treats this as an error rather than silently demoting the tag.
+
+```atxt
+[[kind: paragraph]] {
+    Normal text here.
+    [[kind: section]] {
+        This nested block makes kind: paragraph structurally invalid.
+    }
+}
+```
+
+This produces a Generator error. The document author must either remove the `kind: paragraph` declaration or restructure the content.
+
+#### `kind` in classes
+
+Because `kind` is a regular block-scope property, it may appear in a `DEFINE` declaration alongside any other block-scope properties:
+
+```atxt
+[[DEFINE class: callout; kind: aside; fill: #fffbe6; padding: 16]]
+
+[[class: callout]] {
+    This block is an <aside> with a yellow background.
+}
+```
+
+This is a meaningful advantage over CSS: a class in ATXT can change the semantic element type of a block, not just its visual presentation. In CSS, a class cannot promote a `<div>` to a `<section>`.
 
 ---
 
@@ -376,6 +448,8 @@ The compiler provides a set of default class definitions used when the correspon
 | `list-ordered` | `indent: 2` |
 
 A document may override any default class by providing an explicit `[[DEFINE class: h1; ...]]` declaration before first use.
+
+A class may include `kind` among its properties. When a class carrying `kind` is applied to a block, the block acquires that semantic type. See §6.5.
 
 ---
 
@@ -431,12 +505,12 @@ Block symbols are recognized exclusively when they appear as the first non-white
 
 | Symbol | Expands to |
 |---|---|
-| `# text` | `[[class: h1]] text` |
-| `## text` | `[[class: h2]] text` |
-| `### text` | `[[class: h3]] text` |
-| `> text` | `[[class: blockquote]] text` |
-| `- text` | `[[class: list-item]] text` |
-| `1. text` | `[[class: list-ordered]] text` |
+| `# text` | `[[kind: heading1; class: h1]] text` |
+| `## text` | `[[kind: heading2; class: h2]] text` |
+| `### text` | `[[kind: heading3; class: h3]] text` |
+| `> text` | `[[kind: quote; class: blockquote]] text` |
+| `- text` | `[[kind: item; class: list-item]] text` |
+| `1. text` | `[[kind: item; class: list-ordered]] text` |
 
 A block symbol in any position other than the start of a line is treated as literal text.
 
@@ -504,6 +578,8 @@ Each stage has exclusive responsibility:
 | Generator | IR | Target format | Know about source syntax |
 
 The Generator skips any IR node carrying `hidden: true` in standard rendering mode. WYSIWYG tools may override this behavior to implement revision mode.
+
+The HTML Generator selects the output HTML tag for each `IRBlock` based on the `kind` property. If no `kind` is present, leaf blocks are promoted to `<p>` and non-leaf blocks render as `<div>`. If a `kind` is present but structurally incompatible with the block's children, the Generator emits an error.
 
 ---
 
@@ -624,8 +700,17 @@ interface CompilerError {
 | `compose` references undefined class | `Cannot compose undefined class '<name>'` |
 | Symbol redefined | `Symbol '<seq>' already defined` |
 | Custom symbol used before definition | `Symbol '<seq>' used before definition` |
+| `kind` value not in registry | `Unknown kind: '<value>'` |
 
-### 13.4 Error Recovery
+### 13.4 Generator Errors
+
+Generator errors are format-specific and are not part of the core `CompilerError` type. Each Generator defines its own error set. The HTML Generator defines:
+
+| Condition | Message |
+|---|---|
+| `kind` structurally incompatible with block children | `kind '<value>' is not valid on a non-leaf block` |
+
+### 13.5 Error Recovery
 
 The compiler collects all errors encountered during compilation and returns them alongside any partial output. A document with errors may still produce partial IR. Generators may be invoked on a partial IR at the caller's discretion — the resulting output is best-effort and its usefulness depends on the nature and location of the errors.
 
