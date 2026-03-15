@@ -2,13 +2,14 @@ import { TokenType, type Token } from "./lexer";
 import { TokenStream } from "./tokenStream";
 import {
     NodeType,
-    type ASTNode,
     type DocumentNode,
     type BlockNode,
     type TextNode,
     type AnnotationNode,
     type PropertyNode,
     type AnnotationDirective,
+    type BlockContentNode,
+    type TargetNode,
 } from "../types/ast";
 import type { CompilerError } from "../types/errors";
 
@@ -46,7 +47,7 @@ export class Parser {
         return { document: root, errors: this.compilerErrors };
     }
 
-    private parseNextNode(): ASTNode | null {
+    private parseNextNode(): BlockContentNode | null {
         const token = this.stream.advance();
         switch (token.type) {
             case TokenType.ANNOTATION_OPEN:
@@ -56,14 +57,17 @@ export class Parser {
             case TokenType.NEWLINE:
             case TokenType.TEXT:
                 return this.parseTextLine(token);
+            case TokenType.BLOCK_CLOSE:
+                this.pushError(`Unexpected block close.`, token);
+                return null;
+            /* v8 ignore start -- @preserve */
             case TokenType.EOF:
-                return null;
+                throw new Error("Invariant violation: parseNextNode() called at EOF.");
             default:
-                this.pushError(
-                    `Unexpected loose token in document: '${token.literal}'`,
-                    token,
+                throw new Error(
+                    `Invariant violation: unexpected token type '${token.type}' in parseNextNode().`,
                 );
-                return null;
+            /* v8 ignore stop -- @preserve */
         }
     }
 
@@ -90,7 +94,7 @@ export class Parser {
         };
     }
 
-    private resolveAnnotationTarget(): ASTNode | null {
+    private resolveAnnotationTarget(): TargetNode | null {
         if (this.stream.isAtEnd()) return null;
 
         if (this.stream.isTargetingBlock()) {
@@ -257,7 +261,7 @@ export class Parser {
     }
 
     private parseBlock(blockToken: Token): BlockNode {
-        const children: ASTNode[] = [];
+        const children: BlockContentNode[] = [];
         while (
             !this.stream.isAtEnd() &&
             this.stream.peek().type !== TokenType.BLOCK_CLOSE

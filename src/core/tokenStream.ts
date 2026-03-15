@@ -21,11 +21,12 @@ export class TokenStream {
     }
 
     advance(): Token {
-        if (!this.isAtEnd()) {
-            this.current++;
-            return this.previous();
+        /* v8 ignore next 1 -- @preserve */
+        if (this.isAtEnd()) {
+            throw new Error("Invariant violation: advance() called past EOF.");
         }
-        return this.peek();
+        this.current++;
+        return this.previous();
     }
 
     match(...types: TokenType[]): Token | null {
@@ -37,22 +38,6 @@ export class TokenStream {
         return null;
     }
 
-    private lookahead(
-        skipCondition: (token: Token) => boolean,
-        targetCondition: (token: Token) => boolean,
-    ): boolean {
-        let offset = 0;
-        while (this.current + offset < this.tokens.length) {
-            const token = this.tokens[this.current + offset];
-
-            if (targetCondition(token)) return true;
-            if (!skipCondition(token)) return false;
-
-            offset++;
-        }
-        return false;
-    }
-
     private isBlankToken(token: Token): boolean {
         return (
             token.type === TokenType.NEWLINE ||
@@ -61,10 +46,13 @@ export class TokenStream {
     }
 
     isTargetingBlock(): boolean {
-        return this.lookahead(
-            (t) => this.isBlankToken(t),
-            (t) => t.type === TokenType.BLOCK_OPEN,
-        );
+        for (let offset = this.current; offset < this.tokens.length; offset++) {
+            const token = this.tokens[offset];
+            if (token.type === TokenType.BLOCK_OPEN) return true;
+            if (!this.isBlankToken(token)) return false;
+        }
+        /* v8 ignore next 1 -- @preserve */
+        throw new Error("Invariant violation: token stream has no EOF token.");
     }
 
     skipWhitespaceTokens(): void {

@@ -1,9 +1,10 @@
 import { PropertyResolver } from "./propertyResolver";
 import {
     NodeType,
-    type ASTNode,
     type DocumentNode,
     type AnnotationNode,
+    type TargetNode,
+    type BlockContentNode,
 } from "../types/ast";
 import type { IRNode, IRBlock, IRText, ResolvedProps } from "../types/ir";
 import type { CompilerError } from "../types/errors";
@@ -44,7 +45,7 @@ export class Hydrator {
     }
 
     private transformNodeList(
-        nodes: ASTNode[],
+        nodes: BlockContentNode[],
         inheritedProps: ResolvedProps = {},
     ): IRNode[] {
         const output: IRNode[] = [];
@@ -52,34 +53,29 @@ export class Hydrator {
 
         for (let i = 0; i < nodes.length; i++) {
             const node = nodes[i];
+            if (node.type !== NodeType.ANNOTATION) {
+                output.push(this.transformSingleNode(node, backpack));
+                continue;
+            }
 
-            if (node.type === NodeType.ANNOTATION) {
-                const annotation = node as AnnotationNode;
-
-                if (annotation.directive === "DEFINE") {
-                    this.propertyResolver.defineClass(annotation);
-                    continue;
-                }
-
-                if (annotation.directive === "SET") {
+            switch (node.directive) {
+                case "SET":
                     const blockWrapper = this.processSetDirective(
-                        annotation,
+                        node,
                         nodes,
                         i,
                         backpack,
                     );
                     output.push(blockWrapper);
+                    return output;
+                case "DEFINE":
+                    this.propertyResolver.defineClass(node);
                     break;
-                }
-
-                if (annotation.directive === "NORMAL") {
-                    const normalNode = this.processNormalDirective(annotation, backpack);
+                case "NORMAL":
+                    const normalNode = this.processNormalDirective(node, backpack);
                     if (normalNode) output.push(normalNode);
-                    continue;
-                }
+                    break;
             }
-
-            output.push(this.transformSingleNode(node, backpack));
         }
 
         return output;
@@ -87,26 +83,31 @@ export class Hydrator {
 
     private processSetDirective(
         annotation: AnnotationNode,
-        allNodes: ASTNode[],
+        allNodes: BlockContentNode[],
         currentIndex: number,
         backpack: ResolvedProps,
     ): IRBlock {
+        /* v8 ignore start -- @preserve */
+        if (annotation.target !== null) {
+            this.pushError(
+                "Invariant violation: SET directive received a target.",
+                annotation.line,
+                annotation.column,
+            );
+        }
+        /* v8 ignore stop -- @preserve */
         const resolved = this.propertyResolver.resolveProperties(
             annotation.properties,
         );
         const { blockProps } =
             this.propertyResolver.routePropertiesByScope(resolved);
         const remainingSiblings = allNodes.slice(currentIndex + 1);
-        const childrenToWrap = annotation.target
-            ? [annotation.target, ...remainingSiblings]
-            : remainingSiblings;
-
         return {
             type: "BLOCK",
             props: blockProps,
             line: annotation.line,
             column: annotation.column,
-            children: this.transformNodeList(childrenToWrap, backpack),
+            children: this.transformNodeList(remainingSiblings, backpack),
         };
     }
 
@@ -138,38 +139,38 @@ export class Hydrator {
     }
 
     private transformSingleNode(
-        node: ASTNode,
+        node: TargetNode,
         activeProps: ResolvedProps,
     ): IRNode {
         const { blockProps, inlineProps } =
             this.propertyResolver.routePropertiesByScope(activeProps);
 
-        if (node.type === NodeType.BLOCK) {
-            const children = this.transformNodeList(node.children, activeProps);
+        switch (node.type) {
+            case NodeType.BLOCK: {
+                const children = this.transformNodeList(node.children, activeProps);
 
-            if (blockProps.indent) {
-                this.applyLiteralIndentation(children, blockProps.indent);
+                if (blockProps.indent) {
+                    this.applyLiteralIndentation(children, blockProps.indent);
+                }
+                return {
+                    type: "BLOCK",
+                    props: blockProps,
+                    line: node.line,
+                    column: node.column,
+                    children: children,
+                } as IRBlock;
             }
-            return {
-                type: "BLOCK",
-                props: blockProps,
-                line: node.line,
-                column: node.column,
-                children: children,
-            } as IRBlock;
-        }
 
-        if (node.type === NodeType.TEXT) {
-            return {
-                type: "TEXT",
-                props: inlineProps,
-                line: node.line,
-                column: node.column,
-                content: node.content,
-            } as IRText;
+            case NodeType.TEXT: {
+                return {
+                    type: "TEXT",
+                    props: inlineProps,
+                    line: node.line,
+                    column: node.column,
+                    content: node.content,
+                } as IRText;
+            }
         }
-
-        throw new Error(`Unknown node type in Hydrator: ${node.type}`);
     }
 
     private applyLiteralIndentation(

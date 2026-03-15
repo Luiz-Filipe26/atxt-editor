@@ -79,11 +79,10 @@ export class Lexer {
     }
 
     private popMode() {
-        if (this.modeStack.length > 1) {
-            this.modeStack.pop();
-        } else {
-            this.pushError("Fatal error: Attempted to pop() the base mode (NORMAL).");
-        }
+        /* v8 ignore next 1 -- @preserve */
+        if (this.modeStack.length <= 1)
+            throw new Error("Invariant violation: popMode() called on base mode.");
+        this.modeStack.pop();
     }
 
     private replaceCurrentMode(mode: LexerMode) {
@@ -204,11 +203,7 @@ export class Lexer {
             case "\n":
                 break;
             default:
-                if (this.isValueChar(char)) {
-                    this.consumePropertyValue();
-                } else {
-                    this.pushError(`Invalid character in property value: '${char}'`);
-                }
+                this.consumePropertyValue();
                 break;
         }
     }
@@ -276,11 +271,6 @@ export class Lexer {
     }
 
     private consumeText(firstChar: string) {
-        if (firstChar === "\n") {
-            this.addToken(TokenType.NEWLINE, "\n");
-            return;
-        }
-
         let content = firstChar;
         content += this.consumeUntil(
             (char) => this.isTrigger(char) || char === "\n",
