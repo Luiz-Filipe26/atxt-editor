@@ -1,12 +1,6 @@
 import { PropertyResolver } from "./propertyResolver";
-import {
-    NodeType,
-    type DocumentNode,
-    type AnnotationNode,
-    type TargetNode,
-    type BlockContentNode,
-} from "../types/ast";
-import type { IRNode, IRBlock, IRText, ResolvedProps } from "../types/ir";
+import * as AST from "../types/ast";
+import * as IR from "../types/ir";
 import type { CompilerError } from "../types/errors";
 
 export class Hydrator {
@@ -17,14 +11,14 @@ export class Hydrator {
         this.propertyResolver = new PropertyResolver(this.pushError.bind(this));
     }
 
-    public hydrate(document: DocumentNode): {
-        document: IRBlock;
+    public hydrate(document: AST.DocumentNode): {
+        document: IR.Block;
         errors: CompilerError[];
     } {
         this.compilerErrors = [];
         this.propertyResolver.reset();
 
-        const rootBlock: IRBlock = {
+        const rootBlock: IR.Block = {
             type: "BLOCK",
             props: {},
             line: document.line,
@@ -35,37 +29,23 @@ export class Hydrator {
         return { document: rootBlock, errors: this.compilerErrors };
     }
 
-    private pushError(message: string, line: number, column: number) {
-        this.compilerErrors.push({
-            type: "HYDRATOR",
-            message,
-            line,
-            column,
-        });
-    }
-
     private transformNodeList(
-        nodes: BlockContentNode[],
-        inheritedProps: ResolvedProps = {},
-    ): IRNode[] {
-        const output: IRNode[] = [];
-        const backpack: ResolvedProps = { ...inheritedProps };
+        nodes: AST.BlockContentNode[],
+        inheritedProps: IR.ResolvedProps = {},
+    ): IR.Node[] {
+        const output: IR.Node[] = [];
+        const backpack: IR.ResolvedProps = { ...inheritedProps };
 
         for (let i = 0; i < nodes.length; i++) {
             const node = nodes[i];
-            if (node.type !== NodeType.ANNOTATION) {
+            if (node.type !== AST.NodeType.ANNOTATION) {
                 output.push(this.transformSingleNode(node, backpack));
                 continue;
             }
 
             switch (node.directive) {
                 case "SET":
-                    const blockWrapper = this.processSetDirective(
-                        node,
-                        nodes,
-                        i,
-                        backpack,
-                    );
+                    const blockWrapper = this.processSetDirective(node, nodes, i, backpack);
                     output.push(blockWrapper);
                     return output;
                 case "DEFINE":
@@ -82,11 +62,11 @@ export class Hydrator {
     }
 
     private processSetDirective(
-        annotation: AnnotationNode,
-        allNodes: BlockContentNode[],
+        annotation: AST.AnnotationNode,
+        allNodes: AST.BlockContentNode[],
         currentIndex: number,
-        backpack: ResolvedProps,
-    ): IRBlock {
+        backpack: IR.ResolvedProps,
+    ): IR.Block {
         /* v8 ignore start -- @preserve */
         if (annotation.target !== null) {
             this.pushError(
@@ -96,11 +76,8 @@ export class Hydrator {
             );
         }
         /* v8 ignore stop -- @preserve */
-        const resolved = this.propertyResolver.resolveProperties(
-            annotation.properties,
-        );
-        const { blockProps } =
-            this.propertyResolver.routePropertiesByScope(resolved);
+        const resolved = this.propertyResolver.resolveProperties(annotation.properties);
+        const { blockProps } = this.propertyResolver.routePropertiesByScope(resolved);
         const remainingSiblings = allNodes.slice(currentIndex + 1);
         return {
             type: "BLOCK",
@@ -112,12 +89,10 @@ export class Hydrator {
     }
 
     private processNormalDirective(
-        annotation: AnnotationNode,
-        backpack: ResolvedProps,
-    ): IRNode | null {
-        const targetProps = this.propertyResolver.resolveProperties(
-            annotation.properties,
-        );
+        annotation: AST.AnnotationNode,
+        backpack: IR.ResolvedProps,
+    ): IR.Node | null {
+        const targetProps = this.propertyResolver.resolveProperties(annotation.properties);
 
         for (const prop of annotation.properties) {
             if (prop.key === "class") continue;
@@ -138,65 +113,80 @@ export class Hydrator {
         return null;
     }
 
-    private transformSingleNode(
-        node: TargetNode,
-        activeProps: ResolvedProps,
-    ): IRNode {
+    private transformSingleNode(node: AST.TargetNode, activeProps: IR.ResolvedProps): IR.Node {
         const { blockProps, inlineProps } =
             this.propertyResolver.routePropertiesByScope(activeProps);
 
         switch (node.type) {
-            case NodeType.BLOCK: {
-                const children = this.transformNodeList(node.children, activeProps);
-
-                if (blockProps.indent) {
-                    this.applyLiteralIndentation(children, blockProps.indent);
-                }
-                return {
-                    type: "BLOCK",
-                    props: blockProps,
-                    line: node.line,
-                    column: node.column,
-                    children: children,
-                } as IRBlock;
+            case AST.NodeType.BLOCK: {
+                return this.transformBlockNode(node, blockProps, activeProps);
             }
-
-            case NodeType.TEXT: {
+            case AST.NodeType.TEXT: {
                 return {
                     type: "TEXT",
                     props: inlineProps,
                     line: node.line,
                     column: node.column,
                     content: node.content,
-                } as IRText;
+                } as IR.Text;
+            }
+        }
+    }
+    private transformBlockNode(
+        node: AST.BlockNode,
+        blockProps: IR.ResolvedProps,
+        activeProps: IR.ResolvedProps,
+    ): IR.Block {
+        const propsForChildren = { ...activeProps };
+        delete propsForChildren.indent;
+        const children = this.transformNodeList(node.children, propsForChildren);
+
+        if (blockProps.indent) {
+            this.applyLiteralIndentation(children, blockProps.indent);
+        }
+
+        return {
+            type: "BLOCK",
+            props: blockProps,
+            line: node.line,
+            column: node.column,
+            children,
+        };
+    }
+
+    private applyLiteralIndentation(children: IR.Node[], indentValue: string): void {
+        const spacesCount = parseInt(indentValue, 10);
+        if (isNaN(spacesCount) || spacesCount <= 0) return;
+        const literalSpaces = " ".repeat(spacesCount);
+
+        const allTexts = this.collectTextNodes(children);
+        for (let i = 0; i < allTexts.length; i++) {
+            const current = allTexts[i];
+            const isLineStart = i === 0 || allTexts[i - 1].line! < current.line!;
+            if (isLineStart) {
+                current.content = literalSpaces + current.content;
             }
         }
     }
 
-    private applyLiteralIndentation(
-        children: IRNode[],
-        indentValue: string,
-    ): void {
-        const spacesCount = parseInt(indentValue, 10);
-        if (isNaN(spacesCount) || spacesCount <= 0) return;
-
-        const literalSpaces = " ".repeat(spacesCount);
-        let isLineStart = true;
-
+    private collectTextNodes(children: IR.Node[]): IR.Text[] {
+        const result: IR.Text[] = [];
         for (const child of children) {
-            if (child.type !== "TEXT") continue;
-            const textNode = child as IRText;
-
-            if (textNode.content === "\n") {
-                isLineStart = true;
-                continue;
+            if (child.type === "BLOCK") {
+                result.push(...this.collectTextNodes(child.children));
+            } else {
+                result.push(child);
             }
-
-            if (isLineStart) {
-                textNode.content = literalSpaces + textNode.content;
-            }
-
-            isLineStart = textNode.content.endsWith("\n");
         }
+        return result;
+    }
+
+    private pushError(message: string, line: number, column: number) {
+        this.compilerErrors.push({
+            type: "HYDRATOR",
+            message,
+            line,
+            column,
+        });
     }
 }

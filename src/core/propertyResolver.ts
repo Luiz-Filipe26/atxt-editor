@@ -1,14 +1,12 @@
 import { getPropertyDefinition } from "../domain/propertyDefinitions";
-import type { ResolvedProps } from "../types/ir";
-import type { AnnotationNode, PropertyNode } from "../types/ast";
+import * as IR from "../types/ir";
+import * as AST from "../types/ast";
 
 export class PropertyResolver {
-    private classRegistry: Record<string, ResolvedProps> = {};
+    private classRegistry: Record<string, IR.ResolvedProps> = {};
     private pushError: (message: string, line: number, column: number) => void;
 
-    constructor(
-        errorCallback: (message: string, line: number, column: number) => void,
-    ) {
+    constructor(errorCallback: (message: string, line: number, column: number) => void) {
         this.pushError = errorCallback;
     }
 
@@ -16,7 +14,7 @@ export class PropertyResolver {
         this.classRegistry = {};
     }
 
-    public defineClass(annotation: AnnotationNode): void {
+    public defineClass(annotation: AST.AnnotationNode): void {
         const classProp = annotation.properties.find((p) => p.key === "class");
 
         if (!classProp) {
@@ -30,7 +28,7 @@ export class PropertyResolver {
 
         const className = classProp.value;
         const composeProp = annotation.properties.find((p) => p.key === "compose");
-        const bag: ResolvedProps = {};
+        const bag: IR.ResolvedProps = {};
 
         this.inheritComposedClasses(bag, composeProp);
         this.assignExplicitProperties(bag, annotation.properties);
@@ -38,19 +36,19 @@ export class PropertyResolver {
         this.classRegistry[className] = bag;
     }
 
-    public resolveProperties(properties: PropertyNode[]): ResolvedProps {
-        const result: ResolvedProps = {};
+    public resolveProperties(properties: AST.PropertyNode[]): IR.ResolvedProps {
+        const result: IR.ResolvedProps = {};
         this.applyClassProperties(result, properties);
         this.applyInlineProperties(result, properties);
         return result;
     }
 
-    public routePropertiesByScope(props: ResolvedProps): {
-        blockProps: ResolvedProps;
-        inlineProps: ResolvedProps;
+    public routePropertiesByScope(props: IR.ResolvedProps): {
+        blockProps: IR.ResolvedProps;
+        inlineProps: IR.ResolvedProps;
     } {
-        const blockProps: ResolvedProps = {};
-        const inlineProps: ResolvedProps = {};
+        const blockProps: IR.ResolvedProps = {};
+        const inlineProps: IR.ResolvedProps = {};
 
         for (const [key, value] of Object.entries(props)) {
             const propDef = getPropertyDefinition(key);
@@ -62,10 +60,7 @@ export class PropertyResolver {
         return { blockProps, inlineProps };
     }
 
-    private inheritComposedClasses(
-        bag: ResolvedProps,
-        composeProp?: PropertyNode,
-    ): void {
+    private inheritComposedClasses(bag: IR.ResolvedProps, composeProp?: AST.PropertyNode): void {
         if (!composeProp) return;
 
         const classesToCompose = composeProp.value.split(/\s+/).filter(Boolean);
@@ -82,10 +77,7 @@ export class PropertyResolver {
         }
     }
 
-    private assignExplicitProperties(
-        bag: ResolvedProps,
-        properties: PropertyNode[],
-    ): void {
+    private assignExplicitProperties(bag: IR.ResolvedProps, properties: AST.PropertyNode[]): void {
         for (const prop of properties) {
             if (prop.key === "class" || prop.key === "compose") continue;
 
@@ -102,10 +94,7 @@ export class PropertyResolver {
         }
     }
 
-    private applyClassProperties(
-        bag: ResolvedProps,
-        properties: PropertyNode[],
-    ): void {
+    private applyClassProperties(bag: IR.ResolvedProps, properties: AST.PropertyNode[]): void {
         const classProp = properties.find((p) => p.key === "class" && !p.toggle);
         if (!classProp) return;
 
@@ -123,21 +112,14 @@ export class PropertyResolver {
         }
     }
 
-    private applyInlineProperties(
-        bag: ResolvedProps,
-        properties: PropertyNode[],
-    ): void {
+    private applyInlineProperties(bag: IR.ResolvedProps, properties: AST.PropertyNode[]): void {
         for (const prop of properties) {
             const isAlreadyHandled = prop.key === "class" || prop.toggle === "minus";
             if (isAlreadyHandled) continue;
 
             const propertyDef = getPropertyDefinition(prop.key);
             if (!propertyDef) {
-                this.pushError(
-                    `Warning: Unknown property '${prop.key}'.`,
-                    prop.line,
-                    prop.column,
-                );
+                this.pushError(`Warning: Unknown property '${prop.key}'.`, prop.line, prop.column);
                 continue;
             }
 
