@@ -51,8 +51,7 @@ const PROPERTY_REGISTRY: Record<string, PropertyDefinition> = {
     "line-height": { scope: "inline", validate: (val) => val.trim().length > 0 },
     decoration: {
         scope: "inline",
-        validate: (val) =>
-            ["none", "underline", "line-through", "overline"].includes(val),
+        validate: (val) => ["none", "underline", "line-through", "overline"].includes(val),
     },
 };
 

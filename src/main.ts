@@ -14,15 +14,15 @@ function runCompiler(source: string) {
     console.group("🚀 Starting ATXT Compilation");
 
     try {
-        const lexer = new Lexer(source);
-        const { tokens, errors: lexerErrors } = lexer.tokenize();
+        const lexer = new Lexer();
+        const { tokens, errors: lexerErrors } = lexer.tokenize(source);
         console.groupCollapsed("1. Lexer Output");
         console.log("Tokens:", tokens);
         if (lexerErrors.length) console.error("Lexer Errors:", lexerErrors);
         console.groupEnd();
 
-        const parser = new Parser(tokens);
-        const { document: ast, errors: parserErrors } = parser.parse();
+        const parser = new Parser();
+        const { document: ast, errors: parserErrors } = parser.parse(tokens);
         console.groupCollapsed("2. Parser Output (AST)");
         console.log("AST:", ast);
         if (parserErrors.length) console.error("Parser Errors:", parserErrors);
@@ -32,8 +32,7 @@ function runCompiler(source: string) {
         const { document: irAST, errors: hydratorErrors } = hydrator.hydrate(ast);
         console.groupCollapsed("3. Hydrator Output (IR)");
         console.log("IR AST:", irAST);
-        if (hydratorErrors.length)
-            console.error("Hydrator Errors:", hydratorErrors);
+        if (hydratorErrors.length) console.error("Hydrator Errors:", hydratorErrors);
         console.groupEnd();
 
         const generator = new Generator();

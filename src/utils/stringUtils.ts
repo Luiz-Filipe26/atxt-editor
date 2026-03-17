@@ -1,7 +1,4 @@
-export function dedent(
-    strings: TemplateStringsArray,
-    ...values: any[]
-): string {
+export function dedent(strings: TemplateStringsArray, ...values: any[]): string {
     const baseMatch = strings[0].match(/\n([ \t]+)/);
     const baseIndent = baseMatch ? baseMatch[1] : "";
     const baseRegex = new RegExp(`^${baseIndent}`, "gm");
@@ -12,9 +9,7 @@ export function dedent(
         if (i < values.length) {
             const lastNewline = result.lastIndexOf("\n");
             const insertionIndent =
-                lastNewline >= 0
-                    ? result.slice(lastNewline + 1).match(/^([ \t]*)/)![1]
-                    : "";
+                lastNewline >= 0 ? result.slice(lastNewline + 1).match(/^([ \t]*)/)![1] : "";
 
             const valueStr = String(values[i]);
             const indented = valueStr
