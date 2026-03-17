@@ -1,18 +1,19 @@
 export type ResolvedProps = Record<string, string>;
 
-export interface IRNode {
-    type: "BLOCK" | "TEXT";
+interface BaseNode {
     props: ResolvedProps;
     line?: number;
     column?: number;
 }
 
-export interface IRBlock extends IRNode {
+export interface Block extends BaseNode {
     type: "BLOCK";
-    children: IRNode[];
+    children: Node[];
 }
 
-export interface IRText extends IRNode {
+export interface Text extends BaseNode {
     type: "TEXT";
     content: string;
 }
+
+export type Node = Block | Text;

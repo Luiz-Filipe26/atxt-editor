@@ -8,7 +8,7 @@ export const NodeType = {
 
 export type NodeType = (typeof NodeType)[keyof typeof NodeType];
 
-export interface BaseNode {
+interface BaseNode {
     type: NodeType;
     line: number;
     column: number;
