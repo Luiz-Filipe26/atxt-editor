@@ -1,8 +1,9 @@
 import { describe, it, expect } from "vitest";
-import { Lexer, TokenType } from "@/core/lexer";
+import { Lexer } from "@/core/lexer";
+import { TokenType } from "@/types/tokens";
 
 function tokenize(source: string) {
-    return new Lexer(source).tokenize();
+    return new Lexer().tokenize(source);
 }
 
 function onlyTypes(source: string) {
@@ -71,10 +72,7 @@ describe("Lexer", () => {
         });
 
         it("emits both tokens for an empty block", () => {
-            expect(onlyTypes("{}")).toEqual([
-                TokenType.BLOCK_OPEN,
-                TokenType.BLOCK_CLOSE,
-            ]);
+            expect(onlyTypes("{}")).toEqual([TokenType.BLOCK_OPEN, TokenType.BLOCK_CLOSE]);
         });
     });
 
@@ -91,22 +89,14 @@ describe("Lexer", () => {
 
         it("extracts the key and value literals correctly", () => {
             const { tokens } = tokenize("[[color: red]]");
-            expect(tokens.find((t) => t.type === TokenType.IDENTIFIER)?.literal).toBe(
-                "color",
-            );
-            expect(tokens.find((t) => t.type === TokenType.VALUE)?.literal).toBe(
-                "red",
-            );
+            expect(tokens.find((t) => t.type === TokenType.IDENTIFIER)?.literal).toBe("color");
+            expect(tokens.find((t) => t.type === TokenType.VALUE)?.literal).toBe("red");
         });
 
         it("tokenizes two properties separated by a semicolon", () => {
             const { tokens } = tokenize("[[size: 16; weight: bold]]");
-            const ids = tokens
-                .filter((t) => t.type === TokenType.IDENTIFIER)
-                .map((t) => t.literal);
-            const vals = tokens
-                .filter((t) => t.type === TokenType.VALUE)
-                .map((t) => t.literal);
+            const ids = tokens.filter((t) => t.type === TokenType.IDENTIFIER).map((t) => t.literal);
+            const vals = tokens.filter((t) => t.type === TokenType.VALUE).map((t) => t.literal);
             expect(ids).toEqual(["size", "weight"]);
             expect(vals).toEqual(["16", "bold"]);
         });
@@ -114,9 +104,7 @@ describe("Lexer", () => {
         it("tokenizes three properties with trailing semicolon", () => {
             const { tokens, errors } = tokenize("[[a: 1; b: 2; c: 3]]");
             expect(errors).toHaveLength(0);
-            const vals = tokens
-                .filter((t) => t.type === TokenType.VALUE)
-                .map((t) => t.literal);
+            const vals = tokens.filter((t) => t.type === TokenType.VALUE).map((t) => t.literal);
             expect(vals).toEqual(["1", "2", "3"]);
         });
 
@@ -191,9 +179,7 @@ describe("Lexer", () => {
         it("\\[ does not produce ANNOTATION_OPEN — the characters appear as text", () => {
             const { tokens, errors } = tokenize("\\[\\[");
             expect(errors).toHaveLength(0);
-            expect(tokens.some((t) => t.type === TokenType.ANNOTATION_OPEN)).toBe(
-                false,
-            );
+            expect(tokens.some((t) => t.type === TokenType.ANNOTATION_OPEN)).toBe(false);
             const combined = tokens
                 .filter((t) => t.type === TokenType.TEXT)
                 .map((t) => t.literal)
@@ -270,9 +256,7 @@ describe("Lexer", () => {
         it("a lone '[' produces no ANNOTATION_OPEN and appears as text content", () => {
             const { tokens, errors } = tokenize("a[b");
             expect(errors).toHaveLength(0);
-            expect(tokens.some((t) => t.type === TokenType.ANNOTATION_OPEN)).toBe(
-                false,
-            );
+            expect(tokens.some((t) => t.type === TokenType.ANNOTATION_OPEN)).toBe(false);
             const text = tokens
                 .filter((t) => t.type === TokenType.TEXT)
                 .map((t) => t.literal)
@@ -302,9 +286,7 @@ describe("Lexer", () => {
         it("\\r in normal mode is silently dropped (Windows-style \\r\\n becomes one NEWLINE)", () => {
             const { tokens, errors } = tokenize("\r\n");
             expect(errors).toHaveLength(0);
-            const types = tokens
-                .filter((t) => t.type !== TokenType.EOF)
-                .map((t) => t.type);
+            const types = tokens.filter((t) => t.type !== TokenType.EOF).map((t) => t.type);
             expect(types).toEqual([TokenType.NEWLINE]);
         });
     });
@@ -315,9 +297,7 @@ describe("Lexer", () => {
             // The ';' that follows exercises the case ";" branch in handleAnnotationKeyMode.
             const { tokens, errors } = tokenize("[[-color; +size: 16]]");
             expect(errors).toHaveLength(0);
-            const ids = tokens
-                .filter((t) => t.type === TokenType.IDENTIFIER)
-                .map((t) => t.literal);
+            const ids = tokens.filter((t) => t.type === TokenType.IDENTIFIER).map((t) => t.literal);
             expect(ids).toContain("-color");
             expect(ids).toContain("+size");
             const semis = tokens.filter((t) => t.type === TokenType.SEMICOLON);
@@ -342,11 +322,9 @@ describe("Lexer", () => {
     describe("quoted value edge cases", () => {
         it("a newline inside a quoted value emits a LEXER error", () => {
             const { errors } = tokenize('[[font: "Arial\n"]]');
-            expect(
-                errors.some(
-                    (e) => e.type === "LEXER" && e.message.includes("Line break"),
-                ),
-            ).toBe(true);
+            expect(errors.some((e) => e.type === "LEXER" && e.message.includes("Line break"))).toBe(
+                true,
+            );
         });
 
         it("a backslash escape inside a quoted value preserves the escaped character", () => {

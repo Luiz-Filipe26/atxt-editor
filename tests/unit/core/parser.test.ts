@@ -2,22 +2,18 @@ import { describe, it, expect } from "vitest";
 import { Lexer } from "@/core/lexer";
 import { Parser } from "@/core/parser";
 import { NodeType } from "@/types/ast";
-import type {
-    AnnotationNode,
-    BlockNode,
-    TextNode,
-} from "@/types/ast";
+import * as AST from "@/types/ast";
 
 function parse(source: string) {
-    const { tokens } = new Lexer(source).tokenize();
-    return new Parser(tokens).parse();
+    const { tokens } = new Lexer().tokenize(source);
+    return new Parser().parse(tokens);
 }
 
-function annotation(source: string): AnnotationNode {
+function annotation(source: string): AST.AnnotationNode {
     const { document } = parse(source);
     const node = document.children.find((c) => c.type === NodeType.ANNOTATION);
     if (!node) throw new Error("No annotation node found");
-    return node as AnnotationNode;
+    return node as AST.AnnotationNode;
 }
 
 describe("Parser", () => {
@@ -62,13 +58,17 @@ describe("Parser", () => {
             expect(node.properties[0].key).toBe("color");
             expect(node.properties[0].value).toBe("red");
             expect(node.target).not.toBeNull();
-            expect(node.target?.type).toBe(NodeType.TEXT);
+            expect(node.target?.type).toBe(NodeType.BLOCK);
+            const block = node.target as AST.BlockNode;
+            expect(block.children.some((c) => c.type === NodeType.TEXT)).toBe(true);
         });
 
         it("parses a NORMAL annotation with a next-line text target", () => {
             const node = annotation("[[color: red]]\nHello");
             expect(node.directive).toBe("NORMAL");
-            expect(node.target?.type).toBe(NodeType.TEXT);
+            expect(node.target?.type).toBe(NodeType.BLOCK);
+            const block = node.target as AST.BlockNode;
+            expect(block.children.some((c) => c.type === NodeType.TEXT)).toBe(true);
         });
 
         it("parses a NORMAL annotation with a block target", () => {
@@ -115,6 +115,19 @@ describe("Parser", () => {
             const node = annotation("[[; color: red]] Text");
             expect(node.properties[0].key).toBe("color");
         });
+
+        it("a BLOCK_OPEN mid-line after text interrupts the target line", () => {
+            const { document, errors } = parse("[[color: red]] Hello {\nContent\n}");
+            expect(errors).toHaveLength(0);
+            const node = document.children.find(
+                (c) => c.type === NodeType.ANNOTATION,
+            ) as AST.AnnotationNode;
+            const block = node.target as AST.BlockNode;
+
+            // target captures only "Hello " — it stops at the {
+            expect(block.children.some((c) => c.type === NodeType.TEXT)).toBe(true);
+            expect(block.children.some((c) => c.type === NodeType.BLOCK)).toBe(false);
+        });
     });
 
     describe("toggle annotations", () => {
@@ -159,20 +172,14 @@ describe("Parser", () => {
         it("SET directive leaves following lines as siblings in the document", () => {
             const { document } = parse("[[SET align: center]]\nHello\nWorld");
             // SET annotation + TextNodes for \n, Hello, World
-            expect(
-                document.children.some((c) => c.type === NodeType.ANNOTATION),
-            ).toBe(true);
-            expect(document.children.some((c) => c.type === NodeType.TEXT)).toBe(
-                true,
-            );
+            expect(document.children.some((c) => c.type === NodeType.ANNOTATION)).toBe(true);
+            expect(document.children.some((c) => c.type === NodeType.TEXT)).toBe(true);
         });
     });
 
     describe("DEFINE directive", () => {
         it("parses DEFINE directive with class and properties", () => {
-            const node = annotation(
-                "[[DEFINE class: heading; size: 20; weight: bold]]",
-            );
+            const node = annotation("[[DEFINE class: heading; size: 20; weight: bold]]");
             expect(node.directive).toBe("DEFINE");
             expect(node.target).toBeNull();
             const keys = node.properties.map((p) => p.key);
@@ -182,9 +189,7 @@ describe("Parser", () => {
         });
 
         it("DEFINE with compose property includes compose in the property list", () => {
-            const node = annotation(
-                "[[DEFINE class: child; compose: parent; size: 18]]",
-            );
+            const node = annotation("[[DEFINE class: child; compose: parent; size: 18]]");
             const keys = node.properties.map((p) => p.key);
             expect(keys).toContain("compose");
         });
@@ -194,9 +199,7 @@ describe("Parser", () => {
         it("HIDE with inline target produces no node — returns null", () => {
             const { document, errors } = parse("[[HIDE]] Hidden text");
             expect(errors).toHaveLength(0);
-            expect(
-                document.children.filter((c) => c.type === NodeType.ANNOTATION),
-            ).toHaveLength(0);
+            expect(document.children.filter((c) => c.type === NodeType.ANNOTATION)).toHaveLength(0);
         });
 
         it("HIDE with next-line text target discards that line entirely", () => {
@@ -204,7 +207,7 @@ describe("Parser", () => {
             // "Hidden" must not appear in any text node
             const allText = document.children
                 .filter((c) => c.type === NodeType.TEXT)
-                .map((c) => (c as TextNode).content)
+                .map((c) => (c as AST.TextNode).content)
                 .join("");
             expect(allText).not.toContain("Hidden");
             expect(allText).toContain("Visible");
@@ -213,16 +216,17 @@ describe("Parser", () => {
         it("HIDE with block target discards the entire block", () => {
             const { document, errors } = parse("[[HIDE]]\n{\nHidden block\n}");
             expect(errors).toHaveLength(0);
-            expect(
-                document.children.filter((c) => c.type !== NodeType.TEXT),
-            ).toHaveLength(0);
+            expect(document.children.filter((c) => c.type !== NodeType.TEXT)).toHaveLength(0);
         });
 
         it("HIDE with optional properties still discards the target", () => {
             const { document } = parse("[[HIDE class: draft]] Hidden text");
-            expect(
-                document.children.filter((c) => c.type === NodeType.ANNOTATION),
-            ).toHaveLength(0);
+            expect(document.children.filter((c) => c.type === NodeType.ANNOTATION)).toHaveLength(0);
+        });
+
+        it("a HIDE inside a target line discards its text and produces a null target", () => {
+            const node = annotation("[[color: red]] [[HIDE]] hidden");
+            expect(node.target).toBeNull();
         });
     });
 
@@ -236,41 +240,29 @@ describe("Parser", () => {
         it("parses a block with text content", () => {
             const { document, errors } = parse("{\nHello\n}");
             expect(errors).toHaveLength(0);
-            const block = document.children.find(
-                (c) => c.type === NodeType.BLOCK,
-            ) as BlockNode;
+            const block = document.children.find((c) => c.type === NodeType.BLOCK) as AST.BlockNode;
             expect(block.children.some((c) => c.type === NodeType.TEXT)).toBe(true);
         });
 
         it("parses nested blocks", () => {
             const { document, errors } = parse("{\n{\nNested\n}\n}");
             expect(errors).toHaveLength(0);
-            const outer = document.children.find(
-                (c) => c.type === NodeType.BLOCK,
-            ) as BlockNode;
+            const outer = document.children.find((c) => c.type === NodeType.BLOCK) as AST.BlockNode;
             expect(outer.children.some((c) => c.type === NodeType.BLOCK)).toBe(true);
         });
 
         it("parses an annotation inside a block", () => {
             const { document, errors } = parse("{\n[[color: red]] Hello\n}");
             expect(errors).toHaveLength(0);
-            const block = document.children.find(
-                (c) => c.type === NodeType.BLOCK,
-            ) as BlockNode;
-            expect(block.children.some((c) => c.type === NodeType.ANNOTATION)).toBe(
-                true,
-            );
+            const block = document.children.find((c) => c.type === NodeType.BLOCK) as AST.BlockNode;
+            expect(block.children.some((c) => c.type === NodeType.ANNOTATION)).toBe(true);
         });
 
         it("a HIDE inside a block produces no ANNOTATION child node", () => {
             const { document, errors } = parse("{\n[[HIDE]] Hidden\n}");
             expect(errors).toHaveLength(0);
-            const block = document.children.find(
-                (c) => c.type === NodeType.BLOCK,
-            ) as BlockNode;
-            expect(block.children.some((c) => c.type === NodeType.ANNOTATION)).toBe(
-                false,
-            );
+            const block = document.children.find((c) => c.type === NodeType.BLOCK) as AST.BlockNode;
+            expect(block.children.some((c) => c.type === NodeType.ANNOTATION)).toBe(false);
         });
     });
 
@@ -282,9 +274,7 @@ describe("Parser", () => {
 
         it("partial output is still produced despite a parser error", () => {
             const { document } = parse("Hello\n{");
-            expect(document.children.some((c) => c.type === NodeType.TEXT)).toBe(
-                true,
-            );
+            expect(document.children.some((c) => c.type === NodeType.TEXT)).toBe(true);
         });
 
         it("emits a PARSER error for an annotation missing a closing ]]", () => {
@@ -331,7 +321,7 @@ describe("Parser", () => {
             expect(errors).toHaveLength(0);
             const allText = document.children
                 .filter((c) => c.type === NodeType.TEXT)
-                .map((c) => (c as TextNode).content)
+                .map((c) => (c as AST.TextNode).content)
                 .join("");
             expect(allText).toContain("a");
             expect(allText).toContain("[");

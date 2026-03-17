@@ -1,7 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { PropertyResolver } from "@/core/propertyResolver";
-import { NodeType } from "@/types/ast";
-import type { PropertyNode, AnnotationNode } from "@/types/ast";
+import * as AST from "@/types/ast";
 
 function makeResolver() {
     const errors: string[] = [];
@@ -9,26 +8,29 @@ function makeResolver() {
     return { resolver, errors };
 }
 
-function prop(
-    key: string,
-    value: string,
-    toggle?: "plus" | "minus",
-): PropertyNode {
-    return { type: NodeType.PROPERTY, key, value, toggle, line: 1, column: 1 };
+function prop(key: string, value: string, toggle?: "plus" | "minus"): AST.PropertyNode {
+    return {
+        type: AST.NodeType.PROPERTY,
+        key,
+        value,
+        toggle,
+        line: 1,
+        column: 1,
+    };
 }
 
 function defineAnnotation(
     className: string,
     extraProps: Record<string, string> = {},
     compose?: string,
-): AnnotationNode {
-    const properties: PropertyNode[] = [
+): AST.AnnotationNode {
+    const properties: AST.PropertyNode[] = [
         prop("class", className),
         ...(compose ? [prop("compose", compose)] : []),
         ...Object.entries(extraProps).map(([k, v]) => prop(k, v)),
     ];
     return {
-        type: NodeType.ANNOTATION,
+        type: AST.NodeType.ANNOTATION,
         directive: "DEFINE",
         properties,
         target: null,
@@ -73,10 +75,7 @@ describe("PropertyResolver", () => {
 
         it("resolves a mix of block and inline properties into a flat record", () => {
             const { resolver } = makeResolver();
-            const result = resolver.resolveProperties([
-                prop("fill", "#ccc"),
-                prop("color", "red"),
-            ]);
+            const result = resolver.resolveProperties([prop("fill", "#ccc"), prop("color", "red")]);
             expect(result).toEqual({ fill: "#ccc", color: "red" });
         });
     });
@@ -113,9 +112,7 @@ describe("PropertyResolver", () => {
     describe("resolveProperties — toggle handling", () => {
         it("includes plus-toggle properties in the resolved result", () => {
             const { resolver } = makeResolver();
-            const result = resolver.resolveProperties([
-                prop("color", "blue", "plus"),
-            ]);
+            const result = resolver.resolveProperties([prop("color", "blue", "plus")]);
             expect(result).toEqual({ color: "blue" });
         });
 
@@ -130,18 +127,14 @@ describe("PropertyResolver", () => {
     describe("defineClass and class application", () => {
         it("a defined class is resolved when applied by name", () => {
             const { resolver } = makeResolver();
-            resolver.defineClass(
-                defineAnnotation("bold-red", { color: "red", weight: "bold" }),
-            );
+            resolver.defineClass(defineAnnotation("bold-red", { color: "red", weight: "bold" }));
             const result = resolver.resolveProperties([prop("class", "bold-red")]);
             expect(result).toEqual({ color: "red", weight: "bold" });
         });
 
         it("inline properties override class properties for conflicting keys", () => {
             const { resolver } = makeResolver();
-            resolver.defineClass(
-                defineAnnotation("fancy", { color: "red", size: "20" }),
-            );
+            resolver.defineClass(defineAnnotation("fancy", { color: "red", size: "20" }));
             const result = resolver.resolveProperties([
                 prop("class", "fancy"),
                 prop("color", "blue"),
@@ -153,10 +146,7 @@ describe("PropertyResolver", () => {
         it("class properties do not override inline properties when class is declared first", () => {
             const { resolver } = makeResolver();
             resolver.defineClass(defineAnnotation("base", { size: "14" }));
-            const result = resolver.resolveProperties([
-                prop("size", "20"),
-                prop("class", "base"),
-            ]);
+            const result = resolver.resolveProperties([prop("size", "20"), prop("class", "base")]);
             // applyClassProperties runs first, then applyInlineProperties overwrites
             expect(result.size).toBe("20");
         });
@@ -171,7 +161,7 @@ describe("PropertyResolver", () => {
         it("emits an error when DEFINE is missing the class property", () => {
             const { resolver, errors } = makeResolver();
             resolver.defineClass({
-                type: NodeType.ANNOTATION,
+                type: AST.NodeType.ANNOTATION,
                 directive: "DEFINE",
                 properties: [prop("color", "red")],
                 target: null,
@@ -195,9 +185,7 @@ describe("PropertyResolver", () => {
     describe("compose inheritance", () => {
         it("child class inherits all properties from parent via compose", () => {
             const { resolver } = makeResolver();
-            resolver.defineClass(
-                defineAnnotation("base", { color: "red", size: "14" }),
-            );
+            resolver.defineClass(defineAnnotation("base", { color: "red", size: "14" }));
             resolver.defineClass(defineAnnotation("child", { size: "18" }, "base"));
 
             const result = resolver.resolveProperties([prop("class", "child")]);
@@ -208,9 +196,7 @@ describe("PropertyResolver", () => {
         it("child properties override composed properties", () => {
             const { resolver } = makeResolver();
             resolver.defineClass(defineAnnotation("base", { color: "red" }));
-            resolver.defineClass(
-                defineAnnotation("child", { color: "blue" }, "base"),
-            );
+            resolver.defineClass(defineAnnotation("child", { color: "blue" }, "base"));
 
             const result = resolver.resolveProperties([prop("class", "child")]);
             expect(result.color).toBe("blue");

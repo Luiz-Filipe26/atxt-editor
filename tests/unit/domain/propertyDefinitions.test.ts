@@ -34,17 +34,12 @@ describe("getPropertyDefinition", () => {
             expect(getPropertyDefinition(key)?.scope).toBe("block");
         });
 
-        it.each([
-            "color",
-            "font",
-            "size",
-            "weight",
-            "style",
-            "line-height",
-            "decoration",
-        ])("%s is inline-scoped", (key) => {
-            expect(getPropertyDefinition(key)?.scope).toBe("inline");
-        });
+        it.each(["color", "font", "size", "weight", "style", "line-height", "decoration"])(
+            "%s is inline-scoped",
+            (key) => {
+                expect(getPropertyDefinition(key)?.scope).toBe("inline");
+            },
+        );
     });
 
     describe("hidden", () => {
@@ -55,9 +50,8 @@ describe("getPropertyDefinition", () => {
             (val) => expect(validate(val)).toBe(true),
         );
 
-        it.each(["1", "0", "yes", "no", "", " ", "truee"])(
-            'rejects non-boolean "%s"',
-            (val) => expect(validate(val)).toBe(false),
+        it.each(["1", "0", "yes", "no", "", " ", "truee"])('rejects non-boolean "%s"', (val) =>
+            expect(validate(val)).toBe(false),
         );
     });
 
@@ -68,9 +62,8 @@ describe("getPropertyDefinition", () => {
             expect(validate(val)).toBe(true),
         );
 
-        it.each(["start", "end", "LEFT", "CENTER", "middle", ""])(
-            'rejects "%s"',
-            (val) => expect(validate(val)).toBe(false),
+        it.each(["start", "end", "LEFT", "CENTER", "middle", ""])('rejects "%s"', (val) =>
+            expect(validate(val)).toBe(false),
         );
     });
 
@@ -109,17 +102,14 @@ describe("getPropertyDefinition", () => {
             expect(validate("0 0 0 0")).toBe(true);
         });
 
-        it.each(["padding", "margin"])(
-            "%s rejects values with units or non-numbers",
-            (key) => {
-                const { validate } = getPropertyDefinition(key)!;
-                expect(validate("10px")).toBe(false);
-                expect(validate("10 auto")).toBe(false);
-                expect(validate("1.5")).toBe(false);
-                expect(validate("10 20px")).toBe(false);
-                expect(validate("")).toBe(false);
-            },
-        );
+        it.each(["padding", "margin"])("%s rejects values with units or non-numbers", (key) => {
+            const { validate } = getPropertyDefinition(key)!;
+            expect(validate("10px")).toBe(false);
+            expect(validate("10 auto")).toBe(false);
+            expect(validate("1.5")).toBe(false);
+            expect(validate("10 20px")).toBe(false);
+            expect(validate("")).toBe(false);
+        });
     });
 
     describe("fill and border — non-empty string", () => {
@@ -130,43 +120,33 @@ describe("getPropertyDefinition", () => {
             expect(validate("rgba(0,0,0,0.5)")).toBe(true);
         });
 
-        it.each(["fill", "border"])(
-            "%s rejects empty and whitespace-only strings",
-            (key) => {
-                const { validate } = getPropertyDefinition(key)!;
-                expect(validate("")).toBe(false);
-                expect(validate("   ")).toBe(false);
-            },
-        );
+        it.each(["fill", "border"])("%s rejects empty and whitespace-only strings", (key) => {
+            const { validate } = getPropertyDefinition(key)!;
+            expect(validate("")).toBe(false);
+            expect(validate("   ")).toBe(false);
+        });
     });
 
     describe("color, font, line-height — non-empty string", () => {
-        it.each(["color", "font", "line-height"])(
-            "%s accepts any non-empty string",
-            (key) => {
-                const { validate } = getPropertyDefinition(key)!;
-                expect(validate("red")).toBe(true);
-                expect(validate("Georgia, serif")).toBe(true);
-                expect(validate("1.5")).toBe(true);
-                expect(validate("20px")).toBe(true);
-            },
-        );
+        it.each(["color", "font", "line-height"])("%s accepts any non-empty string", (key) => {
+            const { validate } = getPropertyDefinition(key)!;
+            expect(validate("red")).toBe(true);
+            expect(validate("Georgia, serif")).toBe(true);
+            expect(validate("1.5")).toBe(true);
+            expect(validate("20px")).toBe(true);
+        });
 
-        it.each(["color", "font", "line-height"])(
-            "%s rejects empty string",
-            (key) => {
-                const { validate } = getPropertyDefinition(key)!;
-                expect(validate("")).toBe(false);
-            },
-        );
+        it.each(["color", "font", "line-height"])("%s rejects empty string", (key) => {
+            const { validate } = getPropertyDefinition(key)!;
+            expect(validate("")).toBe(false);
+        });
     });
 
     describe("weight", () => {
         const { validate } = getPropertyDefinition("weight")!;
 
-        it.each(["normal", "bold", "bolder", "lighter"])(
-            'accepts keyword "%s"',
-            (val) => expect(validate(val)).toBe(true),
+        it.each(["normal", "bold", "bolder", "lighter"])('accepts keyword "%s"', (val) =>
+            expect(validate(val)).toBe(true),
         );
 
         it.each([
@@ -201,14 +181,12 @@ describe("getPropertyDefinition", () => {
     describe("decoration", () => {
         const { validate } = getPropertyDefinition("decoration")!;
 
-        it.each(["none", "underline", "line-through", "overline"])(
-            'accepts "%s"',
-            (val) => expect(validate(val)).toBe(true),
+        it.each(["none", "underline", "line-through", "overline"])('accepts "%s"', (val) =>
+            expect(validate(val)).toBe(true),
         );
 
-        it.each(["blink", "bold", "UNDERLINE", "strike", ""])(
-            'rejects "%s"',
-            (val) => expect(validate(val)).toBe(false),
+        it.each(["blink", "bold", "UNDERLINE", "strike", ""])('rejects "%s"', (val) =>
+            expect(validate(val)).toBe(false),
         );
     });
 });

@@ -61,9 +61,7 @@ describe("dedent", () => {
                     ${value}
                 suffix
             `;
-            expect(result).toBe(
-                "prefix:\n    line A\n    line B\n    line C\nsuffix",
-            );
+            expect(result).toBe("prefix:\n    line A\n    line B\n    line C\nsuffix");
         });
 
         it("applies correct indentation when insertion point is at base level", () => {

@@ -38,12 +38,9 @@ describe("getCssMapping", () => {
             ["style", "font-style"],
             ["line-height", "line-height"],
             ["decoration", "text-decoration"],
-        ] as [string, string][])(
-            "%s maps to %s with unit: null",
-            (key, cssProperty) => {
-                expect(getCssMapping(key)).toEqual({ cssProperty, unit: null });
-            },
-        );
+        ] as [string, string][])("%s maps to %s with unit: null", (key, cssProperty) => {
+            expect(getCssMapping(key)).toEqual({ cssProperty, unit: null });
+        });
     });
 
     describe("px-fallback properties — bare integers receive 'px' suffix", () => {
@@ -52,15 +49,12 @@ describe("getCssMapping", () => {
             ["width", "width"],
             ["height", "height"],
             ["size", "font-size"],
-        ] as [string, string][])(
-            "%s maps to %s with unit: px-fallback",
-            (key, cssProperty) => {
-                expect(getCssMapping(key)).toEqual({
-                    cssProperty,
-                    unit: "px-fallback",
-                });
-            },
-        );
+        ] as [string, string][])("%s maps to %s with unit: px-fallback", (key, cssProperty) => {
+            expect(getCssMapping(key)).toEqual({
+                cssProperty,
+                unit: "px-fallback",
+            });
+        });
     });
 
     describe("multi-px-fallback properties — each space-separated token may receive 'px'", () => {

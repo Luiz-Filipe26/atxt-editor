@@ -1,13 +1,13 @@
 import { describe, it, expect } from "vitest";
 import { Generator } from "@/core/generator";
-import type { IRBlock, IRText } from "@/types/ir";
+import * as IR from "@/types/ir";
 
 function makeBlock(
     props: Record<string, string> = {},
-    children: (IRBlock | IRText)[] = [],
+    children: (IR.Block | IR.Text)[] = [],
     line?: number,
     column?: number,
-): IRBlock {
+): IR.Block {
     return { type: "BLOCK", props, children, line, column };
 }
 
@@ -16,11 +16,11 @@ function makeText(
     props: Record<string, string> = {},
     line?: number,
     column?: number,
-): IRText {
+): IR.Text {
     return { type: "TEXT", props, content, line, column };
 }
 
-function generate(root: IRBlock): string {
+function generate(root: IR.Block): string {
     return new Generator().generate(root);
 }
 
@@ -63,30 +63,22 @@ describe("Generator", () => {
         });
 
         it("a hidden block is not rendered", () => {
-            const root = makeBlock({}, [
-                makeBlock({ hidden: "true" }, [makeText("Secret")]),
-            ]);
+            const root = makeBlock({}, [makeBlock({ hidden: "true" }, [makeText("Secret")])]);
             expect(generate(root)).not.toContain("Secret");
         });
 
         it("hidden: false renders the block normally", () => {
-            const root = makeBlock({}, [
-                makeBlock({ hidden: "false" }, [makeText("Visible")]),
-            ]);
+            const root = makeBlock({}, [makeBlock({ hidden: "false" }, [makeText("Visible")])]);
             expect(generate(root)).toContain("Visible");
         });
 
         it("hidden check is case-insensitive — TRUE is also hidden", () => {
-            const root = makeBlock({}, [
-                makeBlock({ hidden: "TRUE" }, [makeText("Secret")]),
-            ]);
+            const root = makeBlock({}, [makeBlock({ hidden: "TRUE" }, [makeText("Secret")])]);
             expect(generate(root)).not.toContain("Secret");
         });
 
         it("nested blocks render correctly", () => {
-            const root = makeBlock({}, [
-                makeBlock({}, [makeBlock({}, [makeText("Deep")])]),
-            ]);
+            const root = makeBlock({}, [makeBlock({}, [makeBlock({}, [makeText("Deep")])])]);
             expect(generate(root)).toContain("Deep");
         });
     });
@@ -197,9 +189,7 @@ describe("Generator", () => {
         });
 
         it("a font-family value with spaces passes through unchanged", () => {
-            const root = makeBlock({}, [
-                makeText("Hello", { font: "Georgia, serif" }),
-            ]);
+            const root = makeBlock({}, [makeText("Hello", { font: "Georgia, serif" })]);
             expect(generate(root)).toContain("font-family: Georgia, serif");
         });
     });
