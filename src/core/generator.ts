@@ -1,5 +1,4 @@
-import type { IRBlock, IRNode, IRText } from "../types/ir";
-import type { ResolvedProps } from "../types/ir";
+import * as IR from "../types/ir";
 import { getCssMapping, type CssUnit } from "../domain/cssPropertyMapping";
 import { dedent } from "../utils/stringUtils";
 
@@ -8,7 +7,7 @@ export class Generator {
     private cssRules: string[] = [];
     private classCounter = 0;
 
-    public generate(root: IRBlock): string {
+    generate(root: IR.Block): string {
         this.classCache.clear();
         this.cssRules = [];
         this.classCounter = 0;
@@ -34,51 +33,42 @@ export class Generator {
         `;
     }
 
-    private renderNode(node: IRNode): string {
-        if (
-            node.type === "BLOCK" &&
-            node.props["hidden"]?.toLowerCase() === "true"
-        ) {
+    private renderNode(node: IR.Node): string {
+        if (node.type === "BLOCK" && node.props["hidden"]?.toLowerCase() === "true") {
             return "";
         }
 
-        let className = "";
-        const propKeys = Object.keys(node.props);
-
-        if (propKeys.length > 0) {
-            className = this.resolveClass(node.props);
-        }
-
+        const className = Object.keys(node.props).length > 0 ? this.resolveClass(node.props) : "";
         const classAttribute = className ? ` class="${className}"` : "";
-
-        let dataAttributes = "";
-        if (node.line !== undefined && node.column !== undefined) {
-            dataAttributes = ` data-line="${node.line}" data-column="${node.column}"`;
-        }
+        const dataAttributes =
+            node.line !== undefined && node.column !== undefined
+                ? ` data-line="${node.line}" data-column="${node.column}"`
+                : "";
 
         switch (node.type) {
-            case "BLOCK": {
-                const block = node as IRBlock;
-                const childrenHtml = block.children
-                    .map((child: IRNode) => this.renderNode(child))
-                    .join("");
-                return `<div${classAttribute}${dataAttributes}>${childrenHtml}</div>`;
-            }
-            case "TEXT": {
-                const textNode = node as IRText;
-                return `<span${classAttribute}${dataAttributes}>${textNode.content}</span>`;
-            }
+            case "BLOCK":
+                return this.renderBlockNode(node, classAttribute, dataAttributes);
+            case "TEXT":
+                return `<span${classAttribute}${dataAttributes}>${node.content}</span>`;
         }
     }
 
-    private resolveClass(props: ResolvedProps): string {
+    private renderBlockNode(
+        node: IR.Block,
+        classAttribute: string,
+        dataAttributes: string,
+    ): string {
+        const childrenHtml = node.children.map((child) => this.renderNode(child)).join("");
+        return `<div${classAttribute}${dataAttributes}>${childrenHtml}</div>`;
+    }
+
+    private resolveClass(props: IR.ResolvedProps): string {
         const signature = JSON.stringify(
-            Object.keys(props)
-                .sort()
-                .reduce((obj: ResolvedProps, key) => {
-                    obj[key] = props[key];
-                    return obj;
-                }, {}),
+            Object.fromEntries(
+                Object.keys(props)
+                    .sort()
+                    .map((k) => [k, props[k]]),
+            ),
         );
 
         if (this.classCache.has(signature)) {
@@ -87,20 +77,18 @@ export class Generator {
 
         const newClassName = `atxt-editor-${this.classCounter.toString(36)}`;
         this.classCounter++;
-
         this.classCache.set(signature, newClassName);
         this.cssRules.push(this.buildCssRule(newClassName, props));
 
         return newClassName;
     }
 
-    private buildCssRule(className: string, props: ResolvedProps): string {
+    private buildCssRule(className: string, props: IR.ResolvedProps): string {
         let cssBody = "";
 
         for (const [key, value] of Object.entries(props)) {
             const mapping = getCssMapping(key);
             if (!mapping) continue;
-
             const formattedValue = this.formatCssValue(value, mapping.unit);
             cssBody += `  ${mapping.cssProperty}: ${formattedValue};\n`;
         }
