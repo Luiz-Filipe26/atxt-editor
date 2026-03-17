@@ -1,4 +1,4 @@
-import { TokenType, type Token } from "./lexer";
+import { TokenType, type Token } from "../types/tokens";
 
 export class TokenStream {
     private readonly tokens: Token[];
