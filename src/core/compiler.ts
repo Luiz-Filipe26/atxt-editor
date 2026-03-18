@@ -9,15 +9,15 @@ const parser = new Parser();
 const hydrator = new Hydrator();
 
 export function compileToIR(source: string): {
-    ir: IR.Block;
+    ir: IR.IRDocument;
     errors: CompilerError[];
 } {
     const { tokens, errors: lexerErrors } = lexer.tokenize(source);
     const { document: ast, errors: parserErrors } = parser.parse(tokens);
-    const { document: ir, errors: hydratorErrors } = hydrator.hydrate(ast);
+    const { document: irDocument, errors: hydratorErrors } = hydrator.hydrate(ast);
 
     return {
-        ir,
+        ir: irDocument,
         errors: [...lexerErrors, ...parserErrors, ...hydratorErrors],
     };
 }

@@ -8,7 +8,7 @@ function makeBlock(
     line?: number,
     column?: number,
 ): IR.Block {
-    return { type: "BLOCK", props, children, line, column };
+    return { type: "BLOCK", props, classes: [], inlineProps: {}, children, line, column };
 }
 
 function makeText(
@@ -17,7 +17,7 @@ function makeText(
     line?: number,
     column?: number,
 ): IR.Text {
-    return { type: "TEXT", props, content, line, column };
+    return { type: "TEXT", props, classes: [], inlineProps: {}, content, line, column };
 }
 
 function generate(root: IR.Block): string {

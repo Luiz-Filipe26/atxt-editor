@@ -1,4 +1,4 @@
-import { PropertyResolver } from "./propertyResolver";
+import { PropertyResolver, type ResolvedResult } from "./propertyResolver";
 import * as AST from "../types/ast";
 import * as IR from "../types/ir";
 import type { CompilerError } from "../types/errors";
@@ -12,7 +12,7 @@ export class Hydrator {
     }
 
     public hydrate(document: AST.DocumentNode): {
-        document: IR.Block;
+        document: IR.IRDocument;
         errors: CompilerError[];
     } {
         this.compilerErrors = [];
@@ -21,12 +21,20 @@ export class Hydrator {
         const rootBlock: IR.Block = {
             type: "BLOCK",
             props: {},
+            classes: [],
+            inlineProps: {},
             line: document.line,
             column: document.column,
             children: this.transformNodeList(document.children),
         };
 
-        return { document: rootBlock, errors: this.compilerErrors };
+        return {
+            document: {
+                root: rootBlock,
+                classDefinitions: this.propertyResolver.getClassDefinitions(),
+            },
+            errors: this.compilerErrors,
+        };
     }
 
     private transformNodeList(
@@ -39,7 +47,7 @@ export class Hydrator {
         for (let i = 0; i < nodes.length; i++) {
             const node = nodes[i];
             if (node.type !== AST.NodeType.ANNOTATION) {
-                output.push(this.transformSingleNode(node, backpack));
+                output.push(this.transformBareNode(node, backpack));
                 continue;
             }
 
@@ -69,19 +77,17 @@ export class Hydrator {
     ): IR.Block {
         /* v8 ignore start -- @preserve */
         if (annotation.target !== null) {
-            this.pushError(
-                "Invariant violation: SET directive received a target.",
-                annotation.line,
-                annotation.column,
-            );
+            this.pushErrorAt("Invariant violation: SET directive received a target.", annotation);
         }
         /* v8 ignore stop -- @preserve */
-        const resolved = this.propertyResolver.resolveProperties(annotation.properties);
-        const { blockProps } = this.propertyResolver.routePropertiesByScope(resolved);
+        const annotationResult = this.propertyResolver.resolveProperties(annotation.properties);
+        const { blockProps } = this.propertyResolver.routePropertiesByScope(annotationResult.props);
         const remainingSiblings = allNodes.slice(currentIndex + 1);
         return {
             type: "BLOCK",
             props: blockProps,
+            classes: annotationResult.classes,
+            inlineProps: annotationResult.directProps,
             line: annotation.line,
             column: annotation.column,
             children: this.transformNodeList(remainingSiblings, backpack),
@@ -92,29 +98,53 @@ export class Hydrator {
         annotation: AST.AnnotationNode,
         backpack: IR.ResolvedProps,
     ): IR.Node | null {
-        const targetProps = this.propertyResolver.resolveProperties(annotation.properties);
+        const annotationResult = this.propertyResolver.resolveProperties(annotation.properties);
 
         for (const prop of annotation.properties) {
             if (prop.key === "class") continue;
 
             if (prop.toggle === "minus") {
                 delete backpack[prop.key];
-            } else if (prop.toggle === "plus" && targetProps[prop.key]) {
-                backpack[prop.key] = targetProps[prop.key];
+            } else if (prop.toggle === "plus" && annotationResult.props[prop.key]) {
+                backpack[prop.key] = annotationResult.props[prop.key];
             }
         }
 
         if (annotation.target) {
-            return this.transformSingleNode(annotation.target, {
-                ...backpack,
-                ...targetProps,
-            });
+            return this.transformAnnotationTarget(
+                annotation.target,
+                { ...backpack, ...annotationResult.props },
+                annotationResult,
+            );
         }
         return null;
     }
 
-    private transformSingleNode(node: AST.TargetNode, activeProps: IR.ResolvedProps): IR.Node {
-        const { blockProps, inlineProps } =
+    private transformAnnotationTarget(
+        node: AST.TargetNode,
+        activeProps: IR.ResolvedProps,
+        annotationResult: ResolvedResult,
+    ): IR.Node {
+        const { blockProps } = this.propertyResolver.routePropertiesByScope(activeProps);
+
+        switch (node.type) {
+            case AST.NodeType.BLOCK: {
+                return this.transformBlockNode(
+                    node,
+                    blockProps,
+                    activeProps,
+                    annotationResult.classes,
+                    annotationResult.directProps,
+                );
+            }
+            /* v8 ignore next 2 -- @preserve */
+            default:
+                throw new Error(`Invariant violation: annotation target is not a BLOCK.`);
+        }
+    }
+
+    private transformBareNode(node: AST.TargetNode, activeProps: IR.ResolvedProps): IR.Node {
+        const { blockProps, inlineProps: scopedActiveInline } =
             this.propertyResolver.routePropertiesByScope(activeProps);
 
         switch (node.type) {
@@ -124,7 +154,9 @@ export class Hydrator {
             case AST.NodeType.TEXT: {
                 return {
                     type: "TEXT",
-                    props: inlineProps,
+                    props: scopedActiveInline,
+                    classes: [],
+                    inlineProps: {},
                     line: node.line,
                     column: node.column,
                     content: node.content,
@@ -132,10 +164,13 @@ export class Hydrator {
             }
         }
     }
+
     private transformBlockNode(
         node: AST.BlockNode,
         blockProps: IR.ResolvedProps,
         activeProps: IR.ResolvedProps,
+        classes: string[] = [],
+        directProps: IR.ResolvedProps = {},
     ): IR.Block {
         const propsForChildren = { ...activeProps };
         delete propsForChildren.indent;
@@ -148,6 +183,8 @@ export class Hydrator {
         return {
             type: "BLOCK",
             props: blockProps,
+            classes,
+            inlineProps: directProps,
             line: node.line,
             column: node.column,
             children,
@@ -180,6 +217,12 @@ export class Hydrator {
         }
         return result;
     }
+
+    /* v8 ignore start -- @preserve */
+    private pushErrorAt(message: string, node: AST.ASTNode) {
+        this.pushError(message, node.line, node.column);
+    }
+    /* v8 ignore stop -- @preserve */
 
     private pushError(message: string, line: number, column: number) {
         this.compilerErrors.push({

@@ -2,7 +2,6 @@ import { describe, it, expect } from "vitest";
 import * as IR from "@/types/ir";
 import { compileToIR } from "@/core/compiler";
 
-
 function texts(ir: IR.Block): IR.Text[] {
     const result: IR.Text[] = [];
     for (const child of ir.children) {
@@ -25,15 +24,44 @@ describe("Hydrator", () => {
         it("produces an IR.Block root with empty props for an empty document", () => {
             const { ir, errors } = compileToIR("");
             expect(errors).toHaveLength(0);
-            expect(ir.type).toBe("BLOCK");
-            expect(ir.props).toEqual({});
-            expect(ir.children).toHaveLength(0);
+            expect(ir.root.type).toBe("BLOCK");
+            expect(ir.root.props).toEqual({});
+            expect(ir.root.children).toHaveLength(0);
         });
 
         it("the root block has the source position of the document", () => {
             const { ir } = compileToIR("Hello");
-            expect(ir.line).toBe(1);
-            expect(ir.column).toBe(1);
+            expect(ir.root.line).toBe(1);
+            expect(ir.root.column).toBe(1);
+        });
+
+        it("the root block has empty classes and inlineProps", () => {
+            const { ir } = compileToIR("Hello");
+            expect(ir.root.classes).toEqual([]);
+            expect(ir.root.inlineProps).toEqual({});
+        });
+    });
+
+    describe("IRDocument structure", () => {
+        it("classDefinitions is empty when no classes are defined", () => {
+            const { ir } = compileToIR("Hello");
+            expect(ir.classDefinitions).toEqual({});
+        });
+
+        it("classDefinitions contains all defined classes after compilation", () => {
+            const { ir, errors } = compileToIR(
+                "[[DEFINE class: big; size: 24; weight: bold]]\nHello",
+            );
+            expect(errors).toHaveLength(0);
+            expect(ir.classDefinitions["big"]).toEqual({ size: "24", weight: "bold" });
+        });
+
+        it("classDefinitions contains multiple classes", () => {
+            const { ir } = compileToIR(
+                "[[DEFINE class: big; size: 24]]\n[[DEFINE class: red; color: red]]\nHello",
+            );
+            expect(ir.classDefinitions["big"]).toBeDefined();
+            expect(ir.classDefinitions["red"]).toBeDefined();
         });
     });
 
@@ -41,7 +69,7 @@ describe("Hydrator", () => {
         it("a plain text line produces an IR.Text with no props", () => {
             const { ir, errors } = compileToIR("Hello");
             expect(errors).toHaveLength(0);
-            const text = texts(ir)[0];
+            const text = texts(ir.root)[0];
             expect(text.type).toBe("TEXT");
             expect(text.content).toContain("Hello");
             expect(text.props).toEqual({});
@@ -49,9 +77,16 @@ describe("Hydrator", () => {
 
         it("preserves the source position on IR.Text nodes", () => {
             const { ir } = compileToIR("Hello");
-            const text = texts(ir)[0];
+            const text = texts(ir.root)[0];
             expect(text.line).toBe(1);
             expect(text.column).toBe(1);
+        });
+
+        it("a plain text node has empty classes and inlineProps", () => {
+            const { ir } = compileToIR("Hello");
+            const text = texts(ir.root)[0];
+            expect(text.classes).toEqual([]);
+            expect(text.inlineProps).toEqual({});
         });
     });
 
@@ -59,20 +94,20 @@ describe("Hydrator", () => {
         it("an empty block produces an IR.Block with no props and no children", () => {
             const { ir, errors } = compileToIR("{}");
             expect(errors).toHaveLength(0);
-            const block = blocks(ir)[0];
+            const block = blocks(ir.root)[0];
             expect(block.type).toBe("BLOCK");
             expect(block.props).toEqual({});
         });
 
         it("a block with text produces an IR.Block containing IR.Text children", () => {
             const { ir } = compileToIR("{\nHello\n}");
-            const block = blocks(ir)[0];
+            const block = blocks(ir.root)[0];
             expect(texts(block).some((t) => t.content.includes("Hello"))).toBe(true);
         });
 
         it("preserves source position on IR.Block nodes", () => {
             const { ir } = compileToIR("{\nHello\n}");
-            const block = blocks(ir)[0];
+            const block = blocks(ir.root)[0];
             expect(block.line).toBeDefined();
             expect(block.column).toBeDefined();
         });
@@ -82,21 +117,21 @@ describe("Hydrator", () => {
         it("applies an inline prop to the annotation target TEXT node", () => {
             const { ir, errors } = compileToIR("[[color: red]] Hello");
             expect(errors).toHaveLength(0);
-            const text = textWith(ir, "Hello");
+            const text = textWith(ir.root, "Hello");
             expect(text?.props.color).toBe("red");
         });
 
         it("applies multiple inline props in one annotation", () => {
             const { ir } = compileToIR("[[color: red; size: 16]] Hello");
-            const text = textWith(ir, "Hello");
+            const text = textWith(ir.root, "Hello");
             expect(text?.props.color).toBe("red");
             expect(text?.props.size).toBe("16");
         });
 
         it("inline props are only on the target node — not on subsequent text", () => {
             const { ir } = compileToIR("[[color: red]] Target\nOther");
-            expect(textWith(ir, "Target")?.props.color).toBe("red");
-            expect(textWith(ir, "Other")?.props.color).toBeUndefined();
+            expect(textWith(ir.root, "Target")?.props.color).toBe("red");
+            expect(textWith(ir.root, "Other")?.props.color).toBeUndefined();
         });
     });
 
@@ -104,21 +139,101 @@ describe("Hydrator", () => {
         it("applies block props to an IR.Block when the annotation targets a block", () => {
             const { ir, errors } = compileToIR("[[fill: #ccc]]\n{\nHello\n}");
             expect(errors).toHaveLength(0);
-            expect(blocks(ir)[0].props.fill).toBe("#ccc");
+            expect(blocks(ir.root)[0].props.fill).toBe("#ccc");
         });
 
         it("block-scope props applied to a TEXT target are discarded — scope enforcement", () => {
-            // fill is block-scope; on a TEXT target it gets routed to blockProps,
-            // but the TEXT node only receives inlineProps
             const { ir } = compileToIR("[[fill: #ccc]] Hello");
-            expect(textWith(ir, "Hello")?.props.fill).toBeUndefined();
+            expect(textWith(ir.root, "Hello")?.props.fill).toBeUndefined();
         });
 
         it("inline-scope props applied to a BLOCK target are discarded — scope enforcement", () => {
-            // color is inline-scope; on a BLOCK target it goes to inlineProps,
-            // but the BLOCK node only receives blockProps
             const { ir } = compileToIR("[[color: red]]\n{\nHello\n}");
-            expect(blocks(ir)[0].props.color).toBeUndefined();
+            expect(blocks(ir.root)[0].props.color).toBeUndefined();
+        });
+    });
+
+    describe("classes field on IR nodes", () => {
+        it("a node targeted by [[class: name]] has that class in its classes array", () => {
+            const { ir, errors } = compileToIR(
+                "[[DEFINE class: big; size: 24]]\n[[class: big]] Hello",
+            );
+            expect(errors).toHaveLength(0);
+            // The annotation directly targets the wrapping block, not the text child
+            const block = blocks(ir.root)[0];
+            expect(block.classes).toEqual(["big"]);
+        });
+
+        it("a text node with no annotation has an empty classes array", () => {
+            const { ir } = compileToIR("Hello");
+            const text = texts(ir.root)[0];
+            expect(text.classes).toEqual([]);
+        });
+
+        it("a block targeted by a class annotation carries that class", () => {
+            const { ir, errors } = compileToIR(
+                "[[DEFINE class: shaded; fill: #eee]]\n[[class: shaded]]\n{\nContent\n}",
+            );
+            expect(errors).toHaveLength(0);
+            expect(blocks(ir.root)[0].classes).toEqual(["shaded"]);
+        });
+
+        it("children of a targeted block have empty classes — classes belong to the direct target", () => {
+            const { ir } = compileToIR("[[DEFINE class: big; size: 24]]\n[[class: big]] Hello");
+            const block = blocks(ir.root)[0];
+            const text = textWith(block, "Hello");
+            expect(text?.classes).toEqual([]);
+        });
+    });
+
+    describe("inlineProps field on IR nodes", () => {
+        it("inlineProps on the target block contains the directly declared inline-scoped props", () => {
+            const { ir, errors } = compileToIR(
+                "[[DEFINE class: big; size: 24]]\n[[class: big; color: red]] Hello",
+            );
+            expect(errors).toHaveLength(0);
+            // The block is the direct target — it records what was written directly
+            const block = blocks(ir.root)[0];
+            expect(block.inlineProps.color).toBe("red");
+            expect(block.inlineProps.size).toBeUndefined();
+        });
+
+        it("children of a targeted block have empty inlineProps — inlineProps belongs to the direct target", () => {
+            const { ir } = compileToIR("[[color: red; size: 16]] Hello");
+            const block = blocks(ir.root)[0];
+            const text = textWith(block, "Hello");
+            expect(text?.inlineProps).toEqual({});
+        });
+
+        it("a plain text node with no annotation has empty inlineProps", () => {
+            const { ir } = compileToIR("Hello");
+            const text = texts(ir.root)[0];
+            expect(text.inlineProps).toEqual({});
+        });
+
+        it("inlineProps is empty on the target block when all props come from a class", () => {
+            const { ir, errors } = compileToIR(
+                "[[DEFINE class: big; size: 24]]\n[[class: big]] Hello",
+            );
+            expect(errors).toHaveLength(0);
+            const block = blocks(ir.root)[0];
+            expect(block.inlineProps).toEqual({});
+        });
+
+        it("inlineProps on a block target contains all directly declared block-scoped props", () => {
+            const { ir } = compileToIR("[[fill: #eee; align: center]]\n{\nContent\n}");
+            const block = blocks(ir.root)[0];
+            expect(block.inlineProps.fill).toBe("#eee");
+            expect(block.inlineProps.align).toBe("center");
+        });
+
+        it("props on the text child is fully resolved regardless of inlineProps being empty", () => {
+            const { ir } = compileToIR("[[color: red; size: 16]] Hello");
+            const block = blocks(ir.root)[0];
+            const text = textWith(block, "Hello");
+            // props is fully resolved — inlineProps is just the provenance record
+            expect(text?.props.color).toBe("red");
+            expect(text?.props.size).toBe("16");
         });
     });
 
@@ -126,44 +241,43 @@ describe("Hydrator", () => {
         it("+toggle adds a prop to all subsequent sibling TEXT nodes", () => {
             const { ir, errors } = compileToIR("[[+color: red]]\nHello\nWorld");
             expect(errors).toHaveLength(0);
-            expect(textWith(ir, "Hello")?.props.color).toBe("red");
-            expect(textWith(ir, "World")?.props.color).toBe("red");
+            expect(textWith(ir.root, "Hello")?.props.color).toBe("red");
+            expect(textWith(ir.root, "World")?.props.color).toBe("red");
         });
 
         it("-toggle removes a prop from subsequent sibling TEXT nodes", () => {
             const { ir } = compileToIR("[[+color: red]]\nHello\n[[-color]]\nWorld");
-            expect(textWith(ir, "Hello")?.props.color).toBe("red");
-            expect(textWith(ir, "World")?.props.color).toBeUndefined();
+            expect(textWith(ir.root, "Hello")?.props.color).toBe("red");
+            expect(textWith(ir.root, "World")?.props.color).toBeUndefined();
         });
 
         it("multiple toggle-adds accumulate in the backpack", () => {
             const { ir } = compileToIR("[[+color: red]]\n[[+size: 16]]\nHello");
-            const text = textWith(ir, "Hello");
+            const text = textWith(ir.root, "Hello");
             expect(text?.props.color).toBe("red");
             expect(text?.props.size).toBe("16");
         });
 
         it("+toggle with no following text nodes produces no node itself", () => {
             const { ir } = compileToIR("[[+color: red]]");
-            // The toggle annotation produces no IR node
-            expect(ir.children.filter((c) => c.type !== "TEXT")).toHaveLength(0);
+            expect(ir.root.children.filter((c) => c.type !== "TEXT")).toHaveLength(0);
         });
 
         it("backpack from outer scope propagates into nested blocks via inheritedProps", () => {
             const { ir } = compileToIR("[[+color: red]]\n{\nNested\n}");
-            const block = blocks(ir)[0];
+            const block = blocks(ir.root)[0];
             expect(textWith(block, "Nested")?.props.color).toBe("red");
         });
 
         it("backpack changes inside a block do not propagate to the outer scope", () => {
             const { ir } = compileToIR("{\n[[+color: red]]\nInside\n}\nOutside");
-            expect(textWith(ir, "Outside")?.props.color).toBeUndefined();
+            expect(textWith(ir.root, "Outside")?.props.color).toBeUndefined();
         });
 
         it("-toggle removes only the specified prop, leaving others intact", () => {
             const { ir } = compileToIR("[[+color: red]]\n[[+size: 16]]\nBefore\n[[-color]]\nAfter");
-            const before = textWith(ir, "Before");
-            const after = textWith(ir, "After");
+            const before = textWith(ir.root, "Before");
+            const after = textWith(ir.root, "After");
             expect(before?.props.color).toBe("red");
             expect(before?.props.size).toBe("16");
             expect(after?.props.color).toBeUndefined();
@@ -175,20 +289,19 @@ describe("Hydrator", () => {
         it("SET wraps all following siblings in a new IR.Block carrying the SET props", () => {
             const { ir, errors } = compileToIR("[[SET align: center]]\nHello\nWorld");
             expect(errors).toHaveLength(0);
-            const wrapper = blocks(ir)[0];
+            const wrapper = blocks(ir.root)[0];
             expect(wrapper.props.align).toBe("center");
         });
 
         it("SET captures only block-scope props in the wrapper", () => {
-            // color is inline-scope — SET with color produces an empty-props wrapper
             const { ir } = compileToIR("[[SET color: red]]\nHello");
-            const wrapper = blocks(ir)[0];
+            const wrapper = blocks(ir.root)[0];
             expect(wrapper.props.color).toBeUndefined();
         });
 
         it("the children of the SET wrapper contain all following siblings", () => {
             const { ir } = compileToIR("[[SET align: center]]\nLine1\nLine2\nLine3");
-            const wrapper = blocks(ir)[0];
+            const wrapper = blocks(ir.root)[0];
             const content = texts(wrapper)
                 .map((t) => t.content)
                 .join("");
@@ -198,9 +311,10 @@ describe("Hydrator", () => {
         });
 
         it("SET stops collecting siblings at the end of the current scope", () => {
-            const { ir } = compileToIR("BeforeBlock\n{\n[[SET align: center]]\nInside\n}\nAfterBlock");
-            // AfterBlock must be in the root, not inside the SET wrapper
-            expect(textWith(ir, "AfterBlock")).toBeDefined();
+            const { ir } = compileToIR(
+                "BeforeBlock\n{\n[[SET align: center]]\nInside\n}\nAfterBlock",
+            );
+            expect(textWith(ir.root, "AfterBlock")).toBeDefined();
         });
     });
 
@@ -210,7 +324,7 @@ describe("Hydrator", () => {
                 "[[DEFINE class: big; size: 24; weight: bold]]\n[[class: big]] Hello",
             );
             expect(errors).toHaveLength(0);
-            const text = textWith(ir, "Hello");
+            const text = textWith(ir.root, "Hello");
             expect(text?.props.size).toBe("24");
             expect(text?.props.weight).toBe("bold");
         });
@@ -219,7 +333,7 @@ describe("Hydrator", () => {
             const { ir } = compileToIR(
                 "[[DEFINE class: big; size: 24]]\n[[class: big; size: 32]] Hello",
             );
-            expect(textWith(ir, "Hello")?.props.size).toBe("32");
+            expect(textWith(ir.root, "Hello")?.props.size).toBe("32");
         });
 
         it("a class with block-scope props applied to a block target works correctly", () => {
@@ -227,7 +341,7 @@ describe("Hydrator", () => {
                 "[[DEFINE class: shaded; fill: #eee]]\n[[class: shaded]]\n{\nContent\n}",
             );
             expect(errors).toHaveLength(0);
-            expect(blocks(ir)[0].props.fill).toBe("#eee");
+            expect(blocks(ir.root)[0].props.fill).toBe("#eee");
         });
 
         it("compose: child inherits parent properties at hydration time", () => {
@@ -237,7 +351,7 @@ describe("Hydrator", () => {
                 "[[class: child]] Hello",
             );
             expect(errors).toHaveLength(0);
-            const text = textWith(ir, "Hello");
+            const text = textWith(ir.root, "Hello");
             expect(text?.props.color).toBe("red");
             expect(text?.props.size).toBe("16");
         });
@@ -252,12 +366,12 @@ describe("Hydrator", () => {
         it("hidden: true on a block target arrives in the IR as a block prop", () => {
             const { ir, errors } = compileToIR("[[hidden: true]]\n{\nContent\n}");
             expect(errors).toHaveLength(0);
-            expect(blocks(ir)[0].props.hidden).toBe("true");
+            expect(blocks(ir.root)[0].props.hidden).toBe("true");
         });
 
         it("hidden: false also arrives in the IR", () => {
             const { ir } = compileToIR("[[hidden: false]]\n{\nContent\n}");
-            expect(blocks(ir)[0].props.hidden).toBe("false");
+            expect(blocks(ir.root)[0].props.hidden).toBe("false");
         });
     });
 
@@ -265,14 +379,14 @@ describe("Hydrator", () => {
         it("indent property adds literal leading spaces to each text line in the block", () => {
             const { ir, errors } = compileToIR("[[indent: 4]]\n{\nHello\n}");
             expect(errors).toHaveLength(0);
-            const block = blocks(ir)[0];
+            const block = blocks(ir.root)[0];
             const text = textWith(block, "Hello");
             expect(text?.content).toMatch(/^ {4}Hello/);
         });
 
         it("indent: 2 adds exactly two spaces", () => {
             const { ir } = compileToIR("[[indent: 2]]\n{\nLine\n}");
-            const block = blocks(ir)[0];
+            const block = blocks(ir.root)[0];
             expect(textWith(block, "Line")?.content).toMatch(/^ {2}Line/);
         });
 
@@ -282,40 +396,25 @@ describe("Hydrator", () => {
                 "[[indent: 0]]\n{\nLine2\n}\n" +
                 "[[indent: -5]]\n{\nLine3\n}",
             );
-
-            const block1 = blocks(ir)[0];
-            const block2 = blocks(ir)[1];
-            const block3 = blocks(ir)[2];
-
-            // Ensures the text remained intact and did not receive leading spaces
-            expect(textWith(block1, "Line1")?.content).toMatch(/^Line1/);
-            expect(textWith(block2, "Line2")?.content).toMatch(/^Line2/);
-            expect(textWith(block3, "Line3")?.content).toMatch(/^Line3/);
+            expect(textWith(blocks(ir.root)[0], "Line1")?.content).toMatch(/^Line1/);
+            expect(textWith(blocks(ir.root)[1], "Line2")?.content).toMatch(/^Line2/);
+            expect(textWith(blocks(ir.root)[2], "Line3")?.content).toMatch(/^Line3/);
         });
 
         it("skips non-TEXT children during indentation application", () => {
-            // A block with indentation containing a nested block
             const { ir } = compileToIR("[[indent: 4]]\n{\n{\nInnerBlock\n}\n}");
-
-            const outerBlock = blocks(ir)[0];
+            const outerBlock = blocks(ir.root)[0];
             const innerBlock = blocks(outerBlock)[0];
-
-            // Must hit the "if (child.type !== 'TEXT') continue;"
-            // without crashing, leaving the inner block intact.
             expect(innerBlock.type).toBe("BLOCK");
         });
 
         it("does not apply indentation to inline text fragments that do not start a line", () => {
             const { ir } = compileToIR("[[indent: 4]]\n{\nPrefix [[color: red]] Suffix\n}");
-            const block = blocks(ir)[0];
+            const block = blocks(ir.root)[0];
             const prefix = textWith(block, "Prefix");
             const innerBlock = blocks(block)[0];
             const suffix = textWith(innerBlock, "Suffix");
-
-            // Prefix starts the line — recieves indentation
             expect(prefix?.content).toMatch(/^ {4}Prefix/);
-
-            // Suffix is mid-line — doesn't receive indentation
             expect(suffix?.content).not.toMatch(/^ {4}/);
             expect(suffix?.content).toContain("Suffix");
         });
@@ -324,14 +423,13 @@ describe("Hydrator", () => {
     describe("nested blocks", () => {
         it("nested block inherits the outer backpack via inheritedProps", () => {
             const { ir } = compileToIR("[[+size: 20]]\n{\nInner\n}");
-            const block = blocks(ir)[0];
+            const block = blocks(ir.root)[0];
             expect(textWith(block, "Inner")?.props.size).toBe("20");
         });
 
         it("props on an inner block do not affect the outer scope", () => {
             const { ir } = compileToIR("{\n[[fill: blue]]\n{\nInner\n}\n}\nOuter");
-            // Outer text has no fill prop
-            expect(textWith(ir, "Outer")?.props.fill).toBeUndefined();
+            expect(textWith(ir.root, "Outer")?.props.fill).toBeUndefined();
         });
     });
 
@@ -348,7 +446,7 @@ describe("Hydrator", () => {
 
         it("produces partial IR even when there are hydrator errors", () => {
             const { ir } = compileToIR("[[unknown-prop: x]] Hello");
-            expect(textWith(ir, "Hello")).toBeDefined();
+            expect(textWith(ir.root, "Hello")).toBeDefined();
         });
 
         it("collects errors from multiple annotations in one document", () => {

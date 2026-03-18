@@ -29,14 +29,14 @@ function runCompiler(source: string) {
         console.groupEnd();
 
         const hydrator = new Hydrator();
-        const { document: irAST, errors: hydratorErrors } = hydrator.hydrate(ast);
+        const { document: irDocument, errors: hydratorErrors } = hydrator.hydrate(ast);
         console.groupCollapsed("3. Hydrator Output (IR)");
-        console.log("IR AST:", irAST);
+        console.log("IR Document:", irDocument);
         if (hydratorErrors.length) console.error("Hydrator Errors:", hydratorErrors);
         console.groupEnd();
 
         const generator = new Generator();
-        const finalHtml = generator.generate(irAST);
+        const finalHtml = generator.generate(irDocument.root);
         console.groupCollapsed("4. Generator Output");
         console.log(finalHtml);
         console.groupEnd();

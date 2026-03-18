@@ -2,6 +2,12 @@ import { getPropertyDefinition } from "../domain/propertyDefinitions";
 import * as IR from "../types/ir";
 import * as AST from "../types/ast";
 
+export interface ResolvedResult {
+    props: IR.ResolvedProps;
+    classes: string[];
+    directProps: IR.ResolvedProps;
+}
+
 export class PropertyResolver {
     private classRegistry: Record<string, IR.ResolvedProps> = {};
     private pushError: (message: string, line: number, column: number) => void;
@@ -14,15 +20,15 @@ export class PropertyResolver {
         this.classRegistry = {};
     }
 
+    public getClassDefinitions(): Record<string, IR.ResolvedProps> {
+        return { ...this.classRegistry };
+    }
+
     public defineClass(annotation: AST.AnnotationNode): void {
         const classProp = annotation.properties.find((p) => p.key === "class");
 
         if (!classProp) {
-            this.pushError(
-                "DEFINE directive requires a 'class' property.",
-                annotation.line,
-                annotation.column,
-            );
+            this.pushErrorAt("DEFINE directive requires a 'class' property.", annotation);
             return;
         }
 
@@ -36,11 +42,17 @@ export class PropertyResolver {
         this.classRegistry[className] = bag;
     }
 
-    public resolveProperties(properties: AST.PropertyNode[]): IR.ResolvedProps {
-        const result: IR.ResolvedProps = {};
-        this.applyClassProperties(result, properties);
-        this.applyInlineProperties(result, properties);
-        return result;
+    public resolveProperties(properties: AST.PropertyNode[]): ResolvedResult {
+        const classProps: IR.ResolvedProps = {};
+        const directProps: IR.ResolvedProps = {};
+        const classes: string[] = [];
+
+        this.applyClassProperties(classProps, properties, classes);
+        this.applyInlineProperties(directProps, properties);
+
+        const props: IR.ResolvedProps = { ...classProps, ...directProps };
+
+        return { props, classes, directProps };
     }
 
     public routePropertiesByScope(props: IR.ResolvedProps): {
@@ -68,11 +80,7 @@ export class PropertyResolver {
             if (this.classRegistry[cls]) {
                 Object.assign(bag, this.classRegistry[cls]);
             } else {
-                this.pushError(
-                    `Warning: Base class '${cls}' not found in compose.`,
-                    composeProp.line,
-                    composeProp.column,
-                );
+                this.pushErrorAt(`Warning: Base class '${cls}' not found in compose.`, composeProp);
             }
         }
     }
@@ -82,24 +90,28 @@ export class PropertyResolver {
             if (prop.key === "class" || prop.key === "compose") continue;
 
             const propertyDef = getPropertyDefinition(prop.key);
-            if (propertyDef && propertyDef.validate(prop.value)) {
-                bag[prop.key] = prop.value;
-            } else {
-                this.pushError(
+            if (!propertyDef || !propertyDef.validate(prop.value)) {
+                this.pushErrorAt(
                     `Warning: Invalid or unknown property '${prop.key}' ignored in DEFINE.`,
-                    prop.line,
-                    prop.column,
+                    prop,
                 );
+                continue;
             }
+            bag[prop.key] = prop.value;
         }
     }
 
-    private applyClassProperties(bag: IR.ResolvedProps, properties: AST.PropertyNode[]): void {
+    private applyClassProperties(
+        bag: IR.ResolvedProps,
+        properties: AST.PropertyNode[],
+        classes: string[],
+    ): void {
         const classProp = properties.find((p) => p.key === "class" && !p.toggle);
         if (!classProp) return;
 
-        const classes = classProp.value.split(/\s+/).filter(Boolean);
-        for (const cls of classes) {
+        const classNames = classProp.value.split(/\s+/).filter(Boolean);
+        for (const cls of classNames) {
+            classes.push(cls);
             if (this.classRegistry[cls]) {
                 Object.assign(bag, this.classRegistry[cls]);
             } else {
@@ -134,5 +146,9 @@ export class PropertyResolver {
 
             bag[prop.key] = prop.value;
         }
+    }
+
+    private pushErrorAt(message: string, node: AST.ASTNode) {
+        this.pushError(message, node.line, node.column);
     }
 }
