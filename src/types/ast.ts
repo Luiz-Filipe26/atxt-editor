@@ -38,7 +38,7 @@ export interface PropertyNode extends BaseNode {
     toggle?: "plus" | "minus";
 }
 
-export type AnnotationDirective = "SET" | "DEFINE" | "NORMAL" | "HIDE";
+export type AnnotationDirective = "SET" | "DEFINE" | "NORMAL" | "HIDE" | "SYMBOL";
 
 export type TargetNode = BlockNode | TextNode;
 

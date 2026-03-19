@@ -2,10 +2,14 @@ import { TokenType, type Token } from "../types/tokens";
 import { TokenStream } from "./tokenStream";
 import * as AST from "../types/ast";
 import type { CompilerError } from "../types/errors";
+import { SymbolDetector, type BlockSymbolMatch } from "./symbolDetector";
+import { TextExpander } from "./textExpander";
 
 export class Parser {
     private stream!: TokenStream;
     private compilerErrors: CompilerError[] = [];
+    private symbolDetector = new SymbolDetector();
+    private textExpander = new TextExpander(this.symbolDetector);
 
     parse(tokens: Token[]): { document: AST.DocumentNode; errors: CompilerError[] } {
         this.stream = new TokenStream(tokens);
@@ -19,26 +23,27 @@ export class Parser {
         };
 
         while (!this.stream.isAtEnd()) {
-            const node = this.parseNextNode();
-            if (node) root.children.push(node);
+            root.children.push(...this.parseNextNode());
         }
 
         return { document: root, errors: this.compilerErrors };
     }
 
-    private parseNextNode(): AST.BlockContentNode | null {
+    private parseNextNode(): AST.BlockContentNode[] {
         const token = this.stream.advance();
         switch (token.type) {
-            case TokenType.ANNOTATION_OPEN:
-                return this.parseAnnotation(token);
+            case TokenType.ANNOTATION_OPEN: {
+                const node = this.parseAnnotation(token);
+                return node ? [node] : [];
+            }
             case TokenType.BLOCK_OPEN:
-                return this.parseBlock(token);
+                return [this.parseBlock(token)];
             case TokenType.NEWLINE:
             case TokenType.TEXT:
                 return this.parseTextLine(token);
             case TokenType.BLOCK_CLOSE:
                 this.pushError(`Unexpected block close.`, token);
-                return null;
+                return [];
             /* v8 ignore start -- @preserve */
             case TokenType.EOF:
                 throw new Error("Invariant violation: parseNextNode() called at EOF.");
@@ -60,6 +65,13 @@ export class Parser {
             return null;
         }
 
+        if (directive === "SYMBOL") {
+            this.handleSymbolDefinition(props);
+            return null;
+        }
+
+        if (directive === "DEFINE") this.handleSymbolDefinition(props);
+
         const hasNormalProps = props.some((p) => p.toggle === undefined);
         const needsTarget = directive === "NORMAL" && hasNormalProps;
 
@@ -67,17 +79,27 @@ export class Parser {
             type: AST.NodeType.ANNOTATION,
             line: openingToken.line,
             column: openingToken.column,
-            directive: directive,
+            directive,
             properties: props,
             target: needsTarget ? this.resolveAnnotationTarget() : null,
         };
     }
 
+    private handleSymbolDefinition(props: AST.PropertyNode[]): void {
+        const symbolProp = props.find((p) => p.key === "symbol");
+        if (!symbolProp?.value) return;
+        const className = props.find((p) => p.key === "class")?.value ?? "";
+        if (!className) return;
+        const type = props.find((p) => p.key === "type")?.value ?? "";
+        type === "block"
+            ? this.symbolDetector.registerBlock(symbolProp.value, className)
+            : this.symbolDetector.registerInline(symbolProp.value, className);
+    }
+
     private parseBlock(blockToken: Token): AST.BlockNode {
         const children: AST.BlockContentNode[] = [];
         while (!this.stream.isAtEnd() && this.stream.peek().type !== TokenType.BLOCK_CLOSE) {
-            const node = this.parseNextNode();
-            if (node) children.push(node);
+            children.push(...this.parseNextNode());
         }
 
         if (!this.stream.match(TokenType.BLOCK_CLOSE)) {
@@ -88,30 +110,55 @@ export class Parser {
             type: AST.NodeType.BLOCK,
             line: blockToken.line,
             column: blockToken.column,
-            children: children,
+            children,
         };
     }
 
-    private parseTextLine(startToken: Token): AST.TextNode {
+    private parseTextLine(startToken: Token): AST.BlockContentNode[] {
+        if (startToken.type === TokenType.NEWLINE)
+            return [this.buildTextNode(startToken, startToken.literal)];
+
+        const content = this.collectLineContent(startToken);
+        const blockSymbol = this.symbolDetector.detectBlockSymbol(content);
+        if (blockSymbol) return [this.buildBlockSymbolAnnotation(blockSymbol, content, startToken)];
+
+        return this.textExpander.expand(content, startToken.line, startToken.column);
+    }
+
+    private collectLineContent(startToken: Token): string {
         let content = startToken.literal;
-
-        if (startToken.type === TokenType.NEWLINE) {
-            return this.buildTextNode(startToken, content);
-        }
-
         while (!this.stream.isAtEnd()) {
-            const nextToken = this.stream.peek();
-            if (nextToken.type !== TokenType.TEXT && nextToken.type !== TokenType.NEWLINE) {
-                break;
-            }
-            if (nextToken.type === TokenType.NEWLINE) {
-                content += this.stream.advance().literal;
-                break;
-            }
+            const next = this.stream.peek();
+            if (next.type !== TokenType.TEXT && next.type !== TokenType.NEWLINE) break;
             content += this.stream.advance().literal;
+            if (next.type === TokenType.NEWLINE) break;
         }
+        return content;
+    }
 
-        return this.buildTextNode(startToken, content);
+    private buildBlockSymbolAnnotation(
+        blockSymbol: BlockSymbolMatch,
+        content: string,
+        startToken: Token,
+    ): AST.AnnotationNode {
+        const restColumn = startToken.column + blockSymbol.prefixLength;
+        return {
+            type: AST.NodeType.ANNOTATION,
+            line: startToken.line,
+            column: startToken.column,
+            directive: "NORMAL",
+            properties: [this.buildPropertyNode(startToken, "class", blockSymbol.cls, undefined)],
+            target: {
+                type: AST.NodeType.BLOCK,
+                line: startToken.line,
+                column: restColumn,
+                children: this.textExpander.expand(
+                    content.slice(blockSymbol.prefixLength),
+                    startToken.line,
+                    restColumn,
+                ),
+            },
+        };
     }
 
     private resolveAnnotationTarget(): AST.TargetNode | null {
@@ -134,15 +181,14 @@ export class Parser {
 
         while (!this.stream.isAtEnd()) {
             const token = this.stream.peek();
-
             if (token.type === TokenType.NEWLINE) break;
-
             if (token.type === TokenType.ANNOTATION_OPEN) {
                 this.stream.advance();
                 const node = this.parseAnnotation(token);
                 if (node) children.push(node);
             } else if (token.type === TokenType.TEXT) {
-                children.push(this.buildTextNode(token, this.stream.advance().literal));
+                const tok = this.stream.advance();
+                children.push(...this.textExpander.expand(tok.literal, tok.line, tok.column));
             } else {
                 break;
             }
@@ -162,7 +208,7 @@ export class Parser {
         const token = this.stream.peek();
         const isDirectiveKeyword =
             token.type === TokenType.IDENTIFIER &&
-            ["SET", "DEFINE", "HIDE"].includes(token.literal);
+            ["SET", "DEFINE", "HIDE", "SYMBOL"].includes(token.literal);
 
         if (isDirectiveKeyword) return this.stream.advance().literal as AST.AnnotationDirective;
         return "NORMAL";
@@ -254,22 +300,14 @@ export class Parser {
         }
     }
 
-    private parseTogglePrefix(rawKey: string): {
-        key: string;
-        toggle: AST.PropertyNode["toggle"];
-    } {
+    private parseTogglePrefix(rawKey: string): { key: string; toggle: AST.PropertyNode["toggle"] } {
         const toggle: AST.PropertyNode["toggle"] =
             rawKey[0] === "+" ? "plus" : rawKey[0] === "-" ? "minus" : undefined;
         return { key: toggle !== undefined ? rawKey.substring(1) : rawKey, toggle };
     }
 
-    private buildTextNode(startToken: Token, content: string): AST.TextNode {
-        return {
-            type: AST.NodeType.TEXT,
-            line: startToken.line,
-            column: startToken.column,
-            content,
-        };
+    private buildTextNode(token: Token, content: string): AST.TextNode {
+        return { type: AST.NodeType.TEXT, line: token.line, column: token.column, content };
     }
 
     private buildPropertyNode(
