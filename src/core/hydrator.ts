@@ -121,7 +121,16 @@ export class Hydrator {
         const annotationResult = this.propertyResolver.resolveProperties(annotation.properties);
 
         for (const prop of annotation.properties) {
-            if (prop.key === "class") continue;
+            if (prop.key === "class") {
+                const classProps = this.propertyResolver.resolveClassByName(prop.value);
+                if (classProps) {
+                    if (prop.toggle === "plus") Object.assign(backpack, classProps);
+                    else if (prop.toggle === "minus") {
+                        for (const key of Object.keys(classProps)) delete backpack[key];
+                    }
+                }
+                continue;
+            }
 
             if (prop.toggle === "minus") {
                 delete backpack[prop.key];
