@@ -18,6 +18,7 @@ export class Lexer {
     private readonly VALUE_STOP_CHARS = new Set(["]", ";", "\n", "\r", '"', "'"]);
     private readonly TRIGGER_CHARS = new Set(["[", "{", "}"]);
     private static readonly KEY_CHAR_REGEX = /[a-zA-Z0-9_-]/;
+    private static readonly LEXER_ESCAPE_CHARS = new Set(["[", "]", "{", "}", "\\", '"', "'"]);
 
     tokenize(source: string): { tokens: Token[]; errors: CompilerError[] } {
         this.scanner = new Scanner(source);
@@ -192,7 +193,12 @@ export class Lexer {
         while (!this.scanner.isAtEnd()) {
             const nextChar = this.scanner.peek();
             if (nextChar === "\\") {
-                content += this.consumeEscapedChar();
+                const following = this.scanner.peekNext();
+                if (Lexer.LEXER_ESCAPE_CHARS.has(following)) {
+                    content += this.consumeEscapedChar();
+                } else {
+                    content += this.scanner.advance();
+                }
                 continue;
             }
             if (stopCondition(nextChar)) break;
