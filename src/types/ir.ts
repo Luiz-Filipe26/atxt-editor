@@ -1,6 +1,7 @@
 export type ResolvedProps = Record<string, string>;
 
 interface BaseNode {
+    id: string;
     props: ResolvedProps;
     classes: string[];
     inlineProps: ResolvedProps;
@@ -22,5 +23,6 @@ export type Node = Block | Text;
 
 export interface IRDocument {
     root: Block;
+    nodeMap: Map<string, Node>;
     classDefinitions: Record<string, ResolvedProps>;
 }

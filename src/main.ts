@@ -3,11 +3,14 @@ import { Lexer } from "./core/lexer";
 import { Parser } from "./core/parser";
 import { Hydrator } from "./core/hydrator";
 import { Generator } from "./core/generator";
+import type * as IR from "./types/ir";
 
 const STORAGE_KEY = "atxt_saved_content";
 
 const inputEl = document.getElementById("input") as HTMLTextAreaElement;
 const outputEl = document.getElementById("output") as HTMLDivElement;
+
+let currentNodeMap: Map<string, IR.Node> = new Map();
 
 function runCompiler(source: string) {
     console.clear();
@@ -48,6 +51,7 @@ function runCompiler(source: string) {
             console.log("✅ Compilation finished with no errors.");
         }
 
+        currentNodeMap = irDocument.nodeMap;
         outputEl.innerHTML = finalHtml;
     } catch (e) {
         console.error("❌ Critical failure in pipeline:", e);
@@ -76,25 +80,37 @@ inputEl.addEventListener("input", handleInput);
 
 runCompiler(initialContent);
 
+let pendingOffset = 0;
+
+outputEl.addEventListener("mousedown", (e) => {
+    if ("caretPositionFromPoint" in document) {
+        const pos = document.caretPositionFromPoint(e.clientX, e.clientY);
+        pendingOffset = pos ? (pos.offset as number) : 0;
+    } else {
+        // @ts-ignore -- caretRangeFromPoint is the WebKit fallback, deprecated but necessary
+        const range = (document as Document).caretRangeFromPoint(e.clientX, e.clientY);
+        pendingOffset = range ? range.startOffset : 0;
+    }
+});
+
 outputEl.addEventListener("dblclick", (e) => {
     const target = e.target as HTMLElement;
-    const mappedEl = target.closest("[data-line]");
+    const mappedEl = target.closest("[data-id]") as HTMLElement | null;
     if (!mappedEl) return;
 
-    const clickedOnText = window.getSelection()?.type === "Range";
-    if (!clickedOnText) {
-        const rect = mappedEl.getBoundingClientRect();
-        const distanceToTop = e.clientY - rect.top;
-        const THRESHOLD_PX = 60;
-        if (distanceToTop > THRESHOLD_PX) {
-            return;
-        }
+    const id = mappedEl.dataset.id!;
+    const irNode = currentNodeMap.get(id);
+    if (!irNode || irNode.line === undefined || irNode.column === undefined) return;
+
+    let column = irNode.column;
+
+    // Refine column using the character offset captured on mousedown,
+    // before the browser replaced the selection with the double-clicked word.
+    if (irNode.type === "TEXT") {
+        column += pendingOffset;
     }
 
-    const line = parseInt(mappedEl.getAttribute("data-line") || "1", 10);
-    const column = parseInt(mappedEl.getAttribute("data-column") || "1", 10);
-
-    jumpToEditorPosition(line, column);
+    jumpToEditorPosition(irNode.line, column);
 });
 
 function jumpToEditorPosition(targetLine: number, targetColumn: number) {

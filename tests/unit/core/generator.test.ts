@@ -1,6 +1,12 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, beforeEach } from "vitest";
 import { Generator } from "@/core/generator";
 import * as IR from "@/types/ir";
+
+let idCounter = 0;
+
+beforeEach(() => {
+    idCounter = 0;
+});
 
 function makeBlock(
     props: Record<string, string> = {},
@@ -8,7 +14,7 @@ function makeBlock(
     line?: number,
     column?: number,
 ): IR.Block {
-    return { type: "BLOCK", props, classes: [], inlineProps: {}, children, line, column };
+    return { id: `b${idCounter++}`, type: "BLOCK", props, classes: [], inlineProps: {}, children, line, column };
 }
 
 function makeText(
@@ -17,7 +23,7 @@ function makeText(
     line?: number,
     column?: number,
 ): IR.Text {
-    return { type: "TEXT", props, classes: [], inlineProps: {}, content, line, column };
+    return { id: `t${idCounter++}`, type: "TEXT", props, classes: [], inlineProps: {}, content, line, column };
 }
 
 function generate(root: IR.Block): string {
@@ -41,20 +47,20 @@ describe("Generator", () => {
 
         it("an empty root block produces no children inside the root div", () => {
             const html = generate(makeBlock());
-            expect(html).not.toContain("<div></div>");
+            expect(html).not.toContain("<div data-id");
             expect(html).not.toContain("<p");
         });
     });
 
     describe("BLOCK rendering", () => {
-        it("a child block renders as a div", () => {
+        it("a child block renders as a div with a data-id attribute", () => {
             const root = makeBlock({}, [makeBlock()]);
-            expect(generate(root)).toContain("<div></div>");
+            expect(generate(root)).toContain('<div data-id="b1"></div>');
         });
 
         it("a block with no props has no class attribute", () => {
             const root = makeBlock({}, [makeBlock()]);
-            const inner = generate(root).match(/<div(?:[^>]*)><\/div>/)?.[0] ?? "";
+            const inner = generate(root).match(/<div data-id="[^"]*"><\/div>/)?.[0] ?? "";
             expect(inner).not.toContain("class=");
         });
 
@@ -86,13 +92,13 @@ describe("Generator", () => {
         describe("empty block rendering", () => {
             it("an empty root block produces no children inside the root div", () => {
                 const html = generate(makeBlock());
-                expect(html).not.toContain("<div></div>");
+                expect(html).not.toContain("<div data-id");
                 expect(html).not.toContain("<p");
             });
 
             it("a block with kind renders with the corresponding HTML tag", () => {
                 const root = makeBlock({}, [makeBlock({ kind: "paragraph" }, [makeText("Hello")])]);
-                expect(generate(root)).toContain("<p>");
+                expect(generate(root)).toContain("<p ");
                 expect(generate(root)).toContain("Hello");
                 expect(generate(root)).toContain("</p>");
             });
@@ -100,9 +106,9 @@ describe("Generator", () => {
     });
 
     describe("TEXT rendering", () => {
-        it("a text node renders as a span", () => {
+        it("a text node renders as a span with a data-id attribute", () => {
             const root = makeBlock({}, [makeText("Hello")]);
-            expect(generate(root)).toContain("<span>Hello</span>");
+            expect(generate(root)).toContain('<span data-id="t0">Hello</span>');
         });
 
         it("a text node with props receives a generated class attribute", () => {
@@ -112,21 +118,28 @@ describe("Generator", () => {
 
         it("a text node with no props has no class attribute", () => {
             const root = makeBlock({}, [makeText("Hello")]);
-            expect(generate(root)).toContain("<span>Hello</span>");
+            expect(generate(root)).not.toContain('class="atxt-editor');
         });
     });
 
-    describe("source position attributes", () => {
-        it("a node with line and column gets data-line and data-column attributes", () => {
+    describe("data-id attributes", () => {
+        it("every node gets a data-id attribute", () => {
             const root = makeBlock({}, [makeText("Hello", {}, 3, 5)]);
-            expect(generate(root)).toContain('data-line="3"');
-            expect(generate(root)).toContain('data-column="5"');
+            expect(generate(root)).toContain('data-id="t0"');
         });
 
-        it("a node without line and column gets no data attributes", () => {
-            const root = makeBlock({}, [makeText("Hello")]);
-            expect(generate(root)).not.toContain("data-line");
-            expect(generate(root)).not.toContain("data-column");
+        it("data-line and data-column are not emitted — source position lives in the nodeMap", () => {
+            const root = makeBlock({}, [makeText("Hello", {}, 3, 5)]);
+            const html = generate(root);
+            expect(html).not.toContain("data-line");
+            expect(html).not.toContain("data-column");
+        });
+
+        it("each node gets a distinct data-id", () => {
+            const root = makeBlock({}, [makeText("A"), makeText("B")]);
+            const html = generate(root);
+            expect(html).toContain('data-id="t0"');
+            expect(html).toContain('data-id="t1"');
         });
     });
 

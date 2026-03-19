@@ -7,6 +7,8 @@ import type { CompilerError } from "../types/errors";
 export class Hydrator {
     private compilerErrors: CompilerError[] = [];
     private propertyResolver: PropertyResolver;
+    private nodeMap: Map<string, IR.Node> = new Map();
+    private idCounter = 0;
 
     constructor() {
         this.propertyResolver = new PropertyResolver(this.pushError.bind(this));
@@ -18,8 +20,11 @@ export class Hydrator {
     } {
         this.compilerErrors = [];
         this.propertyResolver.reset();
+        this.nodeMap = new Map();
+        this.idCounter = 0;
 
         const rootBlock: IR.Block = {
+            id: this.nextId(),
             type: "BLOCK",
             props: {},
             classes: [],
@@ -29,13 +34,25 @@ export class Hydrator {
             children: this.transformNodeList(document.children),
         };
 
+        this.nodeMap.set(rootBlock.id, rootBlock);
+
         return {
             document: {
                 root: rootBlock,
+                nodeMap: this.nodeMap,
                 classDefinitions: this.propertyResolver.getClassDefinitions(),
             },
             errors: this.compilerErrors,
         };
+    }
+
+    private nextId(): string {
+        return (this.idCounter++).toString(36);
+    }
+
+    private register(node: IR.Node): IR.Node {
+        this.nodeMap.set(node.id, node);
+        return node;
     }
 
     private transformNodeList(
@@ -84,7 +101,8 @@ export class Hydrator {
         const annotationResult = this.propertyResolver.resolveProperties(annotation.properties);
         const { blockProps } = this.propertyResolver.routePropertiesByScope(annotationResult.props);
         const remainingSiblings = allNodes.slice(currentIndex + 1);
-        return {
+        const block: IR.Block = {
+            id: this.nextId(),
             type: "BLOCK",
             props: blockProps,
             classes: annotationResult.classes,
@@ -93,6 +111,7 @@ export class Hydrator {
             column: annotation.column,
             children: this.transformNodeList(remainingSiblings, backpack),
         };
+        return this.register(block) as IR.Block;
     }
 
     private processNormalDirective(
@@ -153,7 +172,8 @@ export class Hydrator {
                 return this.transformBlockNode(node, blockProps, activeProps);
             }
             case AST.NodeType.TEXT: {
-                return {
+                const text: IR.Text = {
+                    id: this.nextId(),
                     type: "TEXT",
                     props: scopedActiveInline,
                     classes: [],
@@ -161,7 +181,8 @@ export class Hydrator {
                     line: node.line,
                     column: node.column,
                     content: node.content,
-                } as IR.Text;
+                };
+                return this.register(text);
             }
         }
     }
@@ -183,7 +204,8 @@ export class Hydrator {
 
         this.resolveKind(blockProps, children, node);
 
-        return {
+        const block: IR.Block = {
+            id: this.nextId(),
             type: "BLOCK",
             props: blockProps,
             classes,
@@ -192,6 +214,7 @@ export class Hydrator {
             column: node.column,
             children,
         };
+        return this.register(block) as IR.Block;
     }
 
     private resolveKind(

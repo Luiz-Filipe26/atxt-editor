@@ -41,23 +41,20 @@ export class Generator {
 
         const className = Object.keys(node.props).length > 0 ? this.resolveClass(node.props) : "";
         const classAttribute = className ? ` class="${className}"` : "";
-        const dataAttributes =
-            node.line !== undefined && node.column !== undefined
-                ? ` data-line="${node.line}" data-column="${node.column}"`
-                : "";
+        const dataAttribute = ` data-id="${node.id}"`;
 
         switch (node.type) {
             case "BLOCK":
-                return this.renderBlockNode(node, classAttribute, dataAttributes);
+                return this.renderBlockNode(node, classAttribute, dataAttribute);
             case "TEXT":
-                return `<span${classAttribute}${dataAttributes}>${node.content}</span>`;
+                return `<span${classAttribute}${dataAttribute}>${node.content}</span>`;
         }
     }
 
     private renderBlockNode(
         node: IR.Block,
         classAttribute: string,
-        dataAttributes: string,
+        dataAttribute: string,
     ): string {
         if (node.children.length === 0) {
             return "";
@@ -65,7 +62,7 @@ export class Generator {
 
         const tag = getHtmlTag(node.props["kind"]);
         const childrenHtml = node.children.map((child) => this.renderNode(child)).join("");
-        return `<${tag}${classAttribute}${dataAttributes}>${childrenHtml}</${tag}>`;
+        return `<${tag}${classAttribute}${dataAttribute}>${childrenHtml}</${tag}>`;
     }
 
     private resolveClass(props: IR.ResolvedProps): string {
