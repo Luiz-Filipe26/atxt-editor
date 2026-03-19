@@ -7,6 +7,9 @@
 [[DEFINE class: footer-text; kind: footer; size: 12; style: italic; color: #888888; align: right]]
 [[DEFINE class: signature-label; size: 11; color: #888888]]
 [[DEFINE class: signature-value; size: 13; weight: bold; decoration: underline]]
+[[DEFINE class: legal-term; color: #1a3a6e; weight: bold]]
+
+[[SYMBOL symbol: ^^; class: legal-term; type: inline]]
 
 [[SET class: document-body]]
 
@@ -16,46 +19,46 @@ SOFTWARE DEVELOPMENT SERVICES AGREEMENT
 [[class: subheading]]
 Contract No. ATXT-2026-0042
 
-This Agreement is entered into as of March 12, 2026, by and between Meridian Software Studio LLC, a company organized under the laws of Delaware ("Service Provider"), and Calloway Enterprises Inc., a company organized under the laws of California ("Client"). The parties agree as follows.
+This Agreement is entered into as of March 12, 2026, by and between ^^Meridian Software Studio LLC^^, a company organized under the laws of Delaware ("Service Provider"), and ^^Calloway Enterprises Inc.^^, a company organized under the laws of California ("Client"). The parties agree as follows.
 
 [[class: section-title]]
 1. Scope of Services
 
-The Service Provider agrees to design, develop, and deliver the software described in Exhibit A attached hereto ("the Software"). All deliverables shall be provided in accordance with the milestones and technical specifications set forth in Exhibit A. Any modification to the agreed scope must be documented in a written amendment signed by both parties.
+The ^^Service Provider^^ agrees to design, develop, and deliver the software described in Exhibit A attached hereto ("the Software"). All deliverables shall be provided in accordance with the milestones and technical specifications set forth in Exhibit A. Any modification to the agreed scope must be documented in a written amendment signed by both parties.
 
 [[class: section-title]]
 2. Compensation and Payment Terms
 
 [[class: clause-block]] {
-    The Client agrees to pay the Service Provider a total fixed fee of [[+weight: bold]]USD 48,000[[-weight]] ("Contract Price"), distributed as follows:
+    The ^^Client^^ agrees to pay the ^^Service Provider^^ a total fixed fee of **USD 48,000** ("Contract Price"), distributed as follows:
 
-    [[+style: italic]]30%[[-style]] upon execution of this Agreement.
-    [[+style: italic]]40%[[-style]] upon delivery of the Beta Release milestone.
-    [[+style: italic]]30%[[-style]] upon final acceptance of the Software.
+    _30%_ upon execution of this Agreement.
+    _40%_ upon delivery of the Beta Release milestone.
+    _30%_ upon final acceptance of the Software.
 
-    Invoices are due within [[+weight: bold]]15 calendar days[[-weight]] of issuance. Overdue payments accrue interest at 1.5% per month.
+    Invoices are due within **15 calendar days** of issuance. Overdue payments accrue interest at 1.5% per month.
 }
 
 [[class: section-title]]
 3. Intellectual Property
 
-Upon receipt of full payment, the Service Provider assigns to the Client all rights, title, and interest in the Software, including all source code, documentation, and related materials. Prior to full payment, all deliverables remain the exclusive property of the Service Provider.
+Upon receipt of full payment, the ^^Service Provider^^ assigns to the ^^Client^^ all rights, title, and interest in the Software, including all source code, documentation, and related materials. Prior to full payment, all deliverables remain the exclusive property of the ^^Service Provider^^.
 
 [[class: section-title]]
 4. Confidentiality
 
-Each party agrees to hold the other's Confidential Information in strict confidence, to use it solely for the purposes of this Agreement, and to disclose it only to employees or contractors with a need to know. This obligation survives termination of this Agreement for a period of [[+weight: bold]]three (3) years[[-weight]].
+Each party agrees to hold the other's Confidential Information in strict confidence, to use it solely for the purposes of this Agreement, and to disclose it only to employees or contractors with a need to know. This obligation survives termination of this Agreement for a period of **three (3) years**.
 
 [[class: warning-block]] {
     [[+weight: bold; size: 14]]LIMITATION OF LIABILITY[[-weight; -size]]
 
-    In no event shall either party be liable for indirect, incidental, special, or consequential damages arising out of or related to this Agreement, even if advised of the possibility of such damages. The total cumulative liability of the Service Provider under this Agreement shall not exceed the Contract Price.
+    In no event shall either party be liable for indirect, incidental, special, or consequential damages arising out of or related to this Agreement, even if advised of the possibility of such damages. The total cumulative liability of the ^^Service Provider^^ under this Agreement shall not exceed the ^^Contract Price^^.
 }
 
 [[class: section-title]]
 5. Term and Termination
 
-This Agreement commences on the date first written above and continues until final delivery and acceptance of the Software, unless earlier terminated. Either party may terminate this Agreement upon [[+weight: bold]]30 days[[-weight]] written notice if the other party materially breaches any provision and fails to cure such breach within that period.
+This Agreement commences on the date first written above and continues until final delivery and acceptance of the Software, unless earlier terminated. Either party may terminate this Agreement upon **30 days** written notice if the other party materially breaches any provision and fails to cure such breach within that period.
 
 [[class: section-title]]
 6. Governing Law
