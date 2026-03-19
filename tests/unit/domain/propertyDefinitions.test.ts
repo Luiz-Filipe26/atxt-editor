@@ -189,4 +189,78 @@ describe("getPropertyDefinition", () => {
             expect(validate(val)).toBe(false),
         );
     });
+
+    describe("kind property", () => {
+        it("kind is block-scoped and not a container", () => {
+            const def = getPropertyDefinition("kind")!;
+            expect(def.scope).toBe("block");
+            expect(def.container).toBe(false);
+        });
+
+        it("kind accepts all valid values from the spec", () => {
+            const { validate } = getPropertyDefinition("kind")!;
+            for (const v of [
+                "paragraph",
+                "heading1",
+                "heading2",
+                "heading3",
+                "heading4",
+                "heading5",
+                "code",
+                "item",
+                "quote",
+                "list",
+                "ordered-list",
+                "aside",
+                "section",
+                "article",
+                "header",
+                "footer",
+            ]) {
+                expect(validate(v)).toBe(true);
+            }
+        });
+
+        it("kind rejects unknown values", () => {
+            const { validate } = getPropertyDefinition("kind")!;
+            expect(validate("div")).toBe(false);
+            expect(validate("")).toBe(false);
+        });
+    });
+
+    describe("container flag", () => {
+        it("visual container props have container: true", () => {
+            for (const key of [
+                "fill",
+                "padding",
+                "margin",
+                "border",
+                "radius",
+                "width",
+                "height",
+            ]) {
+                expect(getPropertyDefinition(key)?.container).toBe(true);
+            }
+        });
+
+        it("control props have container: false", () => {
+            for (const key of ["kind", "hidden", "indent", "align"]) {
+                expect(getPropertyDefinition(key)?.container).toBe(false);
+            }
+        });
+
+        it("all inline props have container: false", () => {
+            for (const key of [
+                "color",
+                "font",
+                "size",
+                "weight",
+                "style",
+                "line-height",
+                "decoration",
+            ]) {
+                expect(getPropertyDefinition(key)?.container).toBe(false);
+            }
+        });
+    });
 });

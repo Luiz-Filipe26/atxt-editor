@@ -454,4 +454,21 @@ describe("Hydrator", () => {
             expect(errors.length).toBeGreaterThanOrEqual(2);
         });
     });
+
+    describe("kind and leaf promotion", () => {
+        it("a leaf block without container props is promoted to kind: paragraph", () => {
+            const { ir } = compileToIR("{\nHello\n}");
+            expect(blocks(ir.root)[0].props.kind).toBe("paragraph");
+        });
+
+        it("a leaf block with container props is not promoted to paragraph", () => {
+            const { ir } = compileToIR("[[fill: #ccc]]\n{\nHello\n}");
+            expect(blocks(ir.root)[0].props.kind).toBeUndefined();
+        });
+
+        it("a leaf-incompatible kind on a non-leaf block emits a HYDRATOR error", () => {
+            const { errors } = compileToIR("[[kind: paragraph]]\n{\n{\nNested\n}\n}");
+            expect(errors.some((e) => e.type === "HYDRATOR")).toBe(true);
+        });
+    });
 });

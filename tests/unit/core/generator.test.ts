@@ -41,7 +41,8 @@ describe("Generator", () => {
 
         it("an empty root block produces no children inside the root div", () => {
             const html = generate(makeBlock());
-            expect(html).toContain("<div></div>");
+            expect(html).not.toContain("<div></div>");
+            expect(html).not.toContain("<p");
         });
     });
 
@@ -58,7 +59,7 @@ describe("Generator", () => {
         });
 
         it("a block with props receives a generated class attribute", () => {
-            const root = makeBlock({}, [makeBlock({ fill: "#ccc" })]);
+            const root = makeBlock({}, [makeBlock({ fill: "#ccc" }, [makeText("x")])]);
             expect(generate(root)).toMatch(/class="atxt-editor-[a-z0-9]+"/);
         });
 
@@ -80,6 +81,21 @@ describe("Generator", () => {
         it("nested blocks render correctly", () => {
             const root = makeBlock({}, [makeBlock({}, [makeBlock({}, [makeText("Deep")])])]);
             expect(generate(root)).toContain("Deep");
+        });
+
+        describe("empty block rendering", () => {
+            it("an empty root block produces no children inside the root div", () => {
+                const html = generate(makeBlock());
+                expect(html).not.toContain("<div></div>");
+                expect(html).not.toContain("<p");
+            });
+
+            it("a block with kind renders with the corresponding HTML tag", () => {
+                const root = makeBlock({}, [makeBlock({ kind: "paragraph" }, [makeText("Hello")])]);
+                expect(generate(root)).toContain("<p>");
+                expect(generate(root)).toContain("Hello");
+                expect(generate(root)).toContain("</p>");
+            });
         });
     });
 

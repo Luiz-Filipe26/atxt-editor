@@ -2,7 +2,35 @@ type ValidatorFn = (value: string) => boolean;
 
 export interface PropertyDefinition {
     scope: "block" | "inline";
+    container: boolean;
     validate: ValidatorFn;
+}
+
+export interface KindDefinition {
+    leafCompatible: boolean;
+}
+
+const KIND_REGISTRY: Record<string, KindDefinition> = {
+    paragraph: { leafCompatible: true },
+    heading1: { leafCompatible: true },
+    heading2: { leafCompatible: true },
+    heading3: { leafCompatible: true },
+    heading4: { leafCompatible: true },
+    heading5: { leafCompatible: true },
+    code: { leafCompatible: true },
+    item: { leafCompatible: true },
+    quote: { leafCompatible: false },
+    list: { leafCompatible: false },
+    "ordered-list": { leafCompatible: false },
+    aside: { leafCompatible: false },
+    section: { leafCompatible: false },
+    article: { leafCompatible: false },
+    header: { leafCompatible: false },
+    footer: { leafCompatible: false },
+};
+
+export function getKindDefinition(kind: string): KindDefinition | null {
+    return KIND_REGISTRY[kind] ?? null;
 }
 
 const isNumber = (val: string) => /^-?\d+$/.test(val);
@@ -10,32 +38,38 @@ const isNumber = (val: string) => /^-?\d+$/.test(val);
 const PROPERTY_REGISTRY: Record<string, PropertyDefinition> = {
     hidden: {
         scope: "block",
+        container: false,
         validate: (v) => ["true", "false"].includes(v.toLowerCase()),
     },
-    fill: { scope: "block", validate: (val) => val.trim().length > 0 },
-    radius: { scope: "block", validate: isNumber },
-    indent: { scope: "block", validate: isNumber },
+    kind: { scope: "block", container: false, validate: (v) => getKindDefinition(v) !== null },
+    fill: { scope: "block", container: true, validate: (val) => val.trim().length > 0 },
+    radius: { scope: "block", container: true, validate: isNumber },
+    indent: { scope: "block", container: false, validate: isNumber },
     padding: {
         scope: "block",
+        container: true,
         validate: (val) => val.trim().split(/\s+/).every(isNumber),
     },
     margin: {
         scope: "block",
+        container: true,
         validate: (val) => val.trim().split(/\s+/).every(isNumber),
     },
-    border: { scope: "block", validate: (val) => val.trim().length > 0 },
-    width: { scope: "block", validate: isNumber },
-    height: { scope: "block", validate: isNumber },
+    border: { scope: "block", container: true, validate: (val) => val.trim().length > 0 },
+    width: { scope: "block", container: true, validate: isNumber },
+    height: { scope: "block", container: true, validate: isNumber },
     align: {
         scope: "block",
+        container: false,
         validate: (val) => ["left", "right", "center", "justify"].includes(val),
     },
 
-    color: { scope: "inline", validate: (val) => val.trim().length > 0 },
-    font: { scope: "inline", validate: (val) => val.trim().length > 0 },
-    size: { scope: "inline", validate: isNumber },
+    color: { scope: "inline", container: false, validate: (val) => val.trim().length > 0 },
+    font: { scope: "inline", container: false, validate: (val) => val.trim().length > 0 },
+    size: { scope: "inline", container: false, validate: isNumber },
     weight: {
         scope: "inline",
+        container: false,
         validate: (val) => {
             const allowedWords = ["normal", "bold", "bolder", "lighter"];
             if (allowedWords.includes(val)) return true;
@@ -46,11 +80,13 @@ const PROPERTY_REGISTRY: Record<string, PropertyDefinition> = {
     },
     style: {
         scope: "inline",
+        container: false,
         validate: (val) => ["normal", "italic", "oblique"].includes(val),
     },
-    "line-height": { scope: "inline", validate: (val) => val.trim().length > 0 },
+    "line-height": { scope: "inline", container: false, validate: (val) => val.trim().length > 0 },
     decoration: {
         scope: "inline",
+        container: false,
         validate: (val) => ["none", "underline", "line-through", "overline"].includes(val),
     },
 };

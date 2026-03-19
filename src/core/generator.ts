@@ -1,5 +1,6 @@
 import * as IR from "../types/ir";
-import { getCssMapping, type CssUnit } from "../domain/cssPropertyMapping";
+import { formatCssUnit, getCssMapping } from "../domain/cssPropertyMapping";
+import { getHtmlTag } from "../domain/htmlTagMapping";
 import { dedent } from "../utils/stringUtils";
 
 export class Generator {
@@ -58,16 +59,27 @@ export class Generator {
         classAttribute: string,
         dataAttributes: string,
     ): string {
+        if (node.children.length === 0) {
+            return "";
+        }
+
+        const tag = getHtmlTag(node.props["kind"]);
         const childrenHtml = node.children.map((child) => this.renderNode(child)).join("");
-        return `<div${classAttribute}${dataAttributes}>${childrenHtml}</div>`;
+        return `<${tag}${classAttribute}${dataAttributes}>${childrenHtml}</${tag}>`;
     }
 
     private resolveClass(props: IR.ResolvedProps): string {
+        const propsForCss = Object.fromEntries(
+            Object.entries(props).filter(([key]) => getCssMapping(key) !== null),
+        );
+
+        if (Object.keys(propsForCss).length === 0) return "";
+
         const signature = JSON.stringify(
             Object.fromEntries(
-                Object.keys(props)
+                Object.keys(propsForCss)
                     .sort()
-                    .map((k) => [k, props[k]]),
+                    .map((k) => [k, propsForCss[k]]),
             ),
         );
 
@@ -78,7 +90,7 @@ export class Generator {
         const newClassName = `atxt-editor-${this.classCounter.toString(36)}`;
         this.classCounter++;
         this.classCache.set(signature, newClassName);
-        this.cssRules.push(this.buildCssRule(newClassName, props));
+        this.cssRules.push(this.buildCssRule(newClassName, propsForCss));
 
         return newClassName;
     }
@@ -87,27 +99,11 @@ export class Generator {
         let cssBody = "";
 
         for (const [key, value] of Object.entries(props)) {
-            const mapping = getCssMapping(key);
-            if (!mapping) continue;
-            const formattedValue = this.formatCssValue(value, mapping.unit);
+            const mapping = getCssMapping(key)!;
+            const formattedValue = formatCssUnit(value, mapping.unit);
             cssBody += `  ${mapping.cssProperty}: ${formattedValue};\n`;
         }
 
         return `.${className} {\n${cssBody}}`;
-    }
-
-    private formatCssValue(value: string, unit: CssUnit): string {
-        if (unit === "px-fallback") {
-            return /^-?\d+(\.\d+)?$/.test(value) ? `${value}px` : value;
-        }
-
-        if (unit === "multi-px-fallback") {
-            return value
-                .split(" ")
-                .map((v) => (/^-?\d+(\.\d+)?$/.test(v) && v !== "0" ? `${v}px` : v))
-                .join(" ");
-        }
-
-        return value;
     }
 }

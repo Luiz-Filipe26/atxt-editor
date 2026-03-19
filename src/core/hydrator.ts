@@ -1,4 +1,5 @@
 import { PropertyResolver, type ResolvedResult } from "./propertyResolver";
+import { getKindDefinition, getPropertyDefinition } from "../domain/propertyDefinitions";
 import * as AST from "../types/ast";
 import * as IR from "../types/ir";
 import type { CompilerError } from "../types/errors";
@@ -172,13 +173,15 @@ export class Hydrator {
         classes: string[] = [],
         directProps: IR.ResolvedProps = {},
     ): IR.Block {
-        const propsForChildren = { ...activeProps };
-        delete propsForChildren.indent;
+        const { inlineProps: propsForChildren } =
+            this.propertyResolver.routePropertiesByScope(activeProps);
         const children = this.transformNodeList(node.children, propsForChildren);
 
         if (blockProps.indent) {
             this.applyLiteralIndentation(children, blockProps.indent);
         }
+
+        this.resolveKind(blockProps, children, node);
 
         return {
             type: "BLOCK",
@@ -189,6 +192,32 @@ export class Hydrator {
             column: node.column,
             children,
         };
+    }
+
+    private resolveKind(
+        blockProps: IR.ResolvedProps,
+        children: IR.Node[],
+        node: AST.BlockNode,
+    ): void {
+        if (children.length === 0) return;
+
+        const isLeaf = children.every((c) => c.type === "TEXT");
+        const explicitKind = blockProps["kind"];
+
+        if (!explicitKind) {
+            const isContainer = Object.keys(blockProps).some(
+                (key) => getPropertyDefinition(key)?.container === true,
+            );
+            if (isLeaf && !isContainer) blockProps["kind"] = "paragraph";
+        }
+
+        const kindDef = getKindDefinition(explicitKind);
+        if (kindDef && kindDef.leafCompatible && !isLeaf) {
+            this.pushErrorAt(
+                `kind '${explicitKind}' is only valid on leaf blocks but contains child blocks.`,
+                node,
+            );
+        }
     }
 
     private applyLiteralIndentation(children: IR.Node[], indentValue: string): void {
