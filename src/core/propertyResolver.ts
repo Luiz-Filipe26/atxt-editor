@@ -1,4 +1,4 @@
-import { getPropertyDefinition } from "../domain/propertyDefinitions";
+import { getClassDefinition, getPropertyDefinition } from "../domain/propertyDefinitions";
 import * as IR from "../types/ir";
 import * as AST from "../types/ast";
 
@@ -40,6 +40,10 @@ export class PropertyResolver {
         this.assignExplicitProperties(bag, annotation.properties);
 
         this.classRegistry[className] = bag;
+    }
+
+    public resolveClassByName(name: string): IR.ResolvedProps | null {
+        return this.classRegistry[name] ?? getClassDefinition(name) ?? null;
     }
 
     public resolveProperties(properties: AST.PropertyNode[]): ResolvedResult {
@@ -115,11 +119,16 @@ export class PropertyResolver {
             if (this.classRegistry[cls]) {
                 Object.assign(bag, this.classRegistry[cls]);
             } else {
-                this.pushError(
-                    `Warning: Class '${cls}' not found.`,
-                    classProp.line,
-                    classProp.column,
-                );
+                const resolved = this.classRegistry[cls] ?? getClassDefinition(cls);
+                if (resolved) {
+                    Object.assign(bag, resolved);
+                } else {
+                    this.pushError(
+                        `Warning: Class '${cls}' not found.`,
+                        classProp.line,
+                        classProp.column,
+                    );
+                }
             }
         }
     }
