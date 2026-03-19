@@ -648,11 +648,7 @@ The backslash `\` is the universal escape character. `\x` produces the literal c
 | `\\` | literal `\` |
 | `\ ` at line start | literal space, suppresses strip |
 
-### 12.4 Blank Lines
-
-A blank line (a line containing only whitespace or nothing before the newline) between two text lines creates a paragraph boundary. The Parser emits a new block node for content following the blank line.
-
-### 12.5 Block Content Trimming
+### 12.4 Block Content Trimming
 
 Leading and trailing blank lines within a block `{ ... }` are discarded. Interior blank lines between paragraphs are significant.
 
