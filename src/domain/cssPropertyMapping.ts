@@ -26,3 +26,18 @@ const CSS_REGISTRY: Record<string, CssPropertyMapping> = {
 export function getCssMapping(key: string): CssPropertyMapping | null {
     return CSS_REGISTRY[key] ?? null;
 }
+
+const IS_NUMERIC = /^-?\d+(\.\d+)?$/;
+
+export function formatCssUnit(value: string, unit: CssUnit): string {
+    if (unit === "px-fallback") {
+        return IS_NUMERIC.test(value) ? `${value}px` : value;
+    }
+    if (unit === "multi-px-fallback") {
+        return value
+            .split(" ")
+            .map((v) => (IS_NUMERIC.test(v) && v !== "0" ? `${v}px` : v))
+            .join(" ");
+    }
+    return value;
+}
