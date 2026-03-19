@@ -213,13 +213,14 @@ raw_text
 
 ## 5. Directives
 
-A directive is a special annotation whose first property key is an uppercase word. The four built-in directives are `SET`, `DEFINE`, `HIDE`, and `NORMAL` (the absence of a directive keyword is the `NORMAL` case).
+A directive is a special annotation whose first property key is an uppercase word. The five built-in directives are `SET`, `DEFINE`, `HIDE`, `SYMBOL`, and `NORMAL` (the absence of a directive keyword is the `NORMAL` case).
 
 ```ebnf
 directive
   = set_directive
   | define_directive
   | hide_directive
+  | symbol_directive
   | normal_directive
   ;
 
@@ -231,6 +232,9 @@ define_directive
 
 hide_directive
   = ANNOTATION_OPEN "HIDE" [ property_list ] ANNOTATION_CLOSE annotation_target ;
+
+symbol_directive
+  = ANNOTATION_OPEN "SYMBOL" symbol_body ANNOTATION_CLOSE ;
 
 normal_directive
   = annotation ;   (* no uppercase keyword — the default case *)
@@ -244,8 +248,6 @@ normal_directive
 
 `[[DEFINE class: name; prop: val; ...]]` registers a named class in the StyleResolver. A `compose: other-class` property may be included to inherit all properties of a previously defined class before applying overrides.
 
-`[[DEFINE symbol: seq; class: name; type: inline|block]]` registers a custom symbol. See §9.
-
 ### 5.3 NORMAL
 
 A `NORMAL` annotation is the default case — any annotation that carries no uppercase directive keyword. It applies its properties to its resolved target and does not propagate.
@@ -255,8 +257,6 @@ A `NORMAL` annotation is the default case — any annotation that carries no upp
 `[[HIDE]]` is a source-level suppression directive. The Parser consumes its target and discards it entirely — the target never reaches the AST or the IR. It is the appropriate tool for author notes, draft passages, and any content that has no role in the rendered document.
 
 `[[HIDE]]` accepts optional properties following the same syntax as other directives, but those properties are discarded along with the target. They serve only as documentation for the author reading the source:
-
-
 
 ```atxt
 [[HIDE]]
@@ -270,6 +270,14 @@ This line is suppressed and will emerge styled as draft when reactivated.
     It may contain multiple paragraphs and annotations.
 }
 ```
+
+### 5.5 SYMBOL
+
+`[[SYMBOL symbol: seq; class: name; type: inline|block]]` registers a custom symbol in the Parser's symbol registry. See §9.3.
+
+The `SYMBOL` directive is consumed entirely by the Parser and never reaches the AST or the IR. The Hydrator is unaware of symbol definitions.
+
+The `type` property is optional and defaults to `inline` when omitted. A `SYMBOL` directive without a `class` property is silently ignored.
 
 ---
 
@@ -440,12 +448,17 @@ The compiler provides a set of default class definitions used when the correspon
 
 | Class | Default properties |
 |---|---|
-| `h1` | `size: 32; weight: bold` |
-| `h2` | `size: 24; weight: bold` |
-| `h3` | `size: 18; weight: bold` |
-| `blockquote` | `color: gray; indent: 4` |
-| `list-item` | `indent: 2` |
-| `list-ordered` | `indent: 2` |
+| `h1` | `kind: heading1; size: 32; weight: bold` |
+| `h2` | `kind: heading2; size: 24; weight: bold` |
+| `h3` | `kind: heading3; size: 18; weight: bold` |
+| `h4` | `kind: heading4; size: 16; weight: bold` |
+| `h5` | `kind: heading5; size: 14; weight: bold` |
+| `blockquote` | `kind: quote; color: gray; indent: 4` |
+| `list-item` | `kind: item; indent: 2` |
+| `list-ordered` | `kind: item; indent: 2` |
+| `bold` | `weight: bold` |
+| `italic` | `style: italic` |
+| `strikethrough` | `decoration: line-through` |
 
 A document may override any default class by providing an explicit `[[DEFINE class: h1; ...]]` declaration before first use.
 
@@ -493,11 +506,13 @@ Symbols are syntactic sugar that the Parser expands into annotations. The Hydrat
 
 | Symbol | Expands to |
 |---|---|
-| `**text**` | `[[+weight: bold]]` ... `[[-weight]]` |
-| `_text_` | `[[+style: italic]]` ... `[[-style]]` |
-| `~~text~~` | `[[+decoration: line-through]]` ... `[[-decoration]]` |
+| `**text**` | `[[+class: bold]]` ... `[[-class]]` |
+| `_text_` | `[[+class: italic]]` ... `[[-class]]` |
+| `~~text~~` | `[[+class: strikethrough]]` ... `[[-class]]` |
 
-Inline symbols are only recognized within text content. They expand to toggle pairs around the enclosed content. An inline symbol with empty content between its delimiters is treated as literal text.
+Inline symbols are only recognized within text content. They expand to class toggle pairs around the enclosed content. An inline symbol with empty content between its delimiters is treated as literal text.
+
+The closing delimiter of an inline symbol is always the reverse of the opening sequence. For symmetric symbols (`**`, `_`, `~~`) this is identical to the opening. For asymmetric custom symbols (e.g. `*-`) the closing is the mirror sequence (`-*`).
 
 ### 9.2 Built-in Block Symbols
 
@@ -505,27 +520,35 @@ Block symbols are recognized exclusively when they appear as the first non-white
 
 | Symbol | Expands to |
 |---|---|
-| `# text` | `[[kind: heading1; class: h1]] text` |
-| `## text` | `[[kind: heading2; class: h2]] text` |
-| `### text` | `[[kind: heading3; class: h3]] text` |
-| `> text` | `[[kind: quote; class: blockquote]] text` |
-| `- text` | `[[kind: item; class: list-item]] text` |
-| `1. text` | `[[kind: item; class: list-ordered]] text` |
+| `# text` | `[[class: h1]] text` |
+| `## text` | `[[class: h2]] text` |
+| `### text` | `[[class: h3]] text` |
+| `#### text` | `[[class: h4]] text` |
+| `##### text` | `[[class: h5]] text` |
+| `> text` | `[[class: blockquote]] text` |
+| `- text` | `[[class: list-item]] text` |
+| `+ text` | `[[class: list-ordered]] text` |
+
+`kind` is not emitted directly by block symbol expansion. It is resolved via the default class properties — `h1` carries `kind: heading1`, `blockquote` carries `kind: quote`, and so on. See §7.4.
 
 A block symbol in any position other than the start of a line is treated as literal text.
 
 ### 9.3 Custom Symbols
 
 ```atxt
-[[DEFINE symbol: ++; class: highlight; type: inline]]
-[[DEFINE symbol: §; class: section-header; type: block]]
+[[SYMBOL symbol: ++; class: highlight; type: inline]]
+[[SYMBOL symbol: §; class: section-header; type: block]]
 ```
 
-Custom symbol definitions follow the same contract as class definitions: they must appear before first use. The symbol sequence must not be empty. For inline symbols, the same opening and closing sequence is required. For block symbols, the sequence appears once at the start of a line.
+Custom symbol definitions register a new symbol in the Parser's symbol registry. The `type` property is optional and defaults to `inline`. A `SYMBOL` directive without a `class` property is silently ignored.
 
-**Precedence rule:** When two registered symbols share a prefix (e.g. `+` and `++`), the longest matching symbol takes precedence (maximal munch). If two symbols are identical, the second definition is a hydrator error.
+Custom symbol definitions must appear before first use. The symbol sequence must not be empty. A document may redefine a built-in symbol — the new definition takes effect from that point forward.
+
+**Precedence rule:** When two registered symbols share a prefix (e.g. `+` and `++`), the longest matching symbol takes precedence (maximal munch).
 
 Custom inline symbols with empty content between delimiters are treated as literal text.
+
+**Escape rule:** The Lexer processes the universal escape character `\` before the Parser sees token content. To emit a symbol sequence as literal text, escape the first character: `\**` produces the literal text `**` and does not open a symbol.
 
 ---
 
@@ -537,7 +560,8 @@ Source ATXT
     ▼
 ┌─────────┐
 │  Lexer  │  Converts raw text to a flat token stream.
-└────┬────┘  Manages mode stack. Emits lexer errors on malformed annotations.
+└────┬────┘  Manages mode stack. Processes escape sequences.
+     │       Emits lexer errors on malformed annotations.
      │
      ▼
 ┌──────────────┐
@@ -545,14 +569,15 @@ Source ATXT
 └──────┬───────┘  Tracks current index. Exposes peek, advance, match.
        │
        ▼
-┌────────┐
-│ Parser │  Consumes tokens to build the AST.
-└───┬────┘  Resolves annotation targets. Expands block symbols.
-    │       Expands inline symbols within text nodes.
-    │
-    ▼
+┌──────────────────────┐
+│ Parser + SymbolDetector │  Consumes tokens to build the AST.
+└──────────┬───────────┘  Resolves annotation targets.
+           │              Expands block and inline symbols via SymbolDetector.
+           │              Processes SYMBOL directives at parse time.
+           │
+           ▼
 ┌──────────────────────────┐
-│  Hydrator + StyleResolver│  Traverses AST. Resolves classes and properties.
+│  Hydrator + PropertyResolver│  Traverses AST. Resolves classes and properties.
 └──────────┬───────────────┘  Manages backpack per block scope.
            │                  Routes properties by scope.
            │                  Produces the IR.
@@ -587,25 +612,37 @@ The HTML Generator selects the output HTML tag for each `IRBlock` based on the `
 
 ### 11.1 Node Types
 
-The IR consists of two node types:
+The IR consists of two node types organized into an `IRDocument`:
 
 ```typescript
+interface IRDocument {
+  root: IRBlock;
+  nodeMap: Map<string, IRNode>;        // O(1) lookup by node id
+  classDefinitions: Record<string, ResolvedProps>;
+}
+
 type IRNode = IRBlock | IRText ;
 
 interface IRBlock {
+  id: string;                          // sequential base-36 in Live Preview; UUID in WYSIWYG
   type: "BLOCK";
-  props: Record<string, string>;   // block-scope properties only
+  props: Record<string, string>;       // block-scope properties only (merged)
+  classes: string[];                   // original class names applied to this node
+  inlineProps: Record<string, string>; // properties declared directly on the annotation
   children: IRNode[];
-  line?: number;
-  column?: number;
+  line: number;
+  column: number;
 }
 
 interface IRText {
+  id: string;
   type: "TEXT";
-  props: Record<string, string>;   // inline-scope properties only
+  props: Record<string, string>;       // inline-scope properties only (full snapshot)
+  classes: string[];
+  inlineProps: Record<string, string>;
   content: string;
-  line?: number;
-  column?: number;
+  line: number;
+  column: number;
 }
 ```
 
@@ -613,11 +650,13 @@ interface IRText {
 
 The following invariants hold on any valid IR produced by the Hydrator:
 
-1. An `IRBlock` node contains only block-scope properties.
-2. An `IRText` node contains only inline-scope properties.
+1. An `IRBlock` node contains only block-scope properties in `props`.
+2. An `IRText` node contains only inline-scope properties in `props`.
 3. No property in any node fails the validation predicate of its registry entry.
 4. Every `IRText` node carries a complete, standalone property snapshot — it does not inherit from its parent `IRBlock`.
 5. Source position (`line`, `column`) is preserved on all nodes to enable WYSIWYG jump-to-source.
+6. Every node has a unique `id`. In Live Preview, ids are sequential base-36 integers generated per compilation and do not persist across compilations. In the WYSIWYG editor, ids are stable UUIDs assigned at node creation.
+7. `nodeMap` contains every node in the tree, enabling O(1) lookup by `data-id` from the DOM.
 
 ### 11.3 IR as Serialization Target
 
@@ -637,7 +676,7 @@ The sequence `\ ` (backslash followed by a space) at the start of a line produce
 
 ### 12.3 Universal Escape
 
-The backslash `\` is the universal escape character. `\x` produces the literal character `x` for any `x`, suppressing its structural significance. Examples:
+The backslash `\` is the universal escape character, processed by the Lexer. `\x` produces the literal character `x` for any `x`, suppressing its structural significance. Examples:
 
 | Escape | Produces |
 |---|---|
@@ -647,6 +686,8 @@ The backslash `\` is the universal escape character. `\x` produces the literal c
 | `\}` | literal `}` |
 | `\\` | literal `\` |
 | `\ ` at line start | literal space, suppresses strip |
+
+For characters that are not structurally significant to the Lexer (including symbol delimiters such as `*`, `_`, `~`), the backslash is passed through in the token content. The escape is then resolved by the component responsible for that character's significance — currently the Parser's symbol expansion logic.
 
 ### 12.4 Block Content Trimming
 
@@ -691,11 +732,9 @@ interface CompilerError {
 |---|---|
 | Unknown property key | `Unknown property: '<key>'` |
 | Property value fails validation | `Invalid value for property '<key>': '<value>'` |
-| Class applied before definition | `Class '<name>' used before definition` |
-| Class redefined in same scope | `Class '<name>' already defined in this scope` |
-| `compose` references undefined class | `Cannot compose undefined class '<name>'` |
-| Symbol redefined | `Symbol '<seq>' already defined` |
-| Custom symbol used before definition | `Symbol '<seq>' used before definition` |
+| Class applied before definition | `Class '<n>' used before definition` |
+| Class redefined in same scope | `Class '<n>' already defined in this scope` |
+| `compose` references undefined class | `Cannot compose undefined class '<n>'` |
 | `kind` value not in registry | `Unknown kind: '<value>'` |
 
 ### 13.4 Generator Errors
