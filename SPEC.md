@@ -687,7 +687,7 @@ The backslash `\` is the universal escape character, processed by the Lexer. `\x
 | `\\` | literal `\` |
 | `\ ` at line start | literal space, suppresses strip |
 
-For characters that are not structurally significant to the Lexer (including symbol delimiters such as `*`, `_`, `~`), the backslash is passed through in the token content. The escape is then resolved by the component responsible for that character's significance — currently the Parser's symbol expansion logic.
+The Lexer processes \x for any character x, emitting an internal escape sentinel (U+E000, Unicode Private Use Area) followed by x in the TEXT token content. The sentinel is stripped from the source before tokenization begins and never appears in any output. The TextExpander consumes sentinel-prefixed characters as unconditional literals, ensuring they are never interpreted as symbol delimiters.
 
 ### 12.4 Block Content Trimming
 
