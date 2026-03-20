@@ -55,6 +55,23 @@ export function getKindDefinition(kind: string): KindDefinition | null {
 
 const isNumber = (val: string) => /^-?\d+$/.test(val);
 
+const isPositiveNumber = (val: string) => /^\d+(\.\d+)?$/.test(val) && parseFloat(val) > 0;
+
+const isCssColor = (val: string): boolean => {
+    const v = val.trim();
+    if (/^#([0-9a-fA-F]{3,4}|[0-9a-fA-F]{6}|[0-9a-fA-F]{8})$/.test(v)) return true;
+    if (/^rgb\(\s*\d+\s*,\s*\d+\s*,\s*\d+\s*\)$/.test(v)) return true;
+    if (/^rgba\(\s*\d+\s*,\s*\d+\s*,\s*\d+\s*,\s*[\d.]+\s*\)$/.test(v)) return true;
+    if (/^hsl\(\s*\d+\s*,\s*[\d.]+%\s*,\s*[\d.]+%\s*\)$/.test(v)) return true;
+    if (/^hsla\(\s*\d+\s*,\s*[\d.]+%\s*,\s*[\d.]+%\s*,\s*[\d.]+\s*\)$/.test(v)) return true;
+    if (/^[a-zA-Z]+$/.test(v)) return true; // named colors e.g. red, cornflowerblue
+    return false;
+};
+
+const isCssBorder = (val: string): boolean => /^[a-zA-Z0-9#%.\-\s]+$/.test(val.trim());
+
+const isFontFamily = (val: string): boolean => /^[a-zA-Z0-9\s,'\-]+$/.test(val.trim());
+
 const PROPERTY_REGISTRY: Record<string, PropertyDefinition> = {
     hidden: {
         scope: "block",
@@ -62,7 +79,7 @@ const PROPERTY_REGISTRY: Record<string, PropertyDefinition> = {
         validate: (v) => ["true", "false"].includes(v.toLowerCase()),
     },
     kind: { scope: "block", container: false, validate: (v) => getKindDefinition(v) !== null },
-    fill: { scope: "block", container: true, validate: (val) => val.trim().length > 0 },
+    fill: { scope: "block", container: true, validate: isCssColor },
     radius: { scope: "block", container: true, validate: isNumber },
     indent: { scope: "block", container: false, validate: isNumber },
     padding: {
@@ -75,7 +92,7 @@ const PROPERTY_REGISTRY: Record<string, PropertyDefinition> = {
         container: true,
         validate: (val) => val.trim().split(/\s+/).every(isNumber),
     },
-    border: { scope: "block", container: true, validate: (val) => val.trim().length > 0 },
+    border: { scope: "block", container: true, validate: isCssBorder },
     width: { scope: "block", container: true, validate: isNumber },
     height: { scope: "block", container: true, validate: isNumber },
     align: {
@@ -84,8 +101,8 @@ const PROPERTY_REGISTRY: Record<string, PropertyDefinition> = {
         validate: (val) => ["left", "right", "center", "justify"].includes(val),
     },
 
-    color: { scope: "inline", container: false, validate: (val) => val.trim().length > 0 },
-    font: { scope: "inline", container: false, validate: (val) => val.trim().length > 0 },
+    color: { scope: "inline", container: false, validate: isCssColor },
+    font: { scope: "inline", container: false, validate: isFontFamily },
     size: { scope: "inline", container: false, validate: isNumber },
     weight: {
         scope: "inline",
@@ -103,7 +120,11 @@ const PROPERTY_REGISTRY: Record<string, PropertyDefinition> = {
         container: false,
         validate: (val) => ["normal", "italic", "oblique"].includes(val),
     },
-    "line-height": { scope: "inline", container: false, validate: (val) => val.trim().length > 0 },
+    "line-height": {
+        scope: "inline",
+        container: false,
+        validate: (val) => val === "normal" || isPositiveNumber(val),
+    },
     decoration: {
         scope: "inline",
         container: false,
