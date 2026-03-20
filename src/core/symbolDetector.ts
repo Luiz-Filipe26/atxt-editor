@@ -1,3 +1,5 @@
+import { Lexer } from "./lexer";
+
 interface InlineEntry {
     type: "inline";
     className: string;
@@ -59,7 +61,7 @@ export class SymbolDetector {
     }
 
     registerBlock(sequence: string, className: string): void {
-        this.insertTrie(sequence, { type: "block", className});
+        this.insertTrie(sequence, { type: "block", className });
     }
 
     detectAt(text: string, pos: number): InlineSymbolMatch | null {
@@ -110,7 +112,7 @@ export class SymbolDetector {
         let pos = from;
         while (pos < text.length) {
             if (text[pos] === "\n") return -1;
-            if (text[pos] === "\\") {
+            if (text[pos] === Lexer.ESCAPE_SENTINEL) {
                 pos += 2;
                 continue;
             }

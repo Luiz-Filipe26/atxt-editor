@@ -18,10 +18,20 @@ export class Lexer {
     private readonly VALUE_STOP_CHARS = new Set(["]", ";", "\n", "\r", '"', "'"]);
     private readonly TRIGGER_CHARS = new Set(["[", "{", "}"]);
     private static readonly KEY_CHAR_REGEX = /[a-zA-Z0-9_-]/;
-    private static readonly LEXER_ESCAPE_CHARS = new Set(["[", "]", "{", "}", "\\", '"', "'"]);
+
+    /**
+     * Sentinel character (U+E000, Unicode Private Use Area) injected by the
+     * Lexer before any escaped character in TEXT tokens. The TextExpander
+     * consumes this sentinel and treats the following character as an
+     * unconditional literal — never as a symbol delimiter.
+     *
+     * Any occurrence of this character in the source file is stripped before
+     * tokenization begins, so it is exclusively an internal protocol marker.
+     */
+    static readonly ESCAPE_SENTINEL = "\uE000";
 
     tokenize(source: string): { tokens: Token[]; errors: CompilerError[] } {
-        this.scanner = new Scanner(source);
+        this.scanner = new Scanner(source.replaceAll(Lexer.ESCAPE_SENTINEL, ""));
         this.tokens = [];
         this.compilerErrors = [];
         this.modeStack = [LexerMode.NORMAL];
@@ -57,9 +67,7 @@ export class Lexer {
         switch (char) {
             case " ":
             case "\t":
-                if (this.isAtLineStart()) {
-                    break;
-                }
+                if (this.isAtLineStart()) break;
                 this.consumeText(char);
                 break;
             case "\n":
@@ -82,9 +90,7 @@ export class Lexer {
             case "\\":
                 if (!this.scanner.isAtEnd()) {
                     const escapedChar = this.scanner.advance();
-                    this.consumeText(escapedChar);
-                } else {
-                    this.consumeText("\\");
+                    this.consumeText(Lexer.ESCAPE_SENTINEL + escapedChar);
                 }
                 break;
             case "\r":
@@ -172,7 +178,7 @@ export class Lexer {
                 break;
             }
             if (this.scanner.peek() === "\\") {
-                value += this.consumeEscapedChar();
+                value += this.consumeEscapedCharRaw();
                 continue;
             }
             value += this.scanner.advance();
@@ -193,12 +199,7 @@ export class Lexer {
         while (!this.scanner.isAtEnd()) {
             const nextChar = this.scanner.peek();
             if (nextChar === "\\") {
-                const following = this.scanner.peekNext();
-                if (Lexer.LEXER_ESCAPE_CHARS.has(following)) {
-                    content += this.consumeEscapedChar();
-                } else {
-                    content += this.scanner.advance();
-                }
+                content += this.consumeEscapedChar();
                 continue;
             }
             if (stopCondition(nextChar)) break;
@@ -226,11 +227,17 @@ export class Lexer {
         this.addToken(TokenType.VALUE, value);
     }
 
+    /** Used in TEXT tokens — emits SENTINEL + char so TextExpander can treat it as literal. */
     private consumeEscapedChar(): string {
         this.scanner.advance();
-        if (!this.scanner.isAtEnd()) {
-            return this.scanner.advance();
-        }
+        if (!this.scanner.isAtEnd()) return Lexer.ESCAPE_SENTINEL + this.scanner.advance();
+        return "";
+    }
+
+    /** Used in quoted annotation values — emits the raw char with no sentinel (values bypass TextExpander). */
+    private consumeEscapedCharRaw(): string {
+        this.scanner.advance();
+        if (!this.scanner.isAtEnd()) return this.scanner.advance();
         return "";
     }
 

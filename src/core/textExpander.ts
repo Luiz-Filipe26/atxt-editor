@@ -1,6 +1,15 @@
 import * as AST from "../types/ast";
+import { Lexer } from "./lexer";
 import { SymbolDetector, type InlineSymbolMatch } from "./symbolDetector";
 
+/**
+ * Expands inline symbols within a pre-lexed TEXT token into AST nodes.
+ *
+ * Assumes the Lexer has already resolved structural escapes. Characters
+ * explicitly escaped by the author arrive prefixed with ESCAPE_SENTINEL.
+ * This class consumes those sentinels and emits the following
+ * character as unconditional literal text, never as a symbol delimiter.
+ */
 export class TextExpander {
     private symbolDetector: SymbolDetector;
 
@@ -26,12 +35,25 @@ export class TextExpander {
         this.result = [];
 
         while (this.pos < this.text.length) {
+            if (this.text[this.pos] === Lexer.ESCAPE_SENTINEL) {
+                this.consumeEscapedChar();
+                continue;
+            }
             if (this.tryExpandSymbol()) continue;
             this.accumulateChar();
         }
 
         this.flushBuffer();
         return this.result;
+    }
+
+    private consumeEscapedChar(): void {
+        this.pos++; // skip sentinel
+        if (this.pos < this.text.length) {
+            if (!this.buffer) this.bufferStartCol = this.startCol + this.pos;
+            this.buffer += this.text[this.pos];
+            this.pos++;
+        }
     }
 
     private tryExpandSymbol(): boolean {

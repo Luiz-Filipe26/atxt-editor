@@ -2,6 +2,8 @@ import { describe, it, expect } from "vitest";
 import { Lexer } from "@/core/lexer";
 import { TokenType } from "@/types/tokens";
 
+const S = Lexer.ESCAPE_SENTINEL;
+
 function tokenize(source: string) {
     return new Lexer().tokenize(source);
 }
@@ -10,6 +12,19 @@ function onlyTypes(source: string) {
     return tokenize(source)
         .tokens.filter((t) => t.type !== TokenType.EOF)
         .map((t) => t.type);
+}
+
+/** Strips escape sentinels from a string, mirroring what TextExpander does. */
+function stripSentinels(s: string): string {
+    return s.replaceAll(S, "");
+}
+
+/** Joins all TEXT token literals with sentinels stripped — the user-visible text content. */
+function visibleText(source: string): string {
+    return tokenize(source)
+        .tokens.filter((t) => t.type === TokenType.TEXT)
+        .map((t) => stripSentinels(t.literal))
+        .join("");
 }
 
 describe("Lexer", () => {
@@ -180,39 +195,48 @@ describe("Lexer", () => {
             const { tokens, errors } = tokenize("\\[\\[");
             expect(errors).toHaveLength(0);
             expect(tokens.some((t) => t.type === TokenType.ANNOTATION_OPEN)).toBe(false);
-            const combined = tokens
-                .filter((t) => t.type === TokenType.TEXT)
-                .map((t) => t.literal)
-                .join("");
-            expect(combined).toBe("[[");
+            // Token literals contain sentinel — TextExpander will strip it.
+            // Visible content seen by the author: [[
+            expect(visibleText("\\[\\[")).toBe("[[");
         });
 
         it("\\{ does not produce BLOCK_OPEN", () => {
             const { tokens, errors } = tokenize("\\{");
             expect(errors).toHaveLength(0);
             expect(tokens.some((t) => t.type === TokenType.BLOCK_OPEN)).toBe(false);
-            expect(tokens[0].literal).toBe("{");
+            // Raw token literal carries the sentinel prefix.
+            expect(tokens[0].literal).toBe(S + "{");
         });
 
-        it("\\\\ produces a single literal backslash", () => {
+        it("\\\\ produces a single literal backslash in the visible text", () => {
             const { tokens } = tokenize("\\\\");
             expect(tokens[0].type).toBe(TokenType.TEXT);
-            expect(tokens[0].literal).toBe("\\");
+            // Raw literal has sentinel; visible content is a single backslash.
+            expect(tokens[0].literal).toBe(S + "\\");
+            expect(visibleText("\\\\")).toBe("\\");
         });
 
         it("escaped structural characters inside text are treated as literals", () => {
-            const { tokens, errors } = tokenize("a\\[b\\]c");
-            expect(errors).toHaveLength(0);
-            const combined = tokens
-                .filter((t) => t.type === TokenType.TEXT)
-                .map((t) => t.literal)
-                .join("");
-            expect(combined).toBe("a[b]c");
+            expect(visibleText("a\\[b\\]c")).toBe("a[b]c");
         });
 
         it("a backslash at EOF inside a quoted string does not crash", () => {
             const { errors } = tokenize('[[font: "Arial\\');
             expect(errors.some((e) => e.type === "LEXER")).toBe(true);
+        });
+
+        it("a lone backslash at EOF is silently discarded", () => {
+            const { tokens, errors } = tokenize("\\");
+            expect(errors).toHaveLength(0);
+            // No TEXT token produced — nothing to escape.
+            expect(tokens.filter((t) => t.type === TokenType.TEXT)).toHaveLength(0);
+        });
+
+        it("sentinel character in source is stripped before tokenization", () => {
+            // U+E000 in source is reserved and removed.
+            const { tokens, errors } = tokenize("ab\uE000cd");
+            expect(errors).toHaveLength(0);
+            expect(tokens[0].literal).toBe("abcd");
         });
     });
 
@@ -252,6 +276,7 @@ describe("Lexer", () => {
             expect(errors).toHaveLength(0);
         });
     });
+
     describe("single '[' not followed by '[' — treated as text", () => {
         it("a lone '[' produces no ANNOTATION_OPEN and appears as text content", () => {
             const { tokens, errors } = tokenize("a[b");
@@ -266,18 +291,12 @@ describe("Lexer", () => {
     });
 
     describe("backslash edge cases", () => {
-        it("a lone backslash at end of file is emitted as a literal TEXT token", () => {
-            const { tokens, errors } = tokenize("\\");
-            expect(errors).toHaveLength(0);
-            expect(tokens[0].type).toBe(TokenType.TEXT);
-            expect(tokens[0].literal).toBe("\\");
-        });
-
         it("an escaped newline produces a literal newline in text content, not a structural NEWLINE", () => {
             const { tokens, errors } = tokenize("\\\n");
             expect(errors).toHaveLength(0);
             const text = tokens.find((t) => t.type === TokenType.TEXT);
-            expect(text?.literal).toBe("\n");
+            // Raw literal: sentinel + \n. Visible content: \n.
+            expect(text?.literal).toBe(S + "\n");
             expect(tokens.some((t) => t.type === TokenType.NEWLINE)).toBe(false);
         });
     });
@@ -293,8 +312,6 @@ describe("Lexer", () => {
 
     describe("semicolon in ANNOTATION_KEY mode", () => {
         it("semicolon after a value-less toggle key stays in ANNOTATION_KEY mode correctly", () => {
-            // [[-color]] has no value, so after reading '-color' we are still in ANNOTATION_KEY.
-            // The ';' that follows exercises the case ";" branch in handleAnnotationKeyMode.
             const { tokens, errors } = tokenize("[[-color; +size: 16]]");
             expect(errors).toHaveLength(0);
             const ids = tokens.filter((t) => t.type === TokenType.IDENTIFIER).map((t) => t.literal);
@@ -327,10 +344,11 @@ describe("Lexer", () => {
             );
         });
 
-        it("a backslash escape inside a quoted value preserves the escaped character", () => {
+        it("a backslash escape inside a quoted value preserves the escaped character without sentinel", () => {
             const { tokens, errors } = tokenize('[[font: "Ar\\"ial"]]');
             expect(errors).toHaveLength(0);
             const value = tokens.find((t) => t.type === TokenType.VALUE);
+            // Quoted values bypass TextExpander — no sentinel in the value.
             expect(value?.literal).toBe('Ar"ial');
         });
 

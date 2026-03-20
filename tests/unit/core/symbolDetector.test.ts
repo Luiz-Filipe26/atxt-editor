@@ -1,5 +1,8 @@
 import { describe, it, expect, beforeEach } from "vitest";
+import { Lexer } from "@/core/lexer";
 import { SymbolDetector } from "@/core/symbolDetector";
+
+const S = Lexer.ESCAPE_SENTINEL;
 
 describe("SymbolDetector", () => {
     let detector: SymbolDetector;
@@ -53,15 +56,18 @@ describe("SymbolDetector", () => {
         });
     });
 
-    describe("detectAt — escape handling in close search", () => {
-        it("ignores an escaped closing delimiter", () => {
-            const match = detector.detectAt("**text\\** more**", 0);
+    describe("detectAt — escape handling in close search (sentinel protocol)", () => {
+        it("ignores a sentinel-escaped closing delimiter", () => {
+            // S + "**" means the ** was escaped — not a real closer.
+            // The real closer is the ** at the end.
+            const match = detector.detectAt(`**text${S}** more**`, 0);
             expect(match).not.toBeNull();
             expect(match!.closePos).toBe(14);
         });
 
-        it("does not treat \\\\ as escaping the following **", () => {
-            const match = detector.detectAt("**text\\\\**", 0);
+        it("does not treat sentinel-escaped backslash as escaping the following **", () => {
+            // S + "\" means the \ was escaped (literal backslash) — the ** after it is a real closer.
+            const match = detector.detectAt(`**text${S}\\**`, 0);
             expect(match).not.toBeNull();
             expect(match!.closePos).toBe(8);
         });

@@ -3,6 +3,7 @@ import { SymbolDetector } from "@/core/symbolDetector";
 import { TextExpander } from "@/core/textExpander";
 import { NodeType } from "@/types/ast";
 import * as AST from "@/types/ast";
+import { Lexer } from "@/core/lexer";
 
 function makeExpander(): TextExpander {
     return new TextExpander(new SymbolDetector());
@@ -88,6 +89,23 @@ describe("TextExpander", () => {
         it("backslash characters pass through as literals since Lexer handles escape", () => {
             const result = makeExpander().expand("hello world", 1, 1);
             expect((result[0] as AST.TextNode).content).toBe("hello world");
+        });
+
+        it("sentinel-prefixed character is emitted as literal and does not open a symbol", () => {
+            const result = makeExpander().expand(`${Lexer.ESCAPE_SENTINEL}**not bold**`, 1, 1);
+            expect(annotations(result)).toHaveLength(0);
+            expect(texts(result).join("")).toContain("**not bold**");
+        });
+
+        it("sentinel at end of string is consumed without emitting anything", () => {
+            const result = makeExpander().expand(`hello${Lexer.ESCAPE_SENTINEL}`, 1, 1);
+            expect(texts(result).join("")).toBe("hello");
+        });
+
+        it("sentinel after text appends escaped char to existing buffer", () => {
+            const result = makeExpander().expand(`hello${Lexer.ESCAPE_SENTINEL}**world`, 1, 1);
+            expect(texts(result).join("")).toBe("hello**world");
+            expect(annotations(result)).toHaveLength(0);
         });
     });
 

@@ -31,11 +31,6 @@ export class Scanner {
         return this.isAtEnd() ? "\0" : this.source[this.current];
     }
 
-    peekNext(): string {
-        const next = this.current + 1;
-        return next >= this.source.length ? "\0" : this.source[next];
-    }
-
     match(expected: string): boolean {
         if (this.isAtEnd() || this.source[this.current] !== expected) return false;
         this.advance();
