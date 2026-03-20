@@ -1,3 +1,4 @@
+import DOMPurify from "isomorphic-dompurify";
 import * as IR from "../types/ir";
 import { formatCssUnit, getCssMapping } from "../domain/cssPropertyMapping";
 import { getHtmlTag } from "../domain/htmlTagMapping";
@@ -23,7 +24,7 @@ export class Generator {
             }
         `;
 
-        return dedent`
+        const raw = dedent`
             <div class="atxt-document-root">
                 <style>
                     ${baseCss}
@@ -32,6 +33,32 @@ export class Generator {
                 ${html}
             </div>
         `;
+
+        return DOMPurify.sanitize(raw, {
+            ALLOWED_TAGS: [
+                "div",
+                "p",
+                "span",
+                "pre",
+                "h1",
+                "h2",
+                "h3",
+                "h4",
+                "h5",
+                "blockquote",
+                "ul",
+                "ol",
+                "li",
+                "aside",
+                "section",
+                "article",
+                "header",
+                "footer",
+                "style",
+            ],
+            ALLOWED_ATTR: ["class", "data-id", "style"],
+            FORCE_BODY: false,
+        });
     }
 
     private renderNode(node: IR.Node): string {
@@ -51,11 +78,7 @@ export class Generator {
         }
     }
 
-    private renderBlockNode(
-        node: IR.Block,
-        classAttribute: string,
-        dataAttribute: string,
-    ): string {
+    private renderBlockNode(node: IR.Block, classAttribute: string, dataAttribute: string): string {
         if (node.children.length === 0) {
             return "";
         }
