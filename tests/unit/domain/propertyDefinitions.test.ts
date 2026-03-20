@@ -112,34 +112,78 @@ describe("getPropertyDefinition", () => {
         });
     });
 
-    describe("fill and border — non-empty string", () => {
-        it.each(["fill", "border"])("%s accepts any non-empty string", (key) => {
-            const { validate } = getPropertyDefinition(key)!;
-            expect(validate("#ff0000")).toBe(true);
-            expect(validate("1px solid black")).toBe(true);
-            expect(validate("rgba(0,0,0,0.5)")).toBe(true);
-        });
+    describe("fill — CSS color", () => {
+        const { validate } = getPropertyDefinition("fill")!;
 
-        it.each(["fill", "border"])("%s rejects empty and whitespace-only strings", (key) => {
-            const { validate } = getPropertyDefinition(key)!;
-            expect(validate("")).toBe(false);
-            expect(validate("   ")).toBe(false);
-        });
+        it.each(["#fff", "#ff0000", "#ff000080", "red", "cornflowerblue", "transparent"])(
+            'accepts valid color "%s"',
+            (val) => expect(validate(val)).toBe(true),
+        );
+
+        it("accepts rgb()", () => expect(validate("rgb(255,0,0)")).toBe(true));
+        it("accepts rgba()", () => expect(validate("rgba(0,0,0,0.5)")).toBe(true));
+        it("accepts hsl()", () => expect(validate("hsl(0,100%,50%)")).toBe(true));
+        it("accepts hsla()", () => expect(validate("hsla(0,100%,50%,0.5)")).toBe(true));
+
+        it.each(["", "   ", "javascript:alert(1)", "expression(alert(1))", "1px solid black"])(
+            'rejects invalid value "%s"',
+            (val) => expect(validate(val)).toBe(false),
+        );
     });
 
-    describe("color, font, line-height — non-empty string", () => {
-        it.each(["color", "font", "line-height"])("%s accepts any non-empty string", (key) => {
-            const { validate } = getPropertyDefinition(key)!;
-            expect(validate("red")).toBe(true);
-            expect(validate("Georgia, serif")).toBe(true);
-            expect(validate("1.5")).toBe(true);
-            expect(validate("20px")).toBe(true);
-        });
+    describe("border — safe CSS shorthand characters", () => {
+        const { validate } = getPropertyDefinition("border")!;
 
-        it.each(["color", "font", "line-height"])("%s rejects empty string", (key) => {
-            const { validate } = getPropertyDefinition(key)!;
-            expect(validate("")).toBe(false);
-        });
+        it.each(["1px solid black", "2px dashed #ccc", "thin solid red", "0"])(
+            'accepts valid border "%s"',
+            (val) => expect(validate(val)).toBe(true),
+        );
+
+        it.each(["", "javascript:alert(1)", "1px solid url(x)", "expression(alert(1))"])(
+            'rejects invalid value "%s"',
+            (val) => expect(validate(val)).toBe(false),
+        );
+    });
+
+    describe("color — CSS color", () => {
+        const { validate } = getPropertyDefinition("color")!;
+
+        it.each(["red", "#ff0000", "rgb(255,0,0)", "rgba(0,0,0,0.5)", "hsl(0,100%,50%)"])(
+            'accepts valid color "%s"',
+            (val) => expect(validate(val)).toBe(true),
+        );
+
+        it.each(["", "Georgia, serif", "1.5", "20px", "javascript:alert(1)", "expression(x)"])(
+            'rejects invalid value "%s"',
+            (val) => expect(validate(val)).toBe(false),
+        );
+    });
+
+    describe("font — font family name", () => {
+        const { validate } = getPropertyDefinition("font")!;
+
+        it.each(["Arial", "Georgia, serif", "Times New Roman", "sans-serif", "Helvetica Neue"])(
+            'accepts valid font "%s"',
+            (val) => expect(validate(val)).toBe(true),
+        );
+
+        it.each(["", "expression(alert(1))", "url(evil.com)", "javascript:x"])(
+            'rejects invalid value "%s"',
+            (val) => expect(validate(val)).toBe(false),
+        );
+    });
+
+    describe("line-height", () => {
+        const { validate } = getPropertyDefinition("line-height")!;
+
+        it.each(["normal", "1.5", "2", "1.8"])('accepts valid value "%s"', (val) =>
+            expect(validate(val)).toBe(true),
+        );
+
+        it.each(["", "0", "-1", "20px", "bold", "expression(1)"])(
+            'rejects invalid value "%s"',
+            (val) => expect(validate(val)).toBe(false),
+        );
     });
 
     describe("weight", () => {
