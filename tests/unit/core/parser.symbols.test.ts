@@ -149,11 +149,17 @@ describe("Parser — symbol expansion", () => {
             );
             expect(annotations(firstLine)).toHaveLength(0);
         });
-    });
-    it("SYMBOL without type defaults to inline", () => {
-        const { document, errors } = parse("[[SYMBOL symbol: ++; class: highlight]]\n++text++");
-        expect(errors).toHaveLength(0);
-        const ann = annotations(document.children).filter((a) => a.directive === "NORMAL");
-        expect(ann[0].properties[0].value).toBe("highlight");
+        it("SYMBOL without type defaults to inline", () => {
+            const { document, errors } = parse("[[SYMBOL symbol: ++; class: highlight]]\n++text++");
+            expect(errors).toHaveLength(0);
+            const ann = annotations(document.children).filter((a) => a.directive === "NORMAL");
+            expect(ann[0].properties[0].value).toBe("highlight");
+        });
+
+        it("SYMBOL directive without a symbol property is silently ignored", () => {
+            const { document, errors } = parse("[[SYMBOL class: highlight]]");
+            expect(errors).toHaveLength(0);
+            expect(document.children).toHaveLength(0);
+        });
     });
 });

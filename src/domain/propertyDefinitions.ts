@@ -57,6 +57,8 @@ const isNumber = (val: string) => /^-?\d+$/.test(val);
 
 const isPositiveNumber = (val: string) => /^\d+(\.\d+)?$/.test(val) && parseFloat(val) > 0;
 
+const isNonNegativeInteger = (val: string) => /^\d+$/.test(val);
+
 const isCssColor = (val: string): boolean => {
     const v = val.trim();
     if (/^#([0-9a-fA-F]{3,4}|[0-9a-fA-F]{6}|[0-9a-fA-F]{8})$/.test(v)) return true;
@@ -81,7 +83,7 @@ const PROPERTY_REGISTRY: Record<string, PropertyDefinition> = {
     kind: { scope: "block", container: false, validate: (v) => getKindDefinition(v) !== null },
     fill: { scope: "block", container: true, validate: isCssColor },
     radius: { scope: "block", container: true, validate: isNumber },
-    indent: { scope: "block", container: false, validate: isNumber },
+    indent: { scope: "block", container: false, validate: isNonNegativeInteger },
     padding: {
         scope: "block",
         container: true,
@@ -103,7 +105,7 @@ const PROPERTY_REGISTRY: Record<string, PropertyDefinition> = {
 
     color: { scope: "inline", container: false, validate: isCssColor },
     font: { scope: "inline", container: false, validate: isFontFamily },
-    size: { scope: "inline", container: false, validate: isNumber },
+    size: { scope: "inline", container: false, validate: isPositiveNumber },
     weight: {
         scope: "inline",
         container: false,

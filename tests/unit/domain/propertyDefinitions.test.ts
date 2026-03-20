@@ -67,28 +67,48 @@ describe("getPropertyDefinition", () => {
         );
     });
 
-    describe("radius, width, height, indent, size — integer only", () => {
-        it.each(["radius", "width", "height", "indent", "size"])(
-            "%s accepts bare integers including zero and negatives",
+    describe("radius, width, height — any integer", () => {
+        it.each(["radius", "width", "height"])(
+            "%s accepts integers including zero and negatives",
             (key) => {
                 const { validate } = getPropertyDefinition(key)!;
                 expect(validate("0")).toBe(true);
                 expect(validate("10")).toBe(true);
-                expect(validate("100")).toBe(true);
                 expect(validate("-5")).toBe(true);
             },
         );
 
-        it.each(["radius", "width", "height", "indent", "size"])(
+        it.each(["radius", "width", "height"])(
             "%s rejects decimals, units, and non-numbers",
             (key) => {
                 const { validate } = getPropertyDefinition(key)!;
                 expect(validate("10px")).toBe(false);
                 expect(validate("1.5")).toBe(false);
-                expect(validate("1.5rem")).toBe(false);
                 expect(validate("abc")).toBe(false);
                 expect(validate("")).toBe(false);
             },
+        );
+    });
+
+    describe("indent — non-negative integer", () => {
+        const { validate } = getPropertyDefinition("indent")!;
+
+        it.each(["0", "1", "4", "100"])('accepts "%s"', (val) => expect(validate(val)).toBe(true));
+
+        it.each(["-1", "-5", "1.5", "10px", "abc", ""])('rejects "%s"', (val) =>
+            expect(validate(val)).toBe(false),
+        );
+    });
+
+    describe("size — positive number", () => {
+        const { validate } = getPropertyDefinition("size")!;
+
+        it.each(["1", "14", "13.5", "0.5"])('accepts "%s"', (val) =>
+            expect(validate(val)).toBe(true),
+        );
+
+        it.each(["0", "-1", "-5", "1.5rem", "14px", "abc", ""])('rejects "%s"', (val) =>
+            expect(validate(val)).toBe(false),
         );
     });
 

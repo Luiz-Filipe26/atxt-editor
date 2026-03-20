@@ -70,8 +70,6 @@ export class Parser {
             return null;
         }
 
-        if (directive === "DEFINE") this.handleSymbolDefinition(props);
-
         const hasNormalProps = props.some((p) => p.toggle === undefined);
         const needsTarget = directive === "NORMAL" && hasNormalProps;
 
