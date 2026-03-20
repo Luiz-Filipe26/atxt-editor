@@ -22,6 +22,7 @@
 12. [Whitespace and Escape Rules](#12-whitespace-and-escape-rules)
 13. [Error Model](#13-error-model)
 14. [The `.atz` Package Format](#14-the-atz-package-format)
+15. [Template System](#15-template-system)
 
 ---
 
@@ -38,6 +39,8 @@ Five properties hold simultaneously:
 5. **Output-agnostic** — the same source compiles to HTML, PDF, and DOCX via pluggable Generators.
 
 ATXT is **Turing-incomplete by design**. It describes documents; it does not execute programs. There are no macros, no runtime evaluation, and no dynamic state beyond what is declared in the source text.
+
+The Template System (§15) extends ATXT with placeholder resolution and computed text injection without violating this guarantee. See §15.1 for the architectural rationale.
 
 ---
 
@@ -580,6 +583,7 @@ Source ATXT
 │  Hydrator + PropertyResolver│  Traverses AST. Resolves classes and properties.
 └──────────┬───────────────┘  Manages backpack per block scope.
            │                  Routes properties by scope.
+           │                  Resolves placeholders against data context (§15).
            │                  Produces the IR.
            ▼
 ┌─────────────────────────────────────┐
@@ -599,7 +603,7 @@ Each stage has exclusive responsibility:
 |---|---|---|---|
 | Lexer | Raw string | Token stream | Know about AST structure |
 | Parser | Token stream | AST | Know about style resolution |
-| Hydrator | AST | IR | Know about rendering targets |
+| Hydrator | AST + data context | IR | Know about rendering targets |
 | Generator | IR | Target format | Know about source syntax |
 
 The Generator skips any IR node carrying `hidden: true` in standard rendering mode. WYSIWYG tools may override this behavior to implement revision mode.
@@ -641,6 +645,8 @@ interface IRText {
   classes: string[];
   inlineProps: Record<string, string>;
   content: string;
+  computed?: true;                     // present when content was resolved from a placeholder
+  fieldName?: string;                  // the placeholder name, when computed is true
   line: number;
   column: number;
 }
@@ -657,10 +663,11 @@ The following invariants hold on any valid IR produced by the Hydrator:
 5. Source position (`line`, `column`) is preserved on all nodes to enable WYSIWYG jump-to-source.
 6. Every node has a unique `id`. In Live Preview, ids are sequential base-36 integers generated per compilation and do not persist across compilations. In the WYSIWYG editor, ids are stable UUIDs assigned at node creation.
 7. `nodeMap` contains every node in the tree, enabling O(1) lookup by `data-id` from the DOM.
+8. An `IRText` node with `computed: true` carries a `fieldName` identifying the placeholder that produced it. The Serializer uses `fieldName` to reconstruct the original placeholder syntax — it never writes the resolved content back to the `.atxt` source.
 
 ### 11.3 IR as Serialization Target
 
-The IR is isomorphic to the ATXT source and may be serialized to XML or JSON. The Serializer (IR → ATXT) traverses the IR tree and reconstructs canonical ATXT with explicit per-segment annotations. Toggle syntax is not used in serialized output — the canonical form uses explicit open/close annotations for all inline styles.
+The IR is isomorphic to the ATXT source and may be serialized back to ATXT. The Serializer traverses the IR tree and reconstructs canonical ATXT. Nodes with `computed: true` are serialized as their original placeholder expression (e.g. `{{fieldName}}`), never as the resolved text value — preserving the template structure of the source document.
 
 ---
 
@@ -687,7 +694,7 @@ The backslash `\` is the universal escape character, processed by the Lexer. `\x
 | `\\` | literal `\` |
 | `\ ` at line start | literal space, suppresses strip |
 
-The Lexer processes \x for any character x, emitting an internal escape sentinel (U+E000, Unicode Private Use Area) followed by x in the TEXT token content. The sentinel is stripped from the source before tokenization begins and never appears in any output. The TextExpander consumes sentinel-prefixed characters as unconditional literals, ensuring they are never interpreted as symbol delimiters.
+The Lexer processes `\x` for any character `x`, emitting an internal escape sentinel (`U+E000`, Unicode Private Use Area) followed by `x` in the TEXT token content. The sentinel is stripped from the source before tokenization begins and never appears in any output. The TextExpander consumes sentinel-prefixed characters as unconditional literals, ensuring they are never interpreted as symbol delimiters.
 
 ### 12.4 Block Content Trimming
 
@@ -736,6 +743,7 @@ interface CompilerError {
 | Class redefined in same scope | `Class '<n>' already defined in this scope` |
 | `compose` references undefined class | `Cannot compose undefined class '<n>'` |
 | `kind` value not in registry | `Unknown kind: '<value>'` |
+| Placeholder field value fails validation | `Invalid value for field '<name>': '<value>'` |
 
 ### 13.4 Generator Errors
 
@@ -759,13 +767,13 @@ An `.atz` file is a ZIP archive with the following structure:
 
 ```
 document.atz
-├── main.atxt              (required) — the document source
+├── main.atxt              (required) — the document source (template)
 ├── meta.json              (to be specified) — package metadata
+├── data/                  (to be specified) — data sources for placeholder resolution
+│   └── data.json          — key-value store for field values
 ├── assets/                (to be specified) — referenced binary files
 │   ├── image.jpg
 │   └── chart.png
-├── data/                  (to be specified) — data sources for transforms
-│   └── recipients.csv
 └── transforms/            (to be specified) — pipeline declarations
     └── pipeline.json
 ```
@@ -794,6 +802,78 @@ If the user duplicates a document at the filesystem level, the editor must detec
 ### 14.3 Versioning
 
 The `.atxt` source inside an `.atz` package is plain text and is directly compatible with Git version control. Because the package is a ZIP, the recommended workflow is to version the `main.atxt` file independently in a Git repository and produce `.atz` archives only for distribution.
+
+---
+
+## 15. Template System
+
+> **Note:** The syntax for template directives is not yet defined. This section documents the confirmed architectural decisions. All annotation syntax shown is illustrative only.
+
+### 15.1 Philosophy: Model–View Separation
+
+The template system extends ATXT with placeholder resolution and automatic text injection without violating the core guarantee of Turing-incompleteness.
+
+The key architectural decision is that **computed text never mutates the `.atxt` source**. The `.atxt` file always contains the template — the structure, the placeholders, and the rules. The resolved values live in `data/data.json` inside the `.atz` package. When the user edits a placeholder value in the WYSIWYG editor, the editor updates `data.json`, not `main.atxt`. The source document remains a clean, static description of its own structure.
+
+This separation means:
+
+- The `.atxt` source is always diffable and human-readable regardless of the data it has been filled with.
+- The same template can be reused with different data sets without modifying the source.
+- Round-trip fidelity is guaranteed: serializing the IR back to ATXT always produces the original template with placeholders intact.
+
+### 15.2 Placeholders and Field Values
+
+> **Syntax: to be specified.**
+
+A placeholder declares a named slot in the document where a value will be injected at compile time. Each placeholder has a `name` (the field identifier) and may declare validation rules.
+
+Data values are supplied at the **invocation site** — the point in the document where a declared section is used, not where it is defined. Two supply mechanisms are available:
+
+**Inline** — the value is written directly in the `.atxt` source at the invocation site, alongside the field name. The template declaration and the data remain in separate parts of the document, preserving the template structure even when all data is authored inline.
+
+**Via JSON** — the value is resolved from `data/data.json` inside the `.atz` package using a dot-notation key path (e.g. `client.cpf`). The key path supports only property access by name — no functions, no filters, no computed expressions. This mechanism allows external systems (APIs, databases, batch processors) to populate documents without modifying the `.atxt` source.
+
+When a placeholder is resolved, the Hydrator produces an `IRText` node with `computed: true` and `fieldName` set to the placeholder name. The resolved value is stored in `content`. The original placeholder expression is never written to `content` — it is preserved only in `fieldName` for serialization purposes.
+
+### 15.3 Validation
+
+> **Syntax: to be specified.**
+
+A placeholder may declare a validation rule expressed as a regular expression. The regex is evaluated against the resolved value before the IR is produced. If the value does not match, the Hydrator emits a `HYDRATOR` error with a human-readable message and halts rendering for that field.
+
+The regex subset used for validation is deliberately restricted: backreferences and lookahead/lookbehind assertions are not supported. This restriction preserves Turing-incompleteness — the validation predicate terminates in bounded time and produces no side effects.
+
+### 15.4 Triggers and Computed Text Injection
+
+> **Syntax: to be specified.**
+
+A trigger declares a rule of the form: if a selector matches a condition, inject text at a specified location in the document. Triggers are evaluated by the Hydrator after all placeholders have been resolved.
+
+**Selectors** query the IR by node properties, class names, or field names. They do not match computed nodes — nodes with `computed: true` are invisible to selectors. This structural invisibility is the mechanism that prevents trigger chains: a trigger cannot observe the output of another trigger, making cascading reactions architecturally impossible without requiring any runtime cycle detection.
+
+**Injected text** is inserted into the IR as `IRText` nodes with `computed: true`. These nodes are rendered normally by all Generators but are treated as read-only in the WYSIWYG editor (see §15.5) and are serialized back to their original trigger expression, not their resolved content.
+
+The trigger system is **single-pass by design**: the Hydrator evaluates all triggers exactly once against the source IR. The order of evaluation is deterministic (document order). No trigger may reference the output of another trigger.
+
+### 15.5 WYSIWYG Presentation of Computed Nodes
+
+Nodes with `computed: true` in the IR receive special treatment in the WYSIWYG editor:
+
+- They are rendered with a distinct visual treatment (e.g. a shaded background or a lock icon) to indicate their computed origin.
+- They are rendered with `contenteditable="false"`, preventing direct text editing.
+- Clicking a computed node opens a popover or side panel allowing the user to edit the underlying data value (updating `data.json`) or to detach the node (converting it to static text and removing the `computed` flag, which writes the literal content into the `.atxt` source).
+
+Detaching a computed node is a one-way operation. Once detached, the text becomes part of the static document and is no longer associated with any placeholder or trigger.
+
+### 15.6 Turing-Incompleteness Guarantee
+
+The template system preserves the Turing-incompleteness of ATXT through three structural constraints:
+
+1. **No self-reference.** Selectors cannot observe computed nodes, so triggers cannot react to their own output.
+2. **Single-pass evaluation.** Triggers are evaluated exactly once in document order. There is no iteration, no recursion, and no conditional branching that could produce unbounded execution.
+3. **Bounded validation.** Field validation uses a restricted regex subset that excludes features associated with unbounded computation.
+
+These constraints are enforced by the architecture, not by runtime checks. A conforming implementation cannot produce infinite loops or undecidable computations regardless of the input document.
 
 ---
 
