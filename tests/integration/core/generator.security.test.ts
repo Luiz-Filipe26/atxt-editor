@@ -1,0 +1,98 @@
+import { describe, it, expect } from "vitest";
+import { compileToHTML, compileToIR } from "@/core/compiler";
+
+describe("Generator — security", () => {
+    describe("XSS via text content", () => {
+        it("script tag in text content is not rendered as HTML", () => {
+            const html = compileToHTML("<script>alert(1)</script>");
+            expect(html).not.toContain("<script>");
+            expect(html).not.toContain("alert(1)");
+        });
+
+        it("img onerror payload in text content is neutralized", () => {
+            const html = compileToHTML('<img src=x onerror="alert(1)">');
+            expect(html).not.toContain("onerror");
+            expect(html).not.toContain("<img");
+        });
+
+        it("iframe injection in text content is removed", () => {
+            const html = compileToHTML('<iframe src="javascript:alert(1)"></iframe>');
+            expect(html).not.toContain("<iframe");
+        });
+
+        it("svg onload payload in text content is neutralized", () => {
+            const html = compileToHTML('<svg onload="alert(1)">');
+            expect(html).not.toContain("onload");
+        });
+
+        it("unknown tags are removed by DOMPurify, surrounding text is preserved", () => {
+            const html = compileToHTML("Hello <World> & 'friends'");
+            expect(html).not.toContain("<World>");
+            expect(html).toContain("Hello");
+            expect(html).toContain("friends");
+            expect(html).toContain("&amp;");
+        });
+    });
+
+    describe("XSS via property values — rejected by Hydrator before reaching Generator", () => {
+        it("javascript: url in fill property is rejected as invalid color", () => {
+            const { errors } = compileToIR("[[fill: javascript:alert(1)]] {Hello}");
+            expect(errors.some((e) => e.type === "HYDRATOR")).toBe(true);
+        });
+
+        it("expression() in color property is rejected as invalid color", () => {
+            const { errors } = compileToIR("[[color: expression(alert(1))]] Hello");
+            expect(errors.some((e) => e.type === "HYDRATOR")).toBe(true);
+        });
+
+        it("javascript: url in border property is rejected", () => {
+            const { errors } = compileToIR("[[border: javascript:alert(1)]] {Hello}");
+            expect(errors.some((e) => e.type === "HYDRATOR")).toBe(true);
+        });
+
+        it("expression() in font property is rejected", () => {
+            const { errors } = compileToIR("[[font: expression(alert(1))]] Hello");
+            expect(errors.some((e) => e.type === "HYDRATOR")).toBe(true);
+        });
+    });
+
+    describe("disallowed HTML tags are removed", () => {
+        it("object tag is removed", () => {
+            const html = compileToHTML('<object data="malicious.swf"></object>');
+            expect(html).not.toContain("<object");
+        });
+
+        it("link tag is removed", () => {
+            const html = compileToHTML('<link rel="stylesheet" href="evil.css">');
+            expect(html).not.toContain("<link");
+        });
+
+        it("meta tag is removed", () => {
+            const html = compileToHTML('<meta http-equiv="refresh" content="0;url=evil.com">');
+            expect(html).not.toContain("<meta");
+        });
+    });
+
+    describe("allowed structure is preserved after sanitization", () => {
+        it("data-id attributes survive sanitization", () => {
+            const html = compileToHTML("Hello");
+            expect(html).toMatch(/data-id="[^"]+"/);
+        });
+
+        it("generated class attributes survive sanitization", () => {
+            const html = compileToHTML("[[color: red]] Hello");
+            expect(html).toMatch(/class="atxt-editor-[a-z0-9]+"/);
+        });
+
+        it("semantic tags from kind survive sanitization", () => {
+            const html = compileToHTML("# Heading");
+            expect(html).toContain("<h1");
+        });
+
+        it("style tag with generated CSS survives sanitization", () => {
+            const html = compileToHTML("[[color: red]] Hello");
+            expect(html).toContain("<style>");
+            expect(html).toContain("color: red");
+        });
+    });
+});
