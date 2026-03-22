@@ -2,6 +2,7 @@ export const NodeType = {
     DOCUMENT: "DOCUMENT",
     BLOCK: "BLOCK",
     TEXT: "TEXT",
+    NEWLINE: "NEWLINE",
     ANNOTATION: "ANNOTATION",
     PROPERTY: "PROPERTY",
 } as const;
@@ -14,7 +15,7 @@ interface BaseNode {
     column: number;
 }
 
-export type BlockContentNode = BlockNode | TextNode | AnnotationNode;
+export type BlockContentNode = BlockNode | TextNode | NewlineNode | AnnotationNode;
 
 export interface DocumentNode extends BaseNode {
     type: "DOCUMENT";
@@ -29,6 +30,10 @@ export interface BlockNode extends BaseNode {
 export interface TextNode extends BaseNode {
     type: "TEXT";
     content: string;
+}
+
+export interface NewlineNode extends BaseNode {
+    type: "NEWLINE";
 }
 
 export interface PropertyNode extends BaseNode {

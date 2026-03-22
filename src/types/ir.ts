@@ -1,25 +1,32 @@
 export type ResolvedProps = Record<string, string>;
 
-interface BaseNode {
+interface PositionalNode {
     id: string;
-    props: ResolvedProps;
-    classes: string[];
-    inlineProps: ResolvedProps;
     line?: number;
     column?: number;
 }
 
-export interface Block extends BaseNode {
+interface StyledNode extends PositionalNode {
+    props: ResolvedProps;
+    classes: string[];
+    inlineProps: ResolvedProps;
+}
+
+export interface Block extends StyledNode {
     type: "BLOCK";
     children: Node[];
 }
 
-export interface Text extends BaseNode {
+export interface Text extends StyledNode {
     type: "TEXT";
     content: string;
 }
 
-export type Node = Block | Text;
+export interface Newline extends PositionalNode {
+    type: "NEWLINE";
+}
+
+export type Node = Block | Text | Newline;
 
 export interface IRDocument {
     root: Block;
