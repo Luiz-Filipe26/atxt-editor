@@ -4,6 +4,8 @@ import { Parser } from "./core/parser";
 import { Hydrator } from "./core/hydrator";
 import { Generator } from "./core/generator";
 import type * as IR from "./types/ir";
+import { compileToIR } from "./core/compiler";
+import { serialize } from "./core/serializer";
 
 const STORAGE_KEY = "atxt_saved_content";
 
@@ -81,6 +83,19 @@ inputEl.addEventListener("input", handleInput);
 runCompiler(initialContent);
 
 let pendingOffset = 0;
+
+document.getElementById("btn-serialize")!.addEventListener("click", () => {
+    const { ir, errors } = compileToIR(inputEl.value);
+    if (errors.length > 0) console.warn("Serializing IR with errors:", errors);
+    const canonical = serialize(ir);
+    const blob = new Blob([canonical], { type: "text/plain" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "document.atxt";
+    a.click();
+    URL.revokeObjectURL(url);
+});
 
 outputEl.addEventListener("mousedown", (e) => {
     if ("caretPositionFromPoint" in document) {

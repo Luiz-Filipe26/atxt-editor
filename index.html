@@ -44,6 +44,18 @@
         align-items: center;
       }
 
+      .btn-action {
+          background: #2d2d2d;
+          color: #cccccc;
+          border: 1px solid #555;
+          padding: 6px 12px;
+          font-size: 14px;
+          font-family: inherit;
+          letter-spacing: 0.5px;
+          cursor: pointer;
+          border-radius: 3px;
+      }
+
       #editor-pane .header {
         background: #252526;
         color: #858585;
@@ -87,7 +99,10 @@
     </div>
 
     <div id="preview-pane" class="pane">
-      <div class="header">Live Preview</div>
+        <div class="header">
+            Live Preview
+            <button id="btn-serialize" class="btn-action">↓ ATXT Canônico</button>
+        </div>
       <div id="output"></div>
     </div>
 
