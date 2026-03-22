@@ -34,6 +34,7 @@ export class Parser {
         switch (token.type) {
             case TokenType.ANNOTATION_OPEN: {
                 const node = this.parseAnnotation(token);
+                if (!node || node.target === null) this.stream.match(TokenType.NEWLINE);
                 return node ? [node] : [];
             }
             case TokenType.BLOCK_OPEN:
@@ -62,16 +63,19 @@ export class Parser {
 
         if (directive === "HIDE") {
             this.resolveAnnotationTarget();
+            this.stream.match(TokenType.NEWLINE);
             return null;
         }
 
         if (directive === "SYMBOL") {
             this.handleSymbolDefinition(props);
+            this.stream.match(TokenType.NEWLINE);
             return null;
         }
 
         const hasNormalProps = props.some((p) => p.toggle === undefined);
         const needsTarget = directive === "NORMAL" && hasNormalProps;
+        const target = needsTarget ? this.resolveAnnotationTarget() : null;
 
         return {
             type: AST.NodeType.ANNOTATION,
@@ -79,7 +83,7 @@ export class Parser {
             column: openingToken.column,
             directive,
             properties: props,
-            target: needsTarget ? this.resolveAnnotationTarget() : null,
+            target,
         };
     }
 
@@ -95,9 +99,15 @@ export class Parser {
     }
 
     private parseBlock(blockToken: Token): AST.BlockNode {
+        this.stream.skipWhitespaceTokens();
+
         const children: AST.BlockContentNode[] = [];
         while (!this.stream.isAtEnd() && this.stream.peek().type !== TokenType.BLOCK_CLOSE) {
             children.push(...this.parseNextNode());
+        }
+
+        if (children.length > 0 && children[children.length - 1].type === AST.NodeType.NEWLINE) {
+            children.pop();
         }
 
         if (!this.stream.match(TokenType.BLOCK_CLOSE)) {
@@ -113,25 +123,35 @@ export class Parser {
     }
 
     private parseTextLine(startToken: Token): AST.BlockContentNode[] {
-        if (startToken.type === TokenType.NEWLINE)
-            return [this.buildTextNode(startToken, startToken.literal)];
+        if (startToken.type === TokenType.NEWLINE) return [this.buildNewlineNode(startToken)];
 
-        const content = this.collectLineContent(startToken);
+        const { content, newlineToken } = this.collectLineContent(startToken);
         const blockSymbol = this.symbolDetector.detectBlockSymbol(content);
-        if (blockSymbol) return [this.buildBlockSymbolAnnotation(blockSymbol, content, startToken)];
 
-        return this.textExpander.expand(content, startToken.line, startToken.column);
+        const nodes: AST.BlockContentNode[] = blockSymbol
+            ? [this.buildBlockSymbolAnnotation(blockSymbol, content, startToken)]
+            : this.textExpander.expand(content, startToken.line, startToken.column);
+
+        if (newlineToken) nodes.push(this.buildNewlineNode(newlineToken));
+
+        return nodes;
     }
 
-    private collectLineContent(startToken: Token): string {
+    private collectLineContent(startToken: Token): { content: string; newlineToken: Token | null } {
         let content = startToken.literal;
+        let newlineToken: Token | null = null;
+
         while (!this.stream.isAtEnd()) {
             const next = this.stream.peek();
             if (next.type !== TokenType.TEXT && next.type !== TokenType.NEWLINE) break;
+            if (next.type === TokenType.NEWLINE) {
+                newlineToken = this.stream.advance();
+                break;
+            }
             content += this.stream.advance().literal;
-            if (next.type === TokenType.NEWLINE) break;
         }
-        return content;
+
+        return { content, newlineToken };
     }
 
     private buildBlockSymbolAnnotation(
@@ -164,7 +184,9 @@ export class Parser {
 
         if (this.stream.isTargetingBlock()) {
             this.stream.skipWhitespaceTokens();
-            return this.parseBlock(this.stream.advance());
+            const block = this.parseBlock(this.stream.advance());
+            this.stream.match(TokenType.NEWLINE);
+            return block;
         }
 
         this.stream.skipWhitespaceTokens();
@@ -179,7 +201,10 @@ export class Parser {
 
         while (!this.stream.isAtEnd()) {
             const token = this.stream.peek();
-            if (token.type === TokenType.NEWLINE) break;
+            if (token.type === TokenType.NEWLINE) {
+                this.stream.advance();
+                break;
+            }
             if (token.type === TokenType.ANNOTATION_OPEN) {
                 this.stream.advance();
                 const node = this.parseAnnotation(token);
@@ -304,8 +329,8 @@ export class Parser {
         return { key: toggle !== undefined ? rawKey.substring(1) : rawKey, toggle };
     }
 
-    private buildTextNode(token: Token, content: string): AST.TextNode {
-        return { type: AST.NodeType.TEXT, line: token.line, column: token.column, content };
+    private buildNewlineNode(token: Token): AST.NewlineNode {
+        return { type: AST.NodeType.NEWLINE, line: token.line, column: token.column };
     }
 
     private buildPropertyNode(

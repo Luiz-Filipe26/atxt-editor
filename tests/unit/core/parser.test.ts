@@ -46,8 +46,10 @@ describe("Parser", () => {
 
         it("parses two lines separated by a newline", () => {
             const { document } = parse("Line one\nLine two");
-            const texts = document.children.filter((c) => c.type === NodeType.TEXT);
-            expect(texts.length).toBeGreaterThanOrEqual(2);
+            const textNodes = document.children.filter((c) => c.type === NodeType.TEXT);
+            const newlineNodes = document.children.filter((c) => c.type === NodeType.NEWLINE);
+            expect(textNodes.length).toBe(2);
+            expect(newlineNodes.length).toBe(1);
         });
     });
 
