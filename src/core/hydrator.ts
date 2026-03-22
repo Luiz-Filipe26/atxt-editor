@@ -64,6 +64,12 @@ export class Hydrator {
 
         for (let i = 0; i < nodes.length; i++) {
             const node = nodes[i];
+
+            if (node.type === AST.NodeType.NEWLINE) {
+                output.push(this.makeNewlineNode(node));
+                continue;
+            }
+
             if (node.type !== AST.NodeType.ANNOTATION) {
                 output.push(this.transformBareNode(node, backpack));
                 continue;
@@ -87,6 +93,17 @@ export class Hydrator {
         return output;
     }
 
+    private makeNewlineNode(node: AST.NewlineNode): IR.Newline {
+        const newline: IR.Newline = {
+            id: this.nextId(),
+            type: "NEWLINE",
+            line: node.line,
+            column: node.column,
+        };
+        this.nodeMap.set(newline.id, newline);
+        return newline;
+    }
+
     private processSetDirective(
         annotation: AST.AnnotationNode,
         allNodes: AST.BlockContentNode[],
@@ -99,7 +116,9 @@ export class Hydrator {
         }
         /* v8 ignore stop -- @preserve */
         const annotationResult = this.propertyResolver.resolveProperties(annotation.properties);
-        const { blockProps } = this.propertyResolver.routePropertiesByScope(annotationResult.props);
+        const { blockProps, inlineProps } = this.propertyResolver.routePropertiesByScope(
+            annotationResult.props,
+        );
         const remainingSiblings = allNodes.slice(currentIndex + 1);
         const block: IR.Block = {
             id: this.nextId(),
@@ -109,7 +128,7 @@ export class Hydrator {
             inlineProps: annotationResult.directProps,
             line: annotation.line,
             column: annotation.column,
-            children: this.transformNodeList(remainingSiblings, backpack),
+            children: this.transformNodeList(remainingSiblings, { ...backpack, ...inlineProps }),
         };
         return this.register(block) as IR.Block;
     }
@@ -207,10 +226,6 @@ export class Hydrator {
             this.propertyResolver.routePropertiesByScope(activeProps);
         const children = this.transformNodeList(node.children, propsForChildren);
 
-        if (blockProps.indent) {
-            this.applyLiteralIndentation(children, blockProps.indent);
-        }
-
         this.resolveKind(blockProps, children, node);
 
         const block: IR.Block = {
@@ -233,7 +248,7 @@ export class Hydrator {
     ): void {
         if (children.length === 0) return;
 
-        const isLeaf = children.every((c) => c.type === "TEXT");
+        const isLeaf = children.every((c) => c.type === "TEXT" || c.type === "NEWLINE");
         const explicitKind = blockProps["kind"];
 
         if (!explicitKind) {
@@ -250,33 +265,6 @@ export class Hydrator {
                 node,
             );
         }
-    }
-
-    private applyLiteralIndentation(children: IR.Node[], indentValue: string): void {
-        const spacesCount = parseInt(indentValue, 10);
-        if (isNaN(spacesCount) || spacesCount <= 0) return;
-        const literalSpaces = " ".repeat(spacesCount);
-
-        const allTexts = this.collectTextNodes(children);
-        for (let i = 0; i < allTexts.length; i++) {
-            const current = allTexts[i];
-            const isLineStart = i === 0 || allTexts[i - 1].line! < current.line!;
-            if (isLineStart) {
-                current.content = literalSpaces + current.content;
-            }
-        }
-    }
-
-    private collectTextNodes(children: IR.Node[]): IR.Text[] {
-        const result: IR.Text[] = [];
-        for (const child of children) {
-            if (child.type === "BLOCK") {
-                result.push(...this.collectTextNodes(child.children));
-            } else {
-                result.push(child);
-            }
-        }
-        return result;
     }
 
     /* v8 ignore start -- @preserve */

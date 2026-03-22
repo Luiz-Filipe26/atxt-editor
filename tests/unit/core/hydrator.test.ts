@@ -260,7 +260,7 @@ describe("Hydrator", () => {
 
         it("+toggle with no following text nodes produces no node itself", () => {
             const { ir } = compileToIR("[[+color: red]]");
-            expect(ir.root.children.filter((c) => c.type !== "TEXT")).toHaveLength(0);
+            expect(ir.root.children).toHaveLength(0);
         });
 
         it("backpack from outer scope propagates into nested blocks via inheritedProps", () => {
@@ -376,20 +376,6 @@ describe("Hydrator", () => {
     });
 
     describe("indentation", () => {
-        it("indent property adds literal leading spaces to each text line in the block", () => {
-            const { ir, errors } = compileToIR("[[indent: 4]]\n{\nHello\n}");
-            expect(errors).toHaveLength(0);
-            const block = blocks(ir.root)[0];
-            const text = textWith(block, "Hello");
-            expect(text?.content).toMatch(/^ {4}Hello/);
-        });
-
-        it("indent: 2 adds exactly two spaces", () => {
-            const { ir } = compileToIR("[[indent: 2]]\n{\nLine\n}");
-            const block = blocks(ir.root)[0];
-            expect(textWith(block, "Line")?.content).toMatch(/^ {2}Line/);
-        });
-
         it("ignores invalid, zero, or negative indentation values", () => {
             const { ir } = compileToIR(
                 "[[indent: abc]]\n{\nLine1\n}\n" +
@@ -406,17 +392,6 @@ describe("Hydrator", () => {
             const outerBlock = blocks(ir.root)[0];
             const innerBlock = blocks(outerBlock)[0];
             expect(innerBlock.type).toBe("BLOCK");
-        });
-
-        it("does not apply indentation to inline text fragments that do not start a line", () => {
-            const { ir } = compileToIR("[[indent: 4]]\n{\nPrefix [[color: red]] Suffix\n}");
-            const block = blocks(ir.root)[0];
-            const prefix = textWith(block, "Prefix");
-            const innerBlock = blocks(block)[0];
-            const suffix = textWith(innerBlock, "Suffix");
-            expect(prefix?.content).toMatch(/^ {4}Prefix/);
-            expect(suffix?.content).not.toMatch(/^ {4}/);
-            expect(suffix?.content).toContain("Suffix");
         });
     });
 
