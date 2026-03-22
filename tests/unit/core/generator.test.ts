@@ -10,11 +10,20 @@ beforeEach(() => {
 
 function makeBlock(
     props: Record<string, string> = {},
-    children: (IR.Block | IR.Text)[] = [],
+    children: IR.Node[] = [],
     line?: number,
     column?: number,
 ): IR.Block {
-    return { id: `b${idCounter++}`, type: "BLOCK", props, classes: [], inlineProps: {}, children, line, column };
+    return {
+        id: `b${idCounter++}`,
+        type: "BLOCK",
+        props,
+        classes: [],
+        inlineProps: {},
+        children,
+        line,
+        column,
+    };
 }
 
 function makeText(
@@ -23,7 +32,16 @@ function makeText(
     line?: number,
     column?: number,
 ): IR.Text {
-    return { id: `t${idCounter++}`, type: "TEXT", props, classes: [], inlineProps: {}, content, line, column };
+    return {
+        id: `t${idCounter++}`,
+        type: "TEXT",
+        props,
+        classes: [],
+        inlineProps: {},
+        content,
+        line,
+        column,
+    };
 }
 
 function generate(root: IR.Block): string {
@@ -102,6 +120,22 @@ describe("Generator", () => {
                 expect(generate(root)).toContain("Hello");
                 expect(generate(root)).toContain("</p>");
             });
+        });
+
+        it("a NEWLINE node inside a leaf context is rendered as a newline character", () => {
+            const newline: IR.Newline = { id: "n0", type: "NEWLINE" };
+            const leaf = makeBlock({ kind: "paragraph" }, [makeText("a"), newline, makeText("b")]);
+            const root = makeBlock({}, [leaf]);
+            const html = new Generator().generate(root);
+            expect(html).toMatch(/>a<\/span><br>/);
+        });
+
+        it("a NEWLINE node outside a leaf context is not rendered", () => {
+            const newline: IR.Newline = { id: "n0", type: "NEWLINE" };
+            const inner = makeBlock({ kind: "paragraph" }, [makeText("text")]);
+            const root = makeBlock({}, [inner, newline]);
+            const html = new Generator().generate(root);
+            expect(html).not.toContain('data-id="n0"');
         });
     });
 
@@ -220,6 +254,31 @@ describe("Generator", () => {
         it("a font-family value with spaces passes through unchanged", () => {
             const root = makeBlock({}, [makeText("Hello", { font: "Georgia, serif" })]);
             expect(generate(root)).toContain("font-family: Georgia, serif");
+        });
+    });
+
+    describe("indentation", () => {
+        it("indent: 4 prepends four spaces to each line in the block HTML", () => {
+            const root = makeBlock({}, [
+                makeBlock({ indent: "4", kind: "paragraph" }, [makeText("Hello")]),
+            ]);
+            expect(generate(root)).toContain("    <span");
+        });
+
+        it("indent does not prepend spaces to non-line-start nodes", () => {
+            const newline: IR.Newline = { id: "nl", type: "NEWLINE" };
+            const root = makeBlock({}, [
+                makeBlock({ indent: "4", kind: "paragraph" }, [
+                    makeText("A"),
+                    makeText("B"),
+                    newline,
+                    makeText("C"),
+                ]),
+            ]);
+            const html = generate(root);
+            expect(html).toMatch(
+                /    <span[^>]+>A<\/span><span[^>]+>B<\/span><br>    <span[^>]+>C/,
+            );
         });
     });
 });

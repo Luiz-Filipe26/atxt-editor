@@ -2,7 +2,6 @@ import DOMPurify from "isomorphic-dompurify";
 import * as IR from "../types/ir";
 import { formatCssUnit, getCssMapping } from "../domain/cssPropertyMapping";
 import { getHtmlTag } from "../domain/htmlTagMapping";
-import { dedent } from "../utils/stringUtils";
 
 export class Generator {
     private classCache = new Map<string, string>();
@@ -17,51 +16,33 @@ export class Generator {
         const html = this.renderNode(root);
         const dynamicCss = this.cssRules.join("\n");
 
-        const baseCss = dedent`
-            .atxt-document-root {
-                white-space: pre-wrap;
-                word-break: break-word;
-            }
-        `;
+        const baseCss =
+            `.atxt-document-root {\n` +
+            `    white-space: pre-wrap;\n` +
+            `    word-break: break-word;\n` +
+            `}`;
 
-        const raw = dedent`
-            <div class="atxt-document-root">
-                <style>
-                    ${baseCss}
-                    ${dynamicCss}
-                </style>
-                ${html}
-            </div>
-        `;
+        const raw =
+            `<div class="atxt-document-root">\n` +
+            `<style>\n${baseCss}\n` +
+            `${dynamicCss}\n` +
+            `</style>\n` +
+            html +
+            `</div>`;
 
         return DOMPurify.sanitize(raw, {
-            ALLOWED_TAGS: [
-                "div",
-                "p",
-                "span",
-                "pre",
-                "h1",
-                "h2",
-                "h3",
-                "h4",
-                "h5",
-                "blockquote",
-                "ul",
-                "ol",
-                "li",
-                "aside",
-                "section",
-                "article",
-                "header",
-                "footer",
-                "style",
-            ],
+            ALLOWED_TAGS:
+                "div/p/span/pre/h1/h2/h3/h4/h5/blockquote/ul/ol/li/aside/section/article/header/footer/style/br".split(
+                    "/",
+                ),
             ALLOWED_ATTR: ["class", "data-id", "style"],
             FORCE_BODY: false,
         });
     }
 
     private renderNode(node: IR.Node): string {
+        if (node.type === "NEWLINE") return "<br>";
+
         if (node.type === "BLOCK" && node.props["hidden"]?.toLowerCase() === "true") {
             return "";
         }
@@ -70,22 +51,41 @@ export class Generator {
         const classAttribute = className ? ` class="${className}"` : "";
         const dataAttribute = ` data-id="${node.id}"`;
 
-        switch (node.type) {
-            case "BLOCK":
-                return this.renderBlockNode(node, classAttribute, dataAttribute);
-            case "TEXT":
-                return `<span${classAttribute}${dataAttribute}>${node.content}</span>`;
+        if (node.type === "BLOCK") {
+            return this.renderBlockNode(node, classAttribute, dataAttribute);
         }
+
+        return `<span${classAttribute}${dataAttribute}>${node.content}</span>`;
     }
 
     private renderBlockNode(node: IR.Block, classAttribute: string, dataAttribute: string): string {
-        if (node.children.length === 0) {
-            return "";
-        }
+        if (node.children.length === 0) return "";
 
         const tag = getHtmlTag(node.props["kind"]);
-        const childrenHtml = node.children.map((child) => this.renderNode(child)).join("");
+        const childrenHtml = this.renderChildrenWithIndent(node.children, node.props["indent"]);
         return `<${tag}${classAttribute}${dataAttribute}>${childrenHtml}</${tag}>`;
+    }
+
+    private renderChildrenWithIndent(children: IR.Node[], indentProp?: string): string {
+        const indent = indentProp ? parseInt(indentProp, 10) : 0;
+        if (indent === 0) return children.map((c) => this.renderNode(c)).join("");
+
+        const spaces = " ".repeat(indent);
+        let result = "";
+        let atLineStart = true;
+
+        for (const child of children) {
+            if (child.type === "NEWLINE") {
+                result += this.renderNode(child);
+                atLineStart = true;
+            } else {
+                if (atLineStart) result += spaces;
+                atLineStart = false;
+                result += this.renderNode(child);
+            }
+        }
+
+        return result;
     }
 
     private resolveClass(props: IR.ResolvedProps): string {
