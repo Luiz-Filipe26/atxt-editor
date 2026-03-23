@@ -11,7 +11,7 @@ export function serialize(doc: IR.IRDocument): string {
 
     serializeChildren(doc.root.children, lines, 0);
 
-    return collapseBlankLines(lines).join("\n");
+    return lines.join("\n");
 }
 
 function serializeClassDefinitions(classDefinitions: Record<string, IR.ResolvedProps>): string[] {
@@ -25,23 +25,6 @@ function serializeClassDefinitions(classDefinitions: Record<string, IR.ResolvedP
 
 function sortedEntries<T>(record: Record<string, T>): [string, T][] {
     return Object.entries(record).sort(([a], [b]) => a.localeCompare(b));
-}
-
-function collapseBlankLines(lines: string[]): string[] {
-    const result: string[] = [];
-    let prevBlank = false;
-
-    for (const line of lines) {
-        const isBlank = line.trim() === "";
-        if (isBlank && prevBlank) continue;
-        result.push(line);
-        prevBlank = isBlank;
-    }
-
-    while (result.length > 0 && result[0].trim() === "") result.shift();
-    while (result.length > 0 && result[result.length - 1].trim() === "") result.pop();
-
-    return result;
 }
 
 function serializeChildren(nodes: IR.Node[], lines: string[], depth: number): void {
@@ -98,7 +81,7 @@ function buildBlockAnnotation(block: IR.Block): string | null {
         parts.push(`class: ${block.classes.join(" ")}`);
     }
 
-    for (const [k, v] of sortedEntries(block.inlineProps)) {
+    for (const [k, v] of sortedEntries(block.ownProps)) {
         parts.push(`${k}: ${v}`);
     }
 

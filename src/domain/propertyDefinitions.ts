@@ -35,6 +35,10 @@ export function getKindDefinition(kind: string): KindDefinition | null {
     return KIND_REGISTRY[kind] ?? null;
 }
 
+export const COMPILER_DEFAULTS: IR.ResolvedProps = {
+    size: "16",
+};
+
 const isNumber = (val: string) => /^-?\d+$/.test(val);
 
 const isPositiveNumber = (val: string) => /^\d+(\.\d+)?$/.test(val) && parseFloat(val) > 0;

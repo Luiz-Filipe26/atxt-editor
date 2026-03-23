@@ -1,5 +1,10 @@
 import { PropertyResolver, type ResolvedResult } from "./propertyResolver";
-import { getKindDefinition, getPropertyDefinition } from "../domain/propertyDefinitions";
+import {
+    COMPILER_DEFAULTS,
+    getKindDefinition,
+    getPropertyDefinition,
+} from "../domain/propertyDefinitions";
+import { Backpack } from "./backpack";
 import * as AST from "../types/ast";
 import * as IR from "../types/ir";
 import type { CompilerError } from "../types/errors";
@@ -28,10 +33,10 @@ export class Hydrator {
             type: "BLOCK",
             props: {},
             classes: [],
-            inlineProps: {},
+            ownProps: {},
             line: document.line,
             column: document.column,
-            children: this.transformNodeList(document.children),
+            children: this.transformNodeList(document.children, COMPILER_DEFAULTS),
         };
 
         this.nodeMap.set(rootBlock.id, rootBlock);
@@ -60,7 +65,7 @@ export class Hydrator {
         inheritedProps: IR.ResolvedProps = {},
     ): IR.Node[] {
         const output: IR.Node[] = [];
-        const backpack: IR.ResolvedProps = { ...inheritedProps };
+        const backpack = new Backpack(inheritedProps);
 
         for (let i = 0; i < nodes.length; i++) {
             const node = nodes[i];
@@ -108,7 +113,7 @@ export class Hydrator {
         annotation: AST.AnnotationNode,
         allNodes: AST.BlockContentNode[],
         currentIndex: number,
-        backpack: IR.ResolvedProps,
+        backpack: Backpack,
     ): IR.Block {
         /* v8 ignore start -- @preserve */
         if (annotation.target !== null) {
@@ -125,43 +130,55 @@ export class Hydrator {
             type: "BLOCK",
             props: blockProps,
             classes: annotationResult.classes,
-            inlineProps: annotationResult.directProps,
+            ownProps: annotationResult.directProps,
             line: annotation.line,
             column: annotation.column,
-            children: this.transformNodeList(remainingSiblings, { ...backpack, ...inlineProps }),
+            children: this.transformNodeList(remainingSiblings, {
+                ...backpack.snapshot(),
+                ...inlineProps,
+            }),
         };
         return this.register(block) as IR.Block;
     }
 
     private processNormalDirective(
         annotation: AST.AnnotationNode,
-        backpack: IR.ResolvedProps,
+        backpack: Backpack,
     ): IR.Node | null {
         const annotationResult = this.propertyResolver.resolveProperties(annotation.properties);
 
         for (const prop of annotation.properties) {
             if (prop.key === "class") {
-                const classProps = this.propertyResolver.resolveClassByName(prop.value);
-                if (classProps) {
-                    if (prop.toggle === "plus") Object.assign(backpack, classProps);
-                    else if (prop.toggle === "minus") {
-                        for (const key of Object.keys(classProps)) delete backpack[key];
+                if (prop.toggle === "plus") {
+                    const classProps = this.propertyResolver.resolveClassByName(prop.value);
+                    if (classProps) {
+                        backpack.push("class", prop.value);
+                        backpack.pushMany(classProps);
+                    }
+                } else if (prop.toggle === "minus") {
+                    const snapshot = backpack.snapshot();
+                    const className = snapshot["class"];
+                    if (className) {
+                        const classProps = this.propertyResolver.resolveClassByName(className)!;
+                        backpack.popMany(classProps);
+                        backpack.pop("class");
                     }
                 }
                 continue;
             }
 
             if (prop.toggle === "minus") {
-                delete backpack[prop.key];
+                backpack.pop(prop.key);
             } else if (prop.toggle === "plus" && annotationResult.props[prop.key]) {
-                backpack[prop.key] = annotationResult.props[prop.key];
+                backpack.push(prop.key, annotationResult.props[prop.key]);
             }
         }
 
         if (annotation.target) {
+            const snapshot = backpack.snapshot();
             return this.transformAnnotationTarget(
                 annotation.target,
-                { ...backpack, ...annotationResult.props },
+                { ...snapshot, ...annotationResult.props },
                 annotationResult,
             );
         }
@@ -191,7 +208,8 @@ export class Hydrator {
         }
     }
 
-    private transformBareNode(node: AST.TargetNode, activeProps: IR.ResolvedProps): IR.Node {
+    private transformBareNode(node: AST.TargetNode, backpack: Backpack): IR.Node {
+        const activeProps = backpack.snapshot();
         const { blockProps, inlineProps: scopedActiveInline } =
             this.propertyResolver.routePropertiesByScope(activeProps);
 
@@ -205,7 +223,7 @@ export class Hydrator {
                     type: "TEXT",
                     props: scopedActiveInline,
                     classes: [],
-                    inlineProps: {},
+                    ownProps: {},
                     line: node.line,
                     column: node.column,
                     content: node.content,
@@ -233,7 +251,7 @@ export class Hydrator {
             type: "BLOCK",
             props: blockProps,
             classes,
-            inlineProps: directProps,
+            ownProps: directProps,
             line: node.line,
             column: node.column,
             children,

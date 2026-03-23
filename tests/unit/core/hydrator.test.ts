@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vitest";
 import * as IR from "@/types/ir";
 import { compileToIR } from "@/core/compiler";
+import { COMPILER_DEFAULTS } from "@/domain/propertyDefinitions";
 
 function texts(ir: IR.Block): IR.Text[] {
     const result: IR.Text[] = [];
@@ -35,10 +36,10 @@ describe("Hydrator", () => {
             expect(ir.root.column).toBe(1);
         });
 
-        it("the root block has empty classes and inlineProps", () => {
+        it("the root block has empty classes and ownProps", () => {
             const { ir } = compileToIR("Hello");
             expect(ir.root.classes).toEqual([]);
-            expect(ir.root.inlineProps).toEqual({});
+            expect(ir.root.ownProps).toEqual({});
         });
     });
 
@@ -72,7 +73,7 @@ describe("Hydrator", () => {
             const text = texts(ir.root)[0];
             expect(text.type).toBe("TEXT");
             expect(text.content).toContain("Hello");
-            expect(text.props).toEqual({});
+            expect(text.props).toEqual(COMPILER_DEFAULTS);
         });
 
         it("preserves the source position on IR.Text nodes", () => {
@@ -82,11 +83,11 @@ describe("Hydrator", () => {
             expect(text.column).toBe(1);
         });
 
-        it("a plain text node has empty classes and inlineProps", () => {
+        it("a plain text node has empty classes and ownProps", () => {
             const { ir } = compileToIR("Hello");
             const text = texts(ir.root)[0];
             expect(text.classes).toEqual([]);
-            expect(text.inlineProps).toEqual({});
+            expect(text.ownProps).toEqual({});
         });
     });
 
@@ -186,52 +187,52 @@ describe("Hydrator", () => {
         });
     });
 
-    describe("inlineProps field on IR nodes", () => {
-        it("inlineProps on the target block contains the directly declared inline-scoped props", () => {
+    describe("ownProps field on IR nodes", () => {
+        it("ownProps on the target block contains the directly declared inline-scoped props", () => {
             const { ir, errors } = compileToIR(
                 "[[DEFINE class: big; size: 24]]\n[[class: big; color: red]] Hello",
             );
             expect(errors).toHaveLength(0);
             // The block is the direct target — it records what was written directly
             const block = blocks(ir.root)[0];
-            expect(block.inlineProps.color).toBe("red");
-            expect(block.inlineProps.size).toBeUndefined();
+            expect(block.ownProps.color).toBe("red");
+            expect(block.ownProps.size).toBeUndefined();
         });
 
-        it("children of a targeted block have empty inlineProps — inlineProps belongs to the direct target", () => {
+        it("children of a targeted block have empty ownProps — ownProps belongs to the direct target", () => {
             const { ir } = compileToIR("[[color: red; size: 16]] Hello");
             const block = blocks(ir.root)[0];
             const text = textWith(block, "Hello");
-            expect(text?.inlineProps).toEqual({});
+            expect(text?.ownProps).toEqual({});
         });
 
-        it("a plain text node with no annotation has empty inlineProps", () => {
+        it("a plain text node with no annotation has empty ownProps", () => {
             const { ir } = compileToIR("Hello");
             const text = texts(ir.root)[0];
-            expect(text.inlineProps).toEqual({});
+            expect(text.ownProps).toEqual({});
         });
 
-        it("inlineProps is empty on the target block when all props come from a class", () => {
+        it("ownProps is empty on the target block when all props come from a class", () => {
             const { ir, errors } = compileToIR(
                 "[[DEFINE class: big; size: 24]]\n[[class: big]] Hello",
             );
             expect(errors).toHaveLength(0);
             const block = blocks(ir.root)[0];
-            expect(block.inlineProps).toEqual({});
+            expect(block.ownProps).toEqual({});
         });
 
-        it("inlineProps on a block target contains all directly declared block-scoped props", () => {
+        it("ownProps on a block target contains all directly declared block-scoped props", () => {
             const { ir } = compileToIR("[[fill: #eee; align: center]]\n{\nContent\n}");
             const block = blocks(ir.root)[0];
-            expect(block.inlineProps.fill).toBe("#eee");
-            expect(block.inlineProps.align).toBe("center");
+            expect(block.ownProps.fill).toBe("#eee");
+            expect(block.ownProps.align).toBe("center");
         });
 
-        it("props on the text child is fully resolved regardless of inlineProps being empty", () => {
+        it("props on the text child is fully resolved regardless of ownProps being empty", () => {
             const { ir } = compileToIR("[[color: red; size: 16]] Hello");
             const block = blocks(ir.root)[0];
             const text = textWith(block, "Hello");
-            // props is fully resolved — inlineProps is just the provenance record
+            // props is fully resolved — ownProps is just the provenance record
             expect(text?.props.color).toBe("red");
             expect(text?.props.size).toBe("16");
         });
@@ -282,6 +283,13 @@ describe("Hydrator", () => {
             expect(before?.props.size).toBe("16");
             expect(after?.props.color).toBeUndefined();
             expect(after?.props.size).toBe("16");
+        });
+
+        it("popping one value from a multi-item stack leaves the remaining value active", () => {
+            const { ir } = compileToIR(
+                "[[+weight: bold]]\n[[+weight: 900]]\nBefore\n[[-weight]]\nAfter",
+            );
+            expect(textWith(ir.root, "After")?.props.weight).toBe("bold");
         });
     });
 

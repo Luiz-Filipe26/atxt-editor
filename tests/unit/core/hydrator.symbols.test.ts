@@ -101,5 +101,36 @@ describe("Hydrator — symbol integration", () => {
             expect(errors).toHaveLength(0);
             expect(textWith(ir.root, "text")?.props.color).toBe("yellow");
         });
+        it("[[+class: name]] toggle pushes class props onto the backpack", () => {
+            const { ir, errors } = compileToIR(
+                "[[DEFINE class: highlight; color: yellow]]\n" +
+                "[[+class: highlight]]text[[-class]]",
+            );
+            expect(errors).toHaveLength(0);
+            expect(textWith(ir.root, "text")?.props.color).toBe("yellow");
+        });
+
+        it("[[-class]] toggle restores the previous state", () => {
+            const { ir, errors } = compileToIR(
+                "[[DEFINE class: highlight; color: yellow]]\n" +
+                "[[+class: highlight]]text[[-class]]after",
+            );
+            expect(errors).toHaveLength(0);
+            expect(textWith(ir.root, "after")?.props.color).toBeUndefined();
+        });
+
+        it("[[+class: name]] with an undefined class is silently ignored", () => {
+            const { ir } = compileToIR("[[+class: undefined-class]]text[[-class]]");
+            const t = textWith(ir.root, "text");
+            expect(t).toBeDefined();
+            expect(t?.props.color).toBeUndefined();
+            expect(t?.props.weight).toBeUndefined();
+        });
+
+        it("[[-class]] when no class is active in the backpack is a no-op", () => {
+            const { ir, errors } = compileToIR("[[-class]]\ntext");
+            expect(textWith(ir.root, "text")).toBeDefined();
+            expect(errors).toHaveLength(0);
+        });
     });
 });

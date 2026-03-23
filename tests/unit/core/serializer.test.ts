@@ -8,13 +8,13 @@ function makeBlock(
     props: IR.ResolvedProps = {},
     children: IR.Node[] = [],
     classes: string[] = [],
-    inlineProps: IR.ResolvedProps = {},
+    ownProps: IR.ResolvedProps = {},
 ): IR.Block {
-    return { id: `b${idCounter++}`, type: "BLOCK", props, classes, inlineProps, children };
+    return { id: `b${idCounter++}`, type: "BLOCK", props, classes, ownProps, children };
 }
 
 function makeText(content: string, props: IR.ResolvedProps = {}): IR.Text {
-    return { id: `t${idCounter++}`, type: "TEXT", props, classes: [], inlineProps: {}, content };
+    return { id: `t${idCounter++}`, type: "TEXT", props, classes: [], ownProps: {}, content };
 }
 
 function makeNewline(): IR.Newline {
@@ -80,13 +80,13 @@ describe("Serializer", () => {
             expect(result).toBe("[[class: my-class]] {\n    Hello\n}");
         });
 
-        it("emits inlineProps sorted alphabetically in the annotation", () => {
+        it("emits ownProps sorted alphabetically in the annotation", () => {
             const block = makeBlock({}, [makeText("Hello")], [], { size: "16", align: "center" });
             const result = serialize(makeDoc([block]));
             expect(result).toContain("[[align: center; size: 16]]");
         });
 
-        it("emits class before inlineProps in the annotation", () => {
+        it("emits class before ownProps in the annotation", () => {
             const block = makeBlock({}, [makeText("Hello")], ["note"], { color: "gray" });
             const result = serialize(makeDoc([block]));
             expect(result).toContain("[[class: note; color: gray]]");
@@ -206,7 +206,7 @@ describe("Serializer", () => {
             expect(serialize(doc)).toBe("orphan");
         });
 
-        it("collapses consecutive blank lines into a single blank line", () => {
+        it("two consecutive newline nodes produce one blank line between paragraphs", () => {
             const block = makeBlock(
                 {},
                 [makeText("a"), makeNewline(), makeNewline(), makeText("b")],
@@ -233,7 +233,7 @@ describe("Serializer", () => {
             expect(lastMeaningful).toBe("}");
         });
 
-        it("collapses three or more consecutive blank lines into a single blank line", () => {
+        it("three consecutive newline nodes produce two blank lines", () => {
             const block = makeBlock(
                 {},
                 [makeText("a"), makeNewline(), makeNewline(), makeNewline(), makeText("b")],
@@ -241,18 +241,14 @@ describe("Serializer", () => {
             );
             const result = serialize(makeDoc([block]));
             const lines = result.split("\n");
-            // should never have two consecutive blanks
-            for (let i = 0; i < lines.length - 1; i++) {
-                if (lines[i].trim() === "") {
-                    expect(lines[i + 1].trim()).not.toBe("");
-                }
-            }
+            const blanks = lines.filter((l) => l.trim() === "").length;
+            expect(blanks).toBe(2);
         });
 
-        it("strips leading blank lines from the output", () => {
+        it("a leading newline node in the document is preserved", () => {
             const doc = makeDoc([makeNewline(), makeText("text")]);
             const result = serialize(doc);
-            expect(result.startsWith("\n")).toBe(false);
+            expect(result.startsWith("\n")).toBe(true);
         });
     });
 });

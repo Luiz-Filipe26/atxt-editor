@@ -9,7 +9,7 @@ interface PositionalNode {
 interface StyledNode extends PositionalNode {
     props: ResolvedProps;
     classes: string[];
-    inlineProps: ResolvedProps;
+    ownProps: ResolvedProps;
 }
 
 export interface Block extends StyledNode {
