@@ -221,6 +221,11 @@ describe("PropertyResolver", () => {
             const result = resolver.resolveProperties([prop("class", "bad")]);
             expect(result.props.align).toBeUndefined();
         });
+
+        it("resolveClassByName returns null for a name not in the registry", () => {
+            const { resolver } = makeResolver();
+            expect(resolver.resolveClassByName("nonexistent")).toBeNull();
+        });
     });
 
     describe("getClassDefinitions", () => {

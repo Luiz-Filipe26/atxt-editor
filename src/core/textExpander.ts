@@ -1,6 +1,6 @@
 import * as AST from "../types/ast";
 import { Lexer } from "./lexer";
-import { SymbolDetector, type InlineSymbolMatch } from "./symbolDetector";
+import { SymbolDetector } from "./symbolDetector";
 
 /**
  * Expands inline symbols within a pre-lexed TEXT token into AST nodes.
@@ -67,11 +67,11 @@ export class TextExpander {
         const innerText = this.text.slice(this.pos + match.openLength, match.closePos);
         const innerCol = this.startCol + this.pos + match.openLength;
 
-        this.result.push(this.buildToggle(match, "plus", openColumn));
+        this.result.push(this.buildToggle(match.props, "plus", openColumn));
         this.result.push(
             ...new TextExpander(this.symbolDetector).expand(innerText, this.line, innerCol),
         );
-        this.result.push(this.buildToggle(match, "minus", closeColumn));
+        this.result.push(this.buildToggle(match.props, "minus", closeColumn));
 
         this.pos = match.closePos + match.closing.length;
         return true;
@@ -95,7 +95,7 @@ export class TextExpander {
     }
 
     private buildToggle(
-        match: InlineSymbolMatch,
+        props: Record<string, string>,
         toggle: "plus" | "minus",
         column: number,
     ): AST.AnnotationNode {
@@ -104,16 +104,14 @@ export class TextExpander {
             line: this.line,
             column,
             directive: "NORMAL",
-            properties: [
-                {
-                    type: AST.NodeType.PROPERTY,
-                    line: this.line,
-                    column,
-                    key: "class",
-                    value: match.className,
-                    toggle,
-                },
-            ],
+            properties: Object.entries(props).map(([key, value]) => ({
+                type: AST.NodeType.PROPERTY,
+                line: this.line,
+                column,
+                key,
+                value: toggle === "minus" ? "" : value,
+                toggle,
+            })),
             target: null,
         };
     }

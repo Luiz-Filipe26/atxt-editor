@@ -90,12 +90,19 @@ export class Parser {
     private handleSymbolDefinition(props: AST.PropertyNode[]): void {
         const symbolProp = props.find((p) => p.key === "symbol");
         if (!symbolProp?.value) return;
-        const className = props.find((p) => p.key === "class")?.value ?? "";
-        if (!className) return;
-        const type = props.find((p) => p.key === "type")?.value ?? "";
-        type === "block"
-            ? this.symbolDetector.registerBlock(symbolProp.value, className)
-            : this.symbolDetector.registerInline(symbolProp.value, className);
+        const typeProp = props.find((p) => p.key === "type")?.value ?? "";
+
+        const symbolProps = Object.fromEntries(
+            props
+                .filter((p) => p.key !== "symbol" && p.key !== "type")
+                .map((p) => [p.key, p.value]),
+        );
+
+        if (Object.keys(symbolProps).length === 0) return;
+
+        typeProp === "block"
+            ? this.symbolDetector.registerBlock(symbolProp.value, symbolProps)
+            : this.symbolDetector.registerInline(symbolProp.value, symbolProps);
     }
 
     private parseBlock(blockToken: Token): AST.BlockNode {
@@ -165,7 +172,9 @@ export class Parser {
             line: startToken.line,
             column: startToken.column,
             directive: "NORMAL",
-            properties: [this.buildPropertyNode(startToken, "class", blockSymbol.cls, undefined)],
+            properties: Object.entries(blockSymbol.props).map(([key, value]) =>
+                this.buildPropertyNode(startToken, key, value, undefined),
+            ),
             target: {
                 type: AST.NodeType.BLOCK,
                 line: startToken.line,

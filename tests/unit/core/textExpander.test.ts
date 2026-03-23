@@ -44,12 +44,12 @@ describe("TextExpander", () => {
                 AST.TextNode,
                 AST.AnnotationNode,
             ];
-            expect(open.properties[0].key).toBe("class");
+            expect(open.properties[0].key).toBe("weight");
             expect(open.properties[0].value).toBe("bold");
             expect(open.properties[0].toggle).toBe("plus");
             expect(text.content).toBe("bold");
             expect(close.properties[0].toggle).toBe("minus");
-            expect(close.properties[0].value).toBe("bold");
+            expect(close.properties[0].key).toBe("weight");
         });
 
         it("emits ** as literal when no closing delimiter exists", () => {

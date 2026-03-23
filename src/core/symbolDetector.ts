@@ -2,13 +2,13 @@ import { Lexer } from "./lexer";
 
 interface InlineEntry {
     type: "inline";
-    className: string;
+    props: Record<string, string>;
     closing: string;
 }
 
 interface BlockEntry {
     type: "block";
-    className: string;
+    props: Record<string, string>;
 }
 
 type SymbolEntry = InlineEntry | BlockEntry;
@@ -19,14 +19,14 @@ interface TrieNode {
 }
 
 export interface InlineSymbolMatch {
-    className: string;
+    props: Record<string, string>;
     openLength: number;
     closing: string;
     closePos: number;
 }
 
 export interface BlockSymbolMatch {
-    cls: string;
+    props: Record<string, string>;
     prefixLength: number;
 }
 
@@ -36,17 +36,29 @@ export class SymbolDetector {
     private root: TrieNode = { children: new Map() };
 
     private static readonly BUILT_IN_SYMBOLS: RegistryEntry[] = [
-        { sequence: "**", type: "inline", className: "bold", closing: "**" },
-        { sequence: "_", type: "inline", className: "italic", closing: "_" },
-        { sequence: "~~", type: "inline", className: "strikethrough", closing: "~~" },
-        { sequence: "##### ", type: "block", className: "h5" },
-        { sequence: "#### ", type: "block", className: "h4" },
-        { sequence: "### ", type: "block", className: "h3" },
-        { sequence: "## ", type: "block", className: "h2" },
-        { sequence: "# ", type: "block", className: "h1" },
-        { sequence: "> ", type: "block", className: "blockquote" },
-        { sequence: "- ", type: "block", className: "list-item" },
-        { sequence: "+ ", type: "block", className: "list-ordered" },
+        { sequence: "**", type: "inline", props: { weight: "bold" }, closing: "**" },
+        { sequence: "_", type: "inline", props: { style: "italic" }, closing: "_" },
+        { sequence: "~~", type: "inline", props: { decoration: "line-through" }, closing: "~~" },
+        {
+            sequence: "##### ",
+            type: "block",
+            props: { kind: "heading5", size: "14", weight: "bold" },
+        },
+        {
+            sequence: "#### ",
+            type: "block",
+            props: { kind: "heading4", size: "16", weight: "bold" },
+        },
+        {
+            sequence: "### ",
+            type: "block",
+            props: { kind: "heading3", size: "18", weight: "bold" },
+        },
+        { sequence: "## ", type: "block", props: { kind: "heading2", size: "24", weight: "bold" } },
+        { sequence: "# ", type: "block", props: { kind: "heading1", size: "32", weight: "bold" } },
+        { sequence: "> ", type: "block", props: { kind: "quote", color: "gray", indent: "4" } },
+        { sequence: "- ", type: "block", props: { kind: "item", indent: "2" } },
+        { sequence: "+ ", type: "block", props: { kind: "item", indent: "2" } },
     ];
 
     constructor() {
@@ -55,13 +67,13 @@ export class SymbolDetector {
         }
     }
 
-    registerInline(sequence: string, className: string): void {
+    registerInline(sequence: string, props: Record<string, string>): void {
         const closing = [...sequence].reverse().join("");
-        this.insertTrie(sequence, { type: "inline", className, closing });
+        this.insertTrie(sequence, { type: "inline", props, closing });
     }
 
-    registerBlock(sequence: string, className: string): void {
-        this.insertTrie(sequence, { type: "block", className });
+    registerBlock(sequence: string, props: Record<string, string>): void {
+        this.insertTrie(sequence, { type: "block", props });
     }
 
     detectAt(text: string, pos: number): InlineSymbolMatch | null {
@@ -72,13 +84,13 @@ export class SymbolDetector {
         const closePos = this.findClosePos(text, contentStart, entry.closing);
         if (closePos < 0 || closePos === contentStart) return null;
 
-        return { className: entry.className, openLength: length, closing: entry.closing, closePos };
+        return { props: entry.props, openLength: length, closing: entry.closing, closePos };
     }
 
     detectBlockSymbol(text: string): BlockSymbolMatch | null {
         const { entry, length } = this.matchTrie(text, 0);
         if (!entry || entry.type !== "block") return null;
-        return { cls: entry.className, prefixLength: length };
+        return { props: entry.props, prefixLength: length };
     }
 
     private insertTrie(sequence: string, entry: SymbolEntry): void {

@@ -12,24 +12,6 @@ export interface KindDefinition {
     leafCompatible: boolean;
 }
 
-const CLASS_REGISTRY: Record<string, IR.ResolvedProps> = {
-    h1: { kind: "heading1", size: "32", weight: "bold" },
-    h2: { kind: "heading2", size: "24", weight: "bold" },
-    h3: { kind: "heading3", size: "18", weight: "bold" },
-    h4: { kind: "heading4", size: "16", weight: "bold" },
-    h5: { kind: "heading5", size: "14", weight: "bold" },
-    bold: { weight: "bold" },
-    italic: { style: "italic" },
-    strikethrough: { decoration: "line-through" },
-    blockquote: { kind: "quote", color: "gray", indent: "4" },
-    "list-item": { kind: "item", indent: "2" },
-    "list-ordered": { kind: "item", indent: "2" },
-};
-
-export function getClassDefinition(name: string): IR.ResolvedProps | null {
-    return CLASS_REGISTRY[name] ?? null;
-}
-
 const KIND_REGISTRY: Record<string, KindDefinition> = {
     paragraph: { leafCompatible: true },
     heading1: { leafCompatible: true },

@@ -91,18 +91,6 @@ describe("Hydrator — symbol integration", () => {
         });
     });
 
-    describe("default class overriding", () => {
-        it("user can redefine the bold class to change ** behavior", () => {
-            const { ir, errors } = compileToIR(
-                "[[DEFINE class: bold; decoration: underline]]\n**text**",
-            );
-            expect(errors).toHaveLength(0);
-            const text = textWith(ir.root, "text");
-            expect(text?.props.decoration).toBe("underline");
-            expect(text?.props.weight).toBeUndefined();
-        });
-    });
-
     describe("custom symbols", () => {
         it("a custom inline symbol applies its class properties to the enclosed text", () => {
             const { ir, errors } = compileToIR(

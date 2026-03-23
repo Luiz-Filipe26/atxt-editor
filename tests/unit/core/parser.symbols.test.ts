@@ -16,20 +16,20 @@ function annotations(nodes: AST.BlockContentNode[]): AST.AnnotationNode[] {
 describe("Parser — symbol expansion", () => {
     describe("block symbols", () => {
         it.each([
-            ["# text", "h1"],
-            ["## text", "h2"],
-            ["### text", "h3"],
-            ["#### text", "h4"],
-            ["##### text", "h5"],
-            ["> text", "blockquote"],
-            ["- text", "list-item"],
-            ["+ text", "list-ordered"],
-        ])('"%s" produces class:%s', (source, cls) => {
+            ["# text", "heading1"],
+            ["## text", "heading2"],
+            ["### text", "heading3"],
+            ["#### text", "heading4"],
+            ["##### text", "heading5"],
+            ["> text", "quote"],
+            ["- text", "item"],
+            ["+ text", "item"],
+        ])('"%s" produces kind:%s', (source, kind) => {
             const { document, errors } = parse(source);
             expect(errors).toHaveLength(0);
             const ann = annotations(document.children)[0];
             expect(ann).toBeDefined();
-            expect(ann.properties.find((p) => p.key === "class")?.value).toBe(cls);
+            expect(ann.properties.find((p) => p.key === "kind")?.value).toBe(kind);
         });
 
         it("block symbol target contains the rest of the line as children", () => {
@@ -68,19 +68,22 @@ describe("Parser — symbol expansion", () => {
             const ann = annotations(document.children);
             expect(ann).toHaveLength(2);
             expect(ann[0].properties[0].toggle).toBe("plus");
-            expect(ann[0].properties[0].key).toBe("class");
+            expect(ann[0].properties[0].key).toBe("weight");
             expect(ann[0].properties[0].value).toBe("bold");
             expect(ann[1].properties[0].toggle).toBe("minus");
+            expect(ann[1].properties[0].key).toBe("weight");
         });
 
-        it("_text_ produces italic class toggles", () => {
+        it("_text_ produces italic style toggle", () => {
             const { document } = parse("_italic_");
+            expect(annotations(document.children)[0].properties[0].key).toBe("style");
             expect(annotations(document.children)[0].properties[0].value).toBe("italic");
         });
 
-        it("~~text~~ produces strikethrough class toggles", () => {
+        it("~~text~~ produces line-through decoration toggle", () => {
             const { document } = parse("~~strike~~");
-            expect(annotations(document.children)[0].properties[0].value).toBe("strikethrough");
+            expect(annotations(document.children)[0].properties[0].key).toBe("decoration");
+            expect(annotations(document.children)[0].properties[0].value).toBe("line-through");
         });
 
         it("unclosed ** degenerates to literal text", () => {
@@ -129,7 +132,7 @@ describe("Parser — symbol expansion", () => {
             expect(blockAnn).toBeDefined();
         });
 
-        it("SYMBOL without class is silently ignored", () => {
+        it("SYMBOL without props is silently ignored", () => {
             const { document, errors } = parse("[[SYMBOL symbol: ++; type: inline]]\n++text++");
             expect(errors).toHaveLength(0);
             const allText = document.children
@@ -149,6 +152,7 @@ describe("Parser — symbol expansion", () => {
             );
             expect(annotations(firstLine)).toHaveLength(0);
         });
+
         it("SYMBOL without type defaults to inline", () => {
             const { document, errors } = parse("[[SYMBOL symbol: ++; class: highlight]]\n++text++");
             expect(errors).toHaveLength(0);
