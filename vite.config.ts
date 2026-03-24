@@ -1,8 +1,21 @@
 import { defineConfig } from "vitest/config";
 import tsconfigPaths from "vite-tsconfig-paths";
+import { viteSingleFile } from "vite-plugin-singlefile";
 
 export default defineConfig({
-    plugins: [tsconfigPaths()],
+    plugins: [tsconfigPaths(), viteSingleFile()],
+    build: {
+        target: "esnext",
+        assetsInlineLimit: 30000000,
+        chunkSizeWarningLimit: 30000,
+        cssCodeSplit: false,
+        reportCompressedSize: false,
+        rollupOptions: {
+            output: {
+                inlineDynamicImports: true,
+            },
+        },
+    },
     test: {
         environment: "node",
         globals: true,
