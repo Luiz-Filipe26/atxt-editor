@@ -202,7 +202,7 @@ export class Hydrator {
                     annotationResult.directProps,
                 );
             }
-            /* v8 ignore next 2 -- @preserve */
+            /* v8 ignore next -- @preserve */
             default:
                 throw new Error(`Invariant violation: annotation target is not a BLOCK.`);
         }

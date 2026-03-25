@@ -132,33 +132,23 @@ export class Parser {
     private parseTextLine(startToken: Token): AST.BlockContentNode[] {
         if (startToken.type === TokenType.NEWLINE) return [this.buildNewlineNode(startToken)];
 
-        const { content, newlineToken } = this.collectLineContent(startToken);
-        const blockSymbol = this.symbolDetector.detectBlockSymbol(content);
+        /*! v8 ignore start -- @preserve */
+        if (this.stream.peek().type === TokenType.TEXT)
+            throw new Error(
+                `Invariant violation: adjacent TEXT tokens at ${this.stream.peek().line}:${this.stream.peek().column}.`,
+            );
+        /*! v8 ignore stop -- @preserve */
+
+        const newlineToken = this.stream.match(TokenType.NEWLINE);
+        const blockSymbol = this.symbolDetector.detectBlockSymbol(startToken.literal);
 
         const nodes: AST.BlockContentNode[] = blockSymbol
-            ? [this.buildBlockSymbolAnnotation(blockSymbol, content, startToken)]
-            : this.textExpander.expand(content, startToken.line, startToken.column);
+            ? [this.buildBlockSymbolAnnotation(blockSymbol, startToken.literal, startToken)]
+            : this.textExpander.expand(startToken.literal, startToken.line, startToken.column);
 
         if (newlineToken) nodes.push(this.buildNewlineNode(newlineToken));
 
         return nodes;
-    }
-
-    private collectLineContent(startToken: Token): { content: string; newlineToken: Token | null } {
-        let content = startToken.literal;
-        let newlineToken: Token | null = null;
-
-        while (!this.stream.isAtEnd()) {
-            const next = this.stream.peek();
-            if (next.type !== TokenType.TEXT && next.type !== TokenType.NEWLINE) break;
-            if (next.type === TokenType.NEWLINE) {
-                newlineToken = this.stream.advance();
-                break;
-            }
-            content += this.stream.advance().literal;
-        }
-
-        return { content, newlineToken };
     }
 
     private buildBlockSymbolAnnotation(

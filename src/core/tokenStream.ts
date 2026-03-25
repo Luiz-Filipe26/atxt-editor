@@ -21,7 +21,7 @@ export class TokenStream {
     }
 
     advance(): Token {
-        /* v8 ignore next 1 -- @preserve */
+        /* v8 ignore next -- @preserve */
         if (this.isAtEnd()) {
             throw new Error("Invariant violation: advance() called past EOF.");
         }
@@ -51,7 +51,7 @@ export class TokenStream {
             if (token.type === TokenType.BLOCK_OPEN) return true;
             if (!this.isBlankToken(token)) return false;
         }
-        /* v8 ignore next 1 -- @preserve */
+        /* v8 ignore next -- @preserve */
         throw new Error("Invariant violation: token stream has no EOF token.");
     }
 

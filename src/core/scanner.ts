@@ -31,6 +31,11 @@ export class Scanner {
         return this.isAtEnd() ? "\0" : this.source[this.current];
     }
 
+    check(literal: string): boolean {
+        if (this.current + literal.length > this.source.length) return false;
+        return this.source.substring(this.current, this.current + literal.length) === literal;
+    }
+
     match(expected: string): boolean {
         if (this.isAtEnd() || this.source[this.current] !== expected) return false;
         this.advance();
