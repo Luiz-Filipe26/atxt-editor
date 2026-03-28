@@ -8,6 +8,8 @@ import { compileToIR } from "./core/compiler";
 import { serialize } from "./core/serializer";
 
 const STORAGE_KEY = "atxt_saved_content";
+const GO_TO_SOURCE_FOCUS_DELAY = 100;
+const COMPILE_DEBOUNCE_TIME = 100;
 
 const inputEl = document.getElementById("input") as HTMLTextAreaElement;
 const outputEl = document.getElementById("output") as HTMLDivElement;
@@ -74,7 +76,7 @@ const handleInput = debounce(() => {
     const value = inputEl.value;
     localStorage.setItem(STORAGE_KEY, value);
     runCompiler(value);
-});
+}, COMPILE_DEBOUNCE_TIME);
 
 const initialContent = localStorage.getItem(STORAGE_KEY) || atxtExample;
 inputEl.value = initialContent;
@@ -100,30 +102,28 @@ document.getElementById("btn-serialize")!.addEventListener("click", () => {
 outputEl.addEventListener("mousedown", (e) => {
     if ("caretPositionFromPoint" in document) {
         const pos = document.caretPositionFromPoint(e.clientX, e.clientY);
-        pendingOffset = pos ? (pos.offset as number) : 0;
-    } else {
-        // @ts-ignore -- caretRangeFromPoint is the WebKit fallback, deprecated but necessary
-        const range = (document as Document).caretRangeFromPoint(e.clientX, e.clientY);
-        pendingOffset = range ? range.startOffset : 0;
+        pendingOffset = pos?.offset ?? 0;
+    } else if ("caretRangeFromPoint" in document) {
+        const range = (
+            document as {
+                caretRangeFromPoint: (x: number, y: number) => Range | null;
+            }
+        ).caretRangeFromPoint(e.clientX, e.clientY);
+        pendingOffset = range?.startOffset ?? 0;
     }
 });
 
 outputEl.addEventListener("dblclick", (e) => {
-    const target = e.target as HTMLElement;
-    const mappedEl = target.closest("[data-id]") as HTMLElement | null;
-    if (!mappedEl) return;
+    if (!(e.target instanceof Element)) return;
+    const mappedEl = e.target.closest("[data-id]");
+    if (!(mappedEl instanceof HTMLElement)) return;
 
     const id = mappedEl.dataset.id!;
     const irNode = currentNodeMap.get(id);
     if (!irNode || irNode.line === undefined || irNode.column === undefined) return;
 
     let column = irNode.column;
-
-    // Refine column using the character offset captured on mousedown,
-    // before the browser replaced the selection with the double-clicked word.
-    if (irNode.type === "TEXT") {
-        column += pendingOffset;
-    }
+    if (irNode.type === "TEXT") column += pendingOffset;
 
     jumpToEditorPosition(irNode.line, column);
 });
@@ -143,10 +143,8 @@ function jumpToEditorPosition(targetLine: number, targetColumn: number) {
     inputEl.setSelectionRange(lineStartIndex, lineEndIndex);
 
     setTimeout(() => {
-        if (document.activeElement === inputEl) {
-            inputEl.setSelectionRange(charIndex, charIndex);
-        }
-    }, 400);
+        if (document.activeElement === inputEl) inputEl.setSelectionRange(charIndex, charIndex);
+    }, GO_TO_SOURCE_FOCUS_DELAY);
 }
 
 function calculateSelectionIndices(text: string, line: number, column: number) {

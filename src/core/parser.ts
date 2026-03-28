@@ -43,12 +43,10 @@ export class Parser {
     private parseNextNode(): AST.BlockContentNode[] {
         const token = this.stream.advance();
         switch (token.type) {
-            case TokenType.ANNOTATION_OPEN: {
+            case TokenType.ANNOTATION_OPEN:
                 return this.handleAnnotationNewline(this.parseAnnotation(token));
-            }
-            case TokenType.BLOCK_OPEN: {
+            case TokenType.BLOCK_OPEN:
                 return this.enforceBlockSeparation([this.parseBlock(token)]);
-            }
             case TokenType.NEWLINE:
                 return [this.buildNewlineNode(token)];
             case TokenType.TEXT:
