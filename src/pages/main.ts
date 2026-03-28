@@ -1,11 +1,5 @@
-import atxtExample from "./example.atxt?raw";
-import { Lexer } from "./core/lexer";
-import { Parser } from "./core/parser";
-import { Hydrator } from "./core/hydrator";
-import { Generator } from "./core/generator";
-import type * as IR from "./types/ir";
-import { compileToIR } from "./core/compiler";
-import { serialize } from "./core/serializer";
+import atxtExample from "./assets/example.atxt?raw";
+import * as Atxt from "@atxt";
 
 const STORAGE_KEY = "atxt_saved_content";
 const GO_TO_SOURCE_FOCUS_DELAY = 100;
@@ -14,35 +8,35 @@ const COMPILE_DEBOUNCE_TIME = 100;
 const inputEl = document.getElementById("input") as HTMLTextAreaElement;
 const outputEl = document.getElementById("output") as HTMLDivElement;
 
-let currentNodeMap: Map<string, IR.Node> = new Map();
+let currentNodeMap: Map<string, Atxt.IR.Node> = new Map();
 
 function runCompiler(source: string) {
     console.clear();
     console.group("🚀 Starting ATXT Compilation");
 
     try {
-        const lexer = new Lexer();
+        const lexer = new Atxt.Lexer();
         const { tokens, errors: lexerErrors } = lexer.tokenize(source);
         console.groupCollapsed("1. Lexer Output");
         console.log("Tokens:", tokens);
         if (lexerErrors.length) console.error("Lexer Errors:", lexerErrors);
         console.groupEnd();
 
-        const parser = new Parser();
+        const parser = new Atxt.Parser();
         const { document: ast, errors: parserErrors } = parser.parse(tokens);
         console.groupCollapsed("2. Parser Output (AST)");
         console.log("AST:", ast);
         if (parserErrors.length) console.error("Parser Errors:", parserErrors);
         console.groupEnd();
 
-        const hydrator = new Hydrator();
+        const hydrator = new Atxt.Hydrator();
         const { document: irDocument, errors: hydratorErrors } = hydrator.hydrate(ast);
         console.groupCollapsed("3. Hydrator Output (IR)");
         console.log("IR Document:", irDocument);
         if (hydratorErrors.length) console.error("Hydrator Errors:", hydratorErrors);
         console.groupEnd();
 
-        const generator = new Generator();
+        const generator = new Atxt.Generator();
         const finalHtml = generator.generate(irDocument.root);
         console.groupCollapsed("4. Generator Output");
         console.log(finalHtml);
@@ -87,9 +81,9 @@ runCompiler(initialContent);
 let pendingOffset = 0;
 
 document.getElementById("btn-serialize")!.addEventListener("click", () => {
-    const { ir, errors } = compileToIR(inputEl.value);
+    const { ir, errors } = Atxt.compileToIR(inputEl.value);
     if (errors.length > 0) console.warn("Serializing IR with errors:", errors);
-    const canonical = serialize(ir);
+    const canonical = Atxt.serialize(ir);
     const blob = new Blob([canonical], { type: "text/plain" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");

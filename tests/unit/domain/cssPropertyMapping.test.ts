@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { getCssMapping } from "@/domain/cssPropertyMapping";
+import { getCssMapping } from "@atxt";
 
 describe("getCssMapping", () => {
     describe("unknown keys", () => {

@@ -107,7 +107,7 @@ export class Generator {
             return this.classCache.get(signature)!;
         }
 
-        const newClassName = `atxt-editor-${this.classCounter.toString(36)}`;
+        const newClassName = `atxt-cls-${this.classCounter.toString(36)}`;
         this.classCounter++;
         this.classCache.set(signature, newClassName);
         this.cssRules.push(this.buildCssRule(newClassName, propsForCss));

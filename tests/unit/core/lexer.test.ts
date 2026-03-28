@@ -1,6 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { Lexer } from "@/core/lexer";
-import { TokenType } from "@/types/tokens";
+import { Lexer, TokenType } from "@atxt";
 
 const S = Lexer.ESCAPE_SENTINEL;
 

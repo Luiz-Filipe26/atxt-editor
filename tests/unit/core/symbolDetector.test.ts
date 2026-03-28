@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach } from "vitest";
-import { Lexer } from "@/core/lexer";
-import { SymbolDetector } from "@/core/symbolDetector";
+import { Lexer } from "@atxt";
+import { SymbolDetector } from "@atxt/compiler/symbolDetector";
 
 describe("SymbolDetector", () => {
     let detector: SymbolDetector;

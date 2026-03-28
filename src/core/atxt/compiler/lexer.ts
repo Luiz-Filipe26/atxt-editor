@@ -1,4 +1,4 @@
-import { TokenType, type Token } from "@/types/tokens";
+import { TokenType, type Token } from "../types/tokens";
 import type { CompilerError } from "../types/errors";
 import { Scanner } from "./scanner";
 

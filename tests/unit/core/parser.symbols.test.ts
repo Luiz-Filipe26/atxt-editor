@@ -1,8 +1,6 @@
 import { describe, it, expect } from "vitest";
-import { Lexer } from "@/core/lexer";
-import { Parser } from "@/core/parser";
-import { NodeType } from "@/types/ast";
-import * as AST from "@/types/ast";
+import { Lexer, Parser, AST } from "@atxt";
+const { NodeType } = AST;
 
 function parse(source: string) {
     const { tokens } = new Lexer().tokenize(source);

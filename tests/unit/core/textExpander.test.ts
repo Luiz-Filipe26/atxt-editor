@@ -1,9 +1,8 @@
 import { describe, it, expect } from "vitest";
-import { SymbolDetector } from "@/core/symbolDetector";
-import { TextExpander } from "@/core/textExpander";
-import { NodeType } from "@/types/ast";
-import * as AST from "@/types/ast";
-import { Lexer } from "@/core/lexer";
+import { Lexer, AST } from "@atxt";
+import { SymbolDetector } from "@atxt/compiler/symbolDetector";
+import { TextExpander } from "@atxt/compiler/textExpander";
+const { NodeType } = AST;
 
 function makeExpander(): TextExpander {
     return new TextExpander(new SymbolDetector());
@@ -92,18 +91,30 @@ describe("TextExpander", () => {
         });
 
         it("sentinel-prefixed character is emitted as literal and does not open a symbol", () => {
-            const result = makeExpander().expandSymbolsOnText(`${Lexer.ESCAPE_SENTINEL}**not bold**`, 1, 1);
+            const result = makeExpander().expandSymbolsOnText(
+                `${Lexer.ESCAPE_SENTINEL}**not bold**`,
+                1,
+                1,
+            );
             expect(annotations(result)).toHaveLength(0);
             expect(texts(result).join("")).toContain("**not bold**");
         });
 
         it("sentinel at end of string is consumed without emitting anything", () => {
-            const result = makeExpander().expandSymbolsOnText(`hello${Lexer.ESCAPE_SENTINEL}`, 1, 1);
+            const result = makeExpander().expandSymbolsOnText(
+                `hello${Lexer.ESCAPE_SENTINEL}`,
+                1,
+                1,
+            );
             expect(texts(result).join("")).toBe("hello");
         });
 
         it("sentinel after text appends escaped char to existing buffer", () => {
-            const result = makeExpander().expandSymbolsOnText(`hello${Lexer.ESCAPE_SENTINEL}**world`, 1, 1);
+            const result = makeExpander().expandSymbolsOnText(
+                `hello${Lexer.ESCAPE_SENTINEL}**world`,
+                1,
+                1,
+            );
             expect(texts(result).join("")).toBe("hello**world");
             expect(annotations(result)).toHaveLength(0);
         });

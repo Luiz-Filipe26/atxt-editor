@@ -1,6 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { serialize } from "@/core/serializer";
-import * as IR from "@/types/ir";
+import { serialize, IR } from "@atxt";
 
 let idCounter = 0;
 

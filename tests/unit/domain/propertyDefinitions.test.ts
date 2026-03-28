@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { getPropertyDefinition } from "@/domain/propertyDefinitions";
+import { getPropertyDefinition } from "@atxt";
 
 describe("getPropertyDefinition", () => {
     describe("unknown properties", () => {

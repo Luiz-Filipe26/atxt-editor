@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
-import { PropertyResolver } from "@/core/propertyResolver";
-import * as AST from "@/types/ast";
+import { AST } from "@atxt";
+import { PropertyResolver } from "@atxt/compiler/propertyResolver";
 
 function makeResolver() {
     const errors: string[] = [];

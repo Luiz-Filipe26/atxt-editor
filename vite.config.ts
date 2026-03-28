@@ -1,10 +1,18 @@
 import { defineConfig } from "vitest/config";
 import tsconfigPaths from "vite-tsconfig-paths";
 import { viteSingleFile } from "vite-plugin-singlefile";
+import path from "path";
 
 export default defineConfig({
     plugins: [tsconfigPaths(), viteSingleFile()],
+    root: "src/pages",
+
+    envDir: path.resolve(__dirname),
+    publicDir: path.resolve(__dirname, "public"),
+
     build: {
+        outDir: path.resolve(__dirname, "dist"),
+        emptyOutDir: true,
         target: "esnext",
         assetsInlineLimit: 30000000,
         chunkSizeWarningLimit: 30000,
@@ -16,14 +24,18 @@ export default defineConfig({
             },
         },
     },
+
     test: {
+        root: path.resolve(__dirname),
         environment: "node",
         globals: true,
+        include: ["tests/**/*.{test,spec}.ts"],
         coverage: {
             provider: "v8",
             reporter: ["text", "html"],
-            include: ["src/core/**/*.ts", "src/domain/**/*.ts", "src/utils/**/*.ts"],
-            exclude: ["src/types/**/*.ts", "src/main.ts"],
+            reportsDirectory: path.resolve(__dirname, "coverage"),
+            include: ["src/core/atxt/**/*.ts"],
+            exclude: ["src/core/atxt/types/**/*.ts", "src/core/atxt/index.ts", "src/pages/main.ts"],
             thresholds: {
                 statements: 90,
                 branches: 85,

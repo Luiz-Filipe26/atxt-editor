@@ -1,4 +1,4 @@
-import type { Token } from "@/types/tokens";
+import type { Token } from "../types/tokens";
 import * as AST from "../types/ast";
 import { Lexer } from "./lexer";
 import { SymbolDetector } from "./symbolDetector";

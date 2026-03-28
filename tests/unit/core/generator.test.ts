@@ -1,6 +1,5 @@
 import { describe, it, expect, beforeEach } from "vitest";
-import { Generator } from "@/core/generator";
-import * as IR from "@/types/ir";
+import { Generator, IR } from "@atxt";
 
 let idCounter = 0;
 
@@ -84,7 +83,7 @@ describe("Generator", () => {
 
         it("a block with props receives a generated class attribute", () => {
             const root = makeBlock({}, [makeBlock({ fill: "#ccc" }, [makeText("x")])]);
-            expect(generate(root)).toMatch(/class="atxt-editor-[a-z0-9]+"/);
+            expect(generate(root)).toMatch(/class="atxt-cls-[a-z0-9]+"/);
         });
 
         it("a hidden block is not rendered", () => {
@@ -147,12 +146,12 @@ describe("Generator", () => {
 
         it("a text node with props receives a generated class attribute", () => {
             const root = makeBlock({}, [makeText("Hello", { color: "red" })]);
-            expect(generate(root)).toMatch(/class="atxt-editor-[a-z0-9]+"/);
+            expect(generate(root)).toMatch(/class="atxt-cls-[a-z0-9]+"/);
         });
 
         it("a text node with no props has no class attribute", () => {
             const root = makeBlock({}, [makeText("Hello")]);
-            expect(generate(root)).not.toContain('class="atxt-editor');
+            expect(generate(root)).not.toContain('class="atxt-cls');
         });
     });
 
@@ -184,7 +183,7 @@ describe("Generator", () => {
                 makeText("B", { color: "red" }),
             ]);
             const html = generate(root);
-            const matches = html.match(/atxt-editor-[a-z0-9]+/g) ?? [];
+            const matches = html.match(/atxt-cls-[a-z0-9]+/g) ?? [];
             expect(matches[0]).toBe(matches[1]);
         });
 
@@ -194,7 +193,7 @@ describe("Generator", () => {
                 makeText("B", { color: "blue" }),
             ]);
             const html = generate(root);
-            const matches = [...new Set(html.match(/atxt-editor-[a-z0-9]+/g) ?? [])];
+            const matches = [...new Set(html.match(/atxt-cls-[a-z0-9]+/g) ?? [])];
             expect(matches).toHaveLength(2);
         });
 

@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { compileToHTML, compileToIR } from "@/core/compiler";
+import { compileToHTML, compileToIR } from "@atxt";
 
 describe("Generator — security", () => {
     describe("XSS via text content", () => {
@@ -81,7 +81,7 @@ describe("Generator — security", () => {
 
         it("generated class attributes survive sanitization", () => {
             const html = compileToHTML("[[color: red]] Hello");
-            expect(html).toMatch(/class="atxt-editor-[a-z0-9]+"/);
+            expect(html).toMatch(/class="atxt-cls-[a-z0-9]+"/);
         });
 
         it("semantic tags from kind survive sanitization", () => {

@@ -1,6 +1,5 @@
 import { describe, it, expect } from "vitest";
-import * as IR from "@/types/ir";
-import { compileToIR } from "@/core/compiler";
+import { IR, compileToIR } from "@atxt";
 
 function texts(ir: IR.Block): IR.Text[] {
     const result: IR.Text[] = [];
