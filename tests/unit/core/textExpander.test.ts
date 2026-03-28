@@ -20,24 +20,24 @@ function annotations(nodes: AST.BlockContentNode[]): AST.AnnotationNode[] {
 describe("TextExpander", () => {
     describe("plain text passthrough", () => {
         it("returns a single TextNode for content with no symbols", () => {
-            const result = makeExpander().expand("Hello world", 1, 1);
+            const result = makeExpander().expandSymbolsOnText("Hello world", 1, 1);
             expect(result).toHaveLength(1);
             expect((result[0] as AST.TextNode).content).toBe("Hello world");
         });
 
         it("returns empty array for empty string", () => {
-            expect(makeExpander().expand("", 1, 1)).toHaveLength(0);
+            expect(makeExpander().expandSymbolsOnText("", 1, 1)).toHaveLength(0);
         });
 
         it("preserves trailing newline in the last TextNode", () => {
-            const result = makeExpander().expand("Hello\n", 1, 1);
+            const result = makeExpander().expandSymbolsOnText("Hello\n", 1, 1);
             expect((result[0] as AST.TextNode).content).toBe("Hello\n");
         });
     });
 
     describe("inline symbol expansion", () => {
         it("expands **text** to toggle-open, TextNode, toggle-close", () => {
-            const result = makeExpander().expand("**bold**", 1, 1);
+            const result = makeExpander().expandSymbolsOnText("**bold**", 1, 1);
             expect(result).toHaveLength(3);
             const [open, text, close] = result as [
                 AST.AnnotationNode,
@@ -53,19 +53,19 @@ describe("TextExpander", () => {
         });
 
         it("emits ** as literal when no closing delimiter exists", () => {
-            const result = makeExpander().expand("**no close", 1, 1);
+            const result = makeExpander().expandSymbolsOnText("**no close", 1, 1);
             expect(annotations(result)).toHaveLength(0);
             expect(texts(result).join("")).toBe("**no close");
         });
 
         it("emits **** as literal when content is empty", () => {
-            const result = makeExpander().expand("****", 1, 1);
+            const result = makeExpander().expandSymbolsOnText("****", 1, 1);
             expect(annotations(result)).toHaveLength(0);
             expect(texts(result).join("")).toBe("****");
         });
 
         it("expands symbol surrounded by plain text", () => {
-            const result = makeExpander().expand("Hello **world** end", 1, 1);
+            const result = makeExpander().expandSymbolsOnText("Hello **world** end", 1, 1);
             expect(annotations(result)).toHaveLength(2);
             expect(texts(result).join("")).toContain("Hello ");
             expect(texts(result).join("")).toContain("world");
@@ -75,7 +75,7 @@ describe("TextExpander", () => {
 
     describe("nesting", () => {
         it("expands nested symbols recursively", () => {
-            const result = makeExpander().expand("**outer _inner_ end**", 1, 1);
+            const result = makeExpander().expandSymbolsOnText("**outer _inner_ end**", 1, 1);
             const ann = annotations(result);
             expect(ann).toHaveLength(4);
             expect(ann[0].properties[0].value).toBe("bold");
@@ -87,23 +87,23 @@ describe("TextExpander", () => {
 
     describe("escape handling", () => {
         it("backslash characters pass through as literals since Lexer handles escape", () => {
-            const result = makeExpander().expand("hello world", 1, 1);
+            const result = makeExpander().expandSymbolsOnText("hello world", 1, 1);
             expect((result[0] as AST.TextNode).content).toBe("hello world");
         });
 
         it("sentinel-prefixed character is emitted as literal and does not open a symbol", () => {
-            const result = makeExpander().expand(`${Lexer.ESCAPE_SENTINEL}**not bold**`, 1, 1);
+            const result = makeExpander().expandSymbolsOnText(`${Lexer.ESCAPE_SENTINEL}**not bold**`, 1, 1);
             expect(annotations(result)).toHaveLength(0);
             expect(texts(result).join("")).toContain("**not bold**");
         });
 
         it("sentinel at end of string is consumed without emitting anything", () => {
-            const result = makeExpander().expand(`hello${Lexer.ESCAPE_SENTINEL}`, 1, 1);
+            const result = makeExpander().expandSymbolsOnText(`hello${Lexer.ESCAPE_SENTINEL}`, 1, 1);
             expect(texts(result).join("")).toBe("hello");
         });
 
         it("sentinel after text appends escaped char to existing buffer", () => {
-            const result = makeExpander().expand(`hello${Lexer.ESCAPE_SENTINEL}**world`, 1, 1);
+            const result = makeExpander().expandSymbolsOnText(`hello${Lexer.ESCAPE_SENTINEL}**world`, 1, 1);
             expect(texts(result).join("")).toBe("hello**world");
             expect(annotations(result)).toHaveLength(0);
         });
@@ -111,24 +111,24 @@ describe("TextExpander", () => {
 
     describe("line boundary", () => {
         it("does not close a symbol across a newline", () => {
-            const result = makeExpander().expand("**open\n**close", 1, 1);
+            const result = makeExpander().expandSymbolsOnText("**open\n**close", 1, 1);
             expect(annotations(result)).toHaveLength(0);
         });
     });
 
     describe("source position tracking", () => {
         it("assigns correct column to a TextNode before the symbol", () => {
-            const result = makeExpander().expand("Hello **bold**", 1, 1);
+            const result = makeExpander().expandSymbolsOnText("Hello **bold**", 1, 1);
             expect((result[0] as AST.TextNode).column).toBe(1);
         });
 
         it("assigns correct column to the opening toggle", () => {
-            const result = makeExpander().expand("Hello **bold**", 1, 1);
+            const result = makeExpander().expandSymbolsOnText("Hello **bold**", 1, 1);
             expect(annotations(result)[0].column).toBe(7);
         });
 
         it("assigns correct column to the closing toggle", () => {
-            const result = makeExpander().expand("Hello **bold**", 1, 1);
+            const result = makeExpander().expandSymbolsOnText("Hello **bold**", 1, 1);
             expect(annotations(result)[1].column).toBe(13);
         });
     });

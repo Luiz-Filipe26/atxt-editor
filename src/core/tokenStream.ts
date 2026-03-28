@@ -45,16 +45,6 @@ export class TokenStream {
         );
     }
 
-    isTargetingBlock(): boolean {
-        for (let offset = this.current; offset < this.tokens.length; offset++) {
-            const token = this.tokens[offset];
-            if (token.type === TokenType.BLOCK_OPEN) return true;
-            if (!this.isBlankToken(token)) return false;
-        }
-        /* v8 ignore next -- @preserve */
-        throw new Error("Invariant violation: token stream has no EOF token.");
-    }
-
     skipWhitespaceTokens(): void {
         while (!this.isAtEnd() && this.isBlankToken(this.peek())) {
             this.advance();

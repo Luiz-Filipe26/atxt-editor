@@ -230,6 +230,18 @@ describe("Parser", () => {
             const node = annotation("[[color: red]] [[HIDE]] hidden");
             expect(node.target).toBeNull();
         });
+
+        it("HIDE directive preserves the blank line that follows its target", () => {
+            const { document } = parse("[[HIDE]]\nHidden\n\nVisible");
+            const newlines = document.children.filter((c) => c.type === NodeType.NEWLINE);
+            expect(newlines.length).toBeGreaterThanOrEqual(1);
+            const allText = document.children
+                .filter((c) => c.type === NodeType.TEXT)
+                .map((c) => (c as AST.TextNode).content)
+                .join("");
+            expect(allText).not.toContain("Hidden");
+            expect(allText).toContain("Visible");
+        });
     });
 
     describe("block statements", () => {
@@ -265,6 +277,29 @@ describe("Parser", () => {
             expect(errors).toHaveLength(0);
             const block = document.children.find((c) => c.type === NodeType.BLOCK) as AST.BlockNode;
             expect(block.children.some((c) => c.type === NodeType.ANNOTATION)).toBe(false);
+        });
+    });
+
+    describe("block separation", () => {
+        it("enforces a single synthetic newline between a block and subsequent inline text", () => {
+            const { document, errors } = parse("{\nTexto 1\n} Texto2");
+            expect(errors).toHaveLength(0);
+            expect(document.children).toHaveLength(3);
+            expect(document.children[0].type).toBe(NodeType.BLOCK);
+            expect(document.children[1].type).toBe(NodeType.NEWLINE);
+            expect(document.children[2].type).toBe(NodeType.TEXT);
+            expect((document.children[2] as AST.TextNode).content).toBe(" Texto2");
+        });
+
+        it("does not duplicate newlines when a block is already followed by a newline", () => {
+            const { document, errors } = parse("{\nTexto 3\n}\nTexto 4");
+            expect(errors).toHaveLength(0);
+            expect(document.children).toHaveLength(3);
+            expect(document.children[0].type).toBe(NodeType.BLOCK);
+            expect(document.children[1].type).toBe(NodeType.NEWLINE);
+            expect(document.children[2].type).toBe(NodeType.TEXT);
+
+            expect((document.children[2] as AST.TextNode).content).toBe("Texto 4");
         });
     });
 

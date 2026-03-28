@@ -1,3 +1,4 @@
+import type { Token } from "@/types/tokens";
 import * as AST from "../types/ast";
 import { Lexer } from "./lexer";
 import { SymbolDetector } from "./symbolDetector";
@@ -25,7 +26,11 @@ export class TextExpander {
         this.symbolDetector = symbolDetector;
     }
 
-    expand(text: string, line: number, startCol: number): AST.BlockContentNode[] {
+    expandSymbolsOnTextAt(token: Token) {
+        return this.expandSymbolsOnText(token.literal, token.line, token.column);
+    }
+
+    expandSymbolsOnText(text: string, line: number, startCol: number): AST.BlockContentNode[] {
         this.text = text;
         this.line = line;
         this.startCol = startCol;
@@ -69,7 +74,11 @@ export class TextExpander {
 
         this.result.push(this.buildToggle(match.props, "plus", openColumn));
         this.result.push(
-            ...new TextExpander(this.symbolDetector).expand(innerText, this.line, innerCol),
+            ...new TextExpander(this.symbolDetector).expandSymbolsOnText(
+                innerText,
+                this.line,
+                innerCol,
+            ),
         );
         this.result.push(this.buildToggle(match.props, "minus", closeColumn));
 

@@ -36,22 +36,23 @@ export interface NewlineNode extends BaseNode {
     type: "NEWLINE";
 }
 
+export type PropertyToggle = "plus" | "minus" | undefined;
+
 export interface PropertyNode extends BaseNode {
     type: "PROPERTY";
     key: string;
     value: string;
-    toggle?: "plus" | "minus";
+    toggle: PropertyToggle;
 }
 
-export type AnnotationDirective = "SET" | "DEFINE" | "NORMAL" | "HIDE" | "SYMBOL";
-
-export type TargetNode = BlockNode | TextNode;
+export const DIRECTIVE_KEYWORDS = ["SET", "DEFINE", "HIDE", "SYMBOL"] as const;
+export type AnnotationDirective = (typeof DIRECTIVE_KEYWORDS)[number] | "NORMAL";
 
 export interface AnnotationNode extends BaseNode {
     type: "ANNOTATION";
     directive: AnnotationDirective;
     properties: PropertyNode[];
-    target: TargetNode | null;
+    target: BlockNode | null;
 }
 
 export type ASTNode = DocumentNode | BlockContentNode | PropertyNode;

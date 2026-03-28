@@ -165,5 +165,11 @@ describe("Parser — symbol expansion", () => {
             expect(errors).toHaveLength(0);
             expect(document.children).toHaveLength(0);
         });
+
+        it("SYMBOL directive preserves the blank line that follows it", () => {
+            const { document } = parse("[[SYMBOL symbol: ^^; weight: bold]]\n\nText");
+            const newlines = document.children.filter((c) => c.type === NodeType.NEWLINE);
+            expect(newlines.length).toBeGreaterThanOrEqual(1);
+        });
     });
 });

@@ -1,4 +1,4 @@
-import { PropertyResolver, type ResolvedResult } from "./propertyResolver";
+import { PropertyResolver } from "./propertyResolver";
 import {
     COMPILER_DEFAULTS,
     getKindDefinition,
@@ -174,41 +174,22 @@ export class Hydrator {
             }
         }
 
-        if (annotation.target) {
-            const snapshot = backpack.snapshot();
-            return this.transformAnnotationTarget(
-                annotation.target,
-                { ...snapshot, ...annotationResult.props },
-                annotationResult,
-            );
-        }
-        return null;
-    }
+        if (!annotation.target) return null;
 
-    private transformAnnotationTarget(
-        node: AST.TargetNode,
-        activeProps: IR.ResolvedProps,
-        annotationResult: ResolvedResult,
-    ): IR.Node {
+        const snapshot = backpack.snapshot();
+        const activeProps = { ...snapshot, ...annotationResult.props };
         const { blockProps } = this.propertyResolver.routePropertiesByScope(activeProps);
 
-        switch (node.type) {
-            case AST.NodeType.BLOCK: {
-                return this.transformBlockNode(
-                    node,
-                    blockProps,
-                    activeProps,
-                    annotationResult.classes,
-                    annotationResult.directProps,
-                );
-            }
-            /* v8 ignore next -- @preserve */
-            default:
-                throw new Error(`Invariant violation: annotation target is not a BLOCK.`);
-        }
+        return this.transformBlockNode(
+            annotation.target,
+            blockProps,
+            activeProps,
+            annotationResult.classes,
+            annotationResult.directProps,
+        );
     }
 
-    private transformBareNode(node: AST.TargetNode, backpack: Backpack): IR.Node {
+    private transformBareNode(node: AST.BlockNode | AST.TextNode, backpack: Backpack): IR.Node {
         const activeProps = backpack.snapshot();
         const { blockProps, inlineProps: scopedActiveInline } =
             this.propertyResolver.routePropertiesByScope(activeProps);
