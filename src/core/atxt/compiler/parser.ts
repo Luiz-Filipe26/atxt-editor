@@ -169,7 +169,7 @@ export class Parser {
                 if (node) children.push(node);
                 continue;
             }
-            children.push(...this.textExpander.expandInline(token);
+            children.push(...this.textExpander.expandInlineAt(token));
         }
 
         return children.length > 0 ? buildBlockNode(startToken, children) : null;

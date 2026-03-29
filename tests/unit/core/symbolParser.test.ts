@@ -5,7 +5,7 @@ import { SymbolParser } from "@atxt/compiler/symbolParser";
 const { NodeType } = AST;
 
 function expand(text: string, line = 1, startCol = 1): AST.BlockContentNode[] {
-    return new SymbolParser(new SymbolDetector()).expandSymbolsOnText({ text, line, startCol });
+    return new SymbolParser(new SymbolDetector()).expandInline({ text, line, startCol });
 }
 
 function texts(nodes: AST.BlockContentNode[]): string[] {
