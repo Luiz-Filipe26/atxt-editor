@@ -5,7 +5,7 @@ import { SymbolDetector, type InlineSymbolMatch } from "./symbolDetector";
 import {
     buildAnnotationNode,
     buildBlockNode,
-    buildPropertyNodesFromRecord,
+    buildPropertyNodesFromPairs,
     buildToggleCloseNode,
     buildToggleOpenNode,
 } from "./astBuilders";
@@ -53,7 +53,7 @@ export class SymbolParser {
             buildAnnotationNode(
                 token,
                 "NORMAL",
-                buildPropertyNodesFromRecord(token, blockSymbol.props),
+                buildPropertyNodesFromPairs(token, blockSymbol.props),
                 target,
             ),
         ];

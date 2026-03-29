@@ -8,6 +8,11 @@ export interface BuildPropertyArgs {
     toggle: AST.PropertyToggle;
 }
 
+export interface PropEntry {
+    name: string;
+    value: string;
+}
+
 export function buildBlockNode(
     source: SourceLocation,
     children: AST.BlockContentNode[],
@@ -51,34 +56,34 @@ export function buildPropertyNode(args: BuildPropertyArgs): AST.PropertyNode {
     };
 }
 
-export function buildPropertyNodesFromRecord(
+export function buildPropertyNodesFromPairs(
     source: SourceLocation,
-    props: Record<string, string>,
+    props: PropEntry[],
     toggle: AST.PropertyToggle = undefined,
 ): AST.PropertyNode[] {
-    return Object.entries(props).map(([key, value]) =>
+    return props.map(({ name, value }) =>
         buildPropertyNode({
             source,
-            key,
+            key: name,
             value: toggle === "minus" ? "" : value,
             toggle,
         }),
     );
 }
 
-export function buildToggleOpenNode(source: SourceLocation, props: Record<string, string>) {
+export function buildToggleOpenNode(source: SourceLocation, props: PropEntry[]) {
     return buildToggleNode(source, props, "plus");
 }
 
-export function buildToggleCloseNode(source: SourceLocation, props: Record<string, string>) {
+export function buildToggleCloseNode(source: SourceLocation, props: PropEntry[]) {
     return buildToggleNode(source, props, "minus");
 }
 
 export function buildToggleNode(
     source: SourceLocation,
-    props: Record<string, string>,
+    props: PropEntry[],
     toggle: AST.PropertyToggle,
 ): AST.AnnotationNode {
-    const propertyNodes = buildPropertyNodesFromRecord(source, props, toggle);
+    const propertyNodes = buildPropertyNodesFromPairs(source, props, toggle);
     return buildAnnotationNode(source, "NORMAL", propertyNodes, null);
 }

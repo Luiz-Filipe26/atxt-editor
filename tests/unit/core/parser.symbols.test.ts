@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { Lexer, Parser, AST } from "@atxt";
+import { BUILT_IN_SYMBOLS } from "@atxt/domain/builtInSymbols";
 const { NodeType } = AST;
 
 function parse(source: string) {
@@ -13,21 +14,19 @@ function annotations(nodes: AST.BlockContentNode[]): AST.AnnotationNode[] {
 
 describe("Parser — symbol expansion", () => {
     describe("block symbols", () => {
-        it.each([
-            ["# text", "heading1"],
-            ["## text", "heading2"],
-            ["### text", "heading3"],
-            ["#### text", "heading4"],
-            ["##### text", "heading5"],
-            ["> text", "quote"],
-            ["- text", "item"],
-            ["+ text", "item"],
-        ])('"%s" produces kind:%s', (source, kind) => {
-            const { document, errors } = parse(source);
-            expect(errors).toHaveLength(0);
-            const ann = annotations(document.children)[0];
-            expect(ann).toBeDefined();
-            expect(ann.properties.find((p) => p.key === "kind")?.value).toBe(kind);
+        describe("block symbols", () => {
+            it.each(BUILT_IN_SYMBOLS.filter((s) => s.type === "block"))(
+                '"$sequence" produces the correct properties',
+                ({ sequence, props }) => {
+                    const { document, errors } = parse(sequence + "text");
+                    expect(errors).toHaveLength(0);
+                    const ann = annotations(document.children)[0];
+                    expect(ann).toBeDefined();
+                    for (const { name, value } of props) {
+                        expect(ann.properties.find((p) => p.key === name)?.value).toBe(value);
+                    }
+                },
+            );
         });
 
         it("block symbol target contains the rest of the line as children", () => {

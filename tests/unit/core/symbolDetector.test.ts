@@ -1,6 +1,20 @@
 import { describe, it, expect, beforeEach } from "vitest";
 import { Lexer } from "@atxt";
 import { SymbolDetector } from "@atxt/compiler/symbolDetector";
+import type { PropEntry } from "@atxt/compiler/astBuilders";
+import { BUILT_IN_SYMBOLS } from "@atxt/domain/builtInSymbols";
+
+function props(record: Record<string, string>): PropEntry[] {
+    return Object.entries(record).map(([name, value]) => ({ name, value }));
+}
+
+function toRecord(entries: PropEntry[] | undefined): Record<string, string> {
+    return Object.fromEntries((entries ?? []).map(({ name, value }) => [name, value]));
+}
+
+function getProp(entries: PropEntry[] | undefined, name: string): string | undefined {
+    return entries?.find((e) => e.name === name)?.value;
+}
 
 describe("SymbolDetector", () => {
     let detector: SymbolDetector;
@@ -13,7 +27,7 @@ describe("SymbolDetector", () => {
         it("detects ** at position 0", () => {
             const match = detector.detectAt("**bold**", 0);
             expect(match).not.toBeNull();
-            expect(match!.props).toEqual({ weight: "bold" });
+            expect(toRecord(match!.props)).toEqual({ weight: "bold" });
             expect(match!.symbolLength).toBe(2);
             expect(match!.closing).toBe("**");
             expect(match!.closingPos).toBe(6);
@@ -21,13 +35,13 @@ describe("SymbolDetector", () => {
 
         it("detects _ at position 0", () => {
             const match = detector.detectAt("_italic_", 0);
-            expect(match!.props).toEqual({ style: "italic" });
+            expect(toRecord(match!.props)).toEqual({ style: "italic" });
             expect(match!.closingPos).toBe(7);
         });
 
         it("detects ~~ at position 0", () => {
             const match = detector.detectAt("~~strike~~", 0);
-            expect(match!.props).toEqual({ decoration: "line-through" });
+            expect(toRecord(match!.props)).toEqual({ decoration: "line-through" });
             expect(match!.closingPos).toBe(8);
         });
 
@@ -66,16 +80,16 @@ describe("SymbolDetector", () => {
 
     describe("detectAt — maximal munch", () => {
         it("prefers ** over a hypothetical single * when both are registered", () => {
-            detector.registerSymbol("*", "inline", { weight: "normal" });
+            detector.registerSymbol("*", "inline", props({ weight: "normal" }));
             const match = detector.detectAt("**bold**", 0);
-            expect(match!.props).toEqual({ weight: "bold" });
+            expect(toRecord(match!.props)).toEqual({ weight: "bold" });
             expect(match!.symbolLength).toBe(2);
         });
     });
 
     describe("detectAt — closing is reverse of opening", () => {
         it("asymmetric symbol closes with its reverse", () => {
-            detector.registerSymbol("*-", "inline", { color: "red" });
+            detector.registerSymbol("*-", "inline", props({ color: "red" }));
             const match = detector.detectAt("*-text-*", 0);
             expect(match).not.toBeNull();
             expect(match!.closing).toBe("-*");
@@ -85,36 +99,27 @@ describe("SymbolDetector", () => {
 
     describe("registerInline — custom symbols", () => {
         it("registers a custom inline symbol that is then detectable", () => {
-            detector.registerSymbol("++", "inline", { color: "yellow" });
+            detector.registerSymbol("++", "inline", props({ color: "yellow" }));
             const match = detector.detectAt("++text++", 0);
             expect(match).not.toBeNull();
-            expect(match!.props).toEqual({ color: "yellow" });
+            expect(toRecord(match!.props)).toEqual({ color: "yellow" });
         });
 
         it("overrides a built-in symbol when re-registered", () => {
-            detector.registerSymbol("**", "inline", { decoration: "underline" });
+            detector.registerSymbol("**", "inline", props({ decoration: "underline" }));
             const match = detector.detectAt("**text**", 0);
-            expect(match!.props).toEqual({ decoration: "underline" });
+            expect(toRecord(match!.props)).toEqual({ decoration: "underline" });
         });
     });
 
     describe("detectBlockSymbol — built-in block symbols", () => {
-        it.each([
-            ["# text", { kind: "heading1", size: "32", weight: "bold" }, 2],
-            ["## text", { kind: "heading2", size: "24", weight: "bold" }, 3],
-            ["### text", { kind: "heading3", size: "18", weight: "bold" }, 4],
-            ["#### text", { kind: "heading4", size: "16", weight: "bold" }, 5],
-            ["##### text", { kind: "heading5", size: "14", weight: "bold" }, 6],
-            ["> text", { kind: "quote", color: "gray", indent: "4" }, 2],
-            ["- text", { kind: "item", indent: "2" }, 2],
-            ["+ text", { kind: "item", indent: "2" }, 2],
-        ] as [string, Record<string, string>, number][])(
-            '"%s" → props=%o prefixLength=%i',
-            (input, props, prefixLength) => {
-                const match = detector.detectBlockSymbol(input);
+        it.each(BUILT_IN_SYMBOLS.filter((s) => s.type === "block"))(
+            '"$sequence" is detectable as a block symbol',
+            ({ sequence, props }) => {
+                const match = detector.detectBlockSymbol(sequence + "text");
                 expect(match).not.toBeNull();
-                expect(match!.props).toEqual(props);
-                expect(match!.symbolLength).toBe(prefixLength);
+                expect(toRecord(match!.props)).toEqual(toRecord(props));
+                expect(match!.symbolLength).toBe(sequence.length);
             },
         );
 
@@ -127,16 +132,18 @@ describe("SymbolDetector", () => {
         });
 
         it("##### wins over # (maximal munch in block symbols)", () => {
-            expect(detector.detectBlockSymbol("##### deep")!.props.kind).toBe("heading5");
+            expect(getProp(detector.detectBlockSymbol("##### deep")?.props, "kind")).toBe(
+                "heading5",
+            );
         });
     });
 
     describe("registerBlock — custom block symbols", () => {
         it("registers a custom block symbol that is then detectable", () => {
-            detector.registerSymbol("§ ", "block", { kind: "section" });
+            detector.registerSymbol("§ ", "block", props({ kind: "section" }));
             const match = detector.detectBlockSymbol("§ My section");
             expect(match).not.toBeNull();
-            expect(match!.props).toEqual({ kind: "section" });
+            expect(toRecord(match!.props)).toEqual({ kind: "section" });
         });
     });
 });

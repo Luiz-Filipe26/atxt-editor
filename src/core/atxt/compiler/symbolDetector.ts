@@ -1,10 +1,11 @@
 import { BUILT_IN_SYMBOLS } from "../domain/builtInSymbols";
+import type { PropEntry } from "./astBuilders";
 import { Lexer } from "./lexer";
 import { Trie } from "./trie";
 
 interface BaseEntry {
     type: string;
-    props: Record<string, string>;
+    props: PropEntry[];
 }
 interface InlineEntry extends BaseEntry {
     type: "inline";
@@ -18,7 +19,7 @@ interface BlockEntry extends BaseEntry {
 export type SymbolEntry = InlineEntry | BlockEntry;
 
 interface BaseSymbolMatch {
-    props: Record<string, string>;
+    props: PropEntry[];
     symbolLength: number;
 }
 
@@ -37,11 +38,7 @@ export class SymbolDetector {
         }
     }
 
-    registerSymbol(
-        sequence: string,
-        type: SymbolEntry["type"],
-        props: Record<string, string>,
-    ): void {
+    registerSymbol(sequence: string, type: SymbolEntry["type"], props: PropEntry[]): void {
         const closing = [...sequence].reverse().join("");
         if (type === "inline") this.trie.insert(sequence, { type, props, closing });
         else this.trie.insert(sequence, { type, props });

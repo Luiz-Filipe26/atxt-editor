@@ -9,6 +9,7 @@ import {
     buildBlockNode,
     buildNewlineNode,
     buildPropertyNode,
+    type PropEntry,
 } from "./astBuilders";
 
 type ParsedPropertyKey = {
@@ -109,14 +110,24 @@ export class Parser {
     }
 
     private handleSymbolDefinition(props: AST.PropertyNode[]): void {
-        const map: Record<string, string> = {};
-        for (const prop of props) {
-            map[prop.key] = prop.value;
-        }
-        const { symbol, type, ...symbolProps } = map;
-        if (!symbol || Object.keys(symbolProps).length === 0) return;
-        const symbolType = type === "block" ? "block" : "inline";
+        let symbol: string | undefined;
+        let type: string | undefined;
+        const symbolProps: PropEntry[] = [];
 
+        for (const prop of props) {
+            if (prop.key === "symbol") {
+                symbol = prop.value;
+                continue;
+            }
+            if (prop.key === "type") {
+                type = prop.value;
+                continue;
+            }
+            symbolProps.push({ name: prop.key, value: prop.value });
+        }
+
+        if (!symbol || symbolProps.length === 0) return;
+        const symbolType = type === "block" ? "block" : "inline";
         this.symbolDetector.registerSymbol(symbol, symbolType, symbolProps);
     }
 
