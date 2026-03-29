@@ -14,9 +14,12 @@ export const TokenType = {
 
 export type TokenType = (typeof TokenType)[keyof typeof TokenType];
 
-export interface Token {
-    type: TokenType;
-    literal: string;
+export interface SourceLocation {
     line: number;
     column: number;
+}
+
+export interface Token extends SourceLocation {
+    type: TokenType;
+    literal: string;
 }

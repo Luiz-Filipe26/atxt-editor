@@ -1,12 +1,18 @@
-import { TokenType, type Token } from "../types/tokens";
+import { TokenType, type SourceLocation, type Token } from "../types/tokens";
 import { TokenStream } from "./tokenStream";
 import * as AST from "../types/ast";
 import type { CompilerError } from "../types/errors";
-import { SymbolDetector, type BlockSymbolMatch } from "./symbolDetector";
-import { TextExpander } from "./textExpander";
+import { SymbolDetector } from "./symbolDetector";
+import { SymbolParser } from "./symbolParser";
+import {
+    buildAnnotationNode,
+    buildBlockNode,
+    buildNewlineNode,
+    buildPropertyNode,
+} from "./astBuilders";
 
 type ParsedPropertyKey = {
-    token: Token;
+    source: Token;
     key: string;
     toggle: AST.PropertyToggle;
 };
@@ -15,7 +21,7 @@ export class Parser {
     private stream!: TokenStream;
     private compilerErrors: CompilerError[] = [];
     private symbolDetector = new SymbolDetector();
-    private textExpander = new TextExpander(this.symbolDetector);
+    private textExpander = new SymbolParser(this.symbolDetector);
     private static readonly BLOCK_BOUNDARY_TOKENS = new Set<TokenType>([
         TokenType.NEWLINE,
         TokenType.BLOCK_CLOSE,
@@ -48,7 +54,7 @@ export class Parser {
             case TokenType.BLOCK_OPEN:
                 return this.enforceBlockSeparation([this.parseBlock(token)]);
             case TokenType.NEWLINE:
-                return [this.buildNewlineNode(token)];
+                return [buildNewlineNode(token)];
             case TokenType.TEXT:
                 return this.parseTextLine(token);
             case TokenType.BLOCK_CLOSE:
@@ -77,7 +83,7 @@ export class Parser {
     private enforceBlockSeparation(nodes: AST.BlockContentNode[]): AST.BlockContentNode[] {
         const nextToken = this.stream.peek();
         if (!Parser.BLOCK_BOUNDARY_TOKENS.has(nextToken.type))
-            nodes.push(this.buildNewlineNode(nextToken));
+            nodes.push(buildNewlineNode(nextToken));
         return nodes;
     }
 
@@ -99,7 +105,7 @@ export class Parser {
         const target =
             directive === "NORMAL" && hasNormalProps ? this.resolveAnnotationTarget() : null;
 
-        return this.buildAnnotationNode(openingToken, directive, props, target);
+        return buildAnnotationNode(openingToken, directive, props, target);
     }
 
     private handleSymbolDefinition(props: AST.PropertyNode[]): void {
@@ -109,9 +115,9 @@ export class Parser {
         }
         const { symbol, type, ...symbolProps } = map;
         if (!symbol || Object.keys(symbolProps).length === 0) return;
+        const symbolType = type === "block" ? "block" : "inline";
 
-        if (type === "block") this.symbolDetector.registerBlock(symbol, symbolProps);
-        else this.symbolDetector.registerInline(symbol, symbolProps);
+        this.symbolDetector.registerSymbol(symbol, symbolType, symbolProps);
     }
 
     private parseBlock(blockToken: Token): AST.BlockNode {
@@ -128,7 +134,7 @@ export class Parser {
         if (!this.stream.match(TokenType.BLOCK_CLOSE))
             this.pushError("Unclosed block. Expected '}'.");
 
-        return this.buildBlockNode(blockToken, children);
+        return buildBlockNode(blockToken, children);
     }
 
     private parseTextLine(startToken: Token): AST.BlockContentNode[] {
@@ -138,13 +144,9 @@ export class Parser {
                 `Invariant violation: adjacent TEXT tokens at ${this.stream.peek().line}:${this.stream.peek().column}.`,
             );
         /*! v8 ignore stop -- @preserve */
-        const blockSymbol = this.symbolDetector.detectBlockSymbol(startToken.literal);
-        const nodes: AST.BlockContentNode[] = blockSymbol
-            ? [this.buildBlockSymbolAnnotation(blockSymbol, startToken.literal, startToken)]
-            : this.textExpander.expandSymbolsOnTextAt(startToken);
-
+        const nodes = this.textExpander.expandLine(startToken);
         const newlineToken = this.stream.match(TokenType.NEWLINE);
-        if (newlineToken) nodes.push(this.buildNewlineNode(newlineToken));
+        if (newlineToken) nodes.push(buildNewlineNode(newlineToken));
 
         return nodes;
     }
@@ -167,10 +169,10 @@ export class Parser {
                 if (node) children.push(node);
                 continue;
             }
-            children.push(...this.textExpander.expandSymbolsOnTextAt(token));
+            children.push(...this.textExpander.expandInline(token);
         }
 
-        return children.length > 0 ? this.buildBlockNode(startToken, children) : null;
+        return children.length > 0 ? buildBlockNode(startToken, children) : null;
     }
 
     private consumeDirective(token: Token): AST.AnnotationDirective {
@@ -194,8 +196,8 @@ export class Parser {
 
             if (!parsedKey.toggle) hasNormalProps = true;
 
-            props.push(this.buildPropertyNode(parsedKey, value));
-            this.requirePropertySeparator(parsedKey.token.literal);
+            props.push(buildPropertyNode({ ...parsedKey, value }));
+            this.requirePropertySeparator(parsedKey.source.literal);
         }
         return { props, hasNormalProps };
     }
@@ -212,7 +214,7 @@ export class Parser {
             rawKey[0] === "+" ? "plus" : rawKey[0] === "-" ? "minus" : undefined;
         const key = toggle !== undefined ? rawKey.substring(1) : rawKey;
 
-        return { token, key, toggle };
+        return { source: token, key, toggle };
     }
 
     private parsePropertyValue(parsedKey: ParsedPropertyKey): string | null {
@@ -264,86 +266,13 @@ export class Parser {
         }
     }
 
-    private buildBlockSymbolAnnotation(
-        blockSymbol: BlockSymbolMatch,
-        content: string,
-        startToken: Token,
-    ): AST.AnnotationNode {
-        const restColumn = startToken.column + blockSymbol.prefixLength;
-        return this.buildAnnotationNode(
-            startToken,
-            "NORMAL",
-            this.mapRecordToPropertyNodes(startToken, blockSymbol.props),
-            {
-                type: AST.NodeType.BLOCK,
-                line: startToken.line,
-                column: restColumn,
-                children: this.textExpander.expandSymbolsOnText(
-                    content.slice(blockSymbol.prefixLength),
-                    startToken.line,
-                    restColumn,
-                ),
-            },
-        );
-    }
-
-    private mapRecordToPropertyNodes(
-        sourceToken: Token,
-        props: Record<string, string>,
-        toggle?: AST.PropertyToggle,
-    ): AST.PropertyNode[] {
-        return Object.entries(props).map(([key, value]) =>
-            this.buildPropertyNode({ token: sourceToken, key, toggle }, value),
-        );
-    }
-
-    private buildBlockNode(token: Token, children: AST.BlockContentNode[]): AST.BlockNode {
-        return {
-            type: AST.NodeType.BLOCK,
-            line: token.line,
-            column: token.column,
-            children,
-        };
-    }
-
-    private buildAnnotationNode(
-        token: Token,
-        directive: AST.AnnotationDirective,
-        properties: AST.PropertyNode[],
-        target: AST.BlockNode | null,
-    ): AST.AnnotationNode {
-        return {
-            type: AST.NodeType.ANNOTATION,
-            line: token.line,
-            column: token.column,
-            directive,
-            properties,
-            target,
-        };
-    }
-
-    private buildNewlineNode(token: Token): AST.NewlineNode {
-        return { type: AST.NodeType.NEWLINE, line: token.line, column: token.column };
-    }
-
-    private buildPropertyNode(parsedKey: ParsedPropertyKey, value: string): AST.PropertyNode {
-        return {
-            type: AST.NodeType.PROPERTY,
-            line: parsedKey.token.line,
-            column: parsedKey.token.column,
-            key: parsedKey.key,
-            value,
-            toggle: parsedKey.toggle,
-        };
-    }
-
-    private pushError(message: string, token?: Token) {
-        const currentToken = token ?? this.stream.peek();
+    private pushError(message: string, sourceLocation?: SourceLocation) {
+        const currentLocation = sourceLocation ?? this.stream.peek();
         this.compilerErrors.push({
             type: "PARSER",
             message,
-            line: currentToken.line,
-            column: currentToken.column,
+            line: currentLocation.line,
+            column: currentLocation.column,
         });
     }
 }

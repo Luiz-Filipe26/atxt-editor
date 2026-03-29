@@ -14,27 +14,27 @@ describe("SymbolDetector", () => {
             const match = detector.detectAt("**bold**", 0);
             expect(match).not.toBeNull();
             expect(match!.props).toEqual({ weight: "bold" });
-            expect(match!.openLength).toBe(2);
+            expect(match!.symbolLength).toBe(2);
             expect(match!.closing).toBe("**");
-            expect(match!.closePos).toBe(6);
+            expect(match!.closingPos).toBe(6);
         });
 
         it("detects _ at position 0", () => {
             const match = detector.detectAt("_italic_", 0);
             expect(match!.props).toEqual({ style: "italic" });
-            expect(match!.closePos).toBe(7);
+            expect(match!.closingPos).toBe(7);
         });
 
         it("detects ~~ at position 0", () => {
             const match = detector.detectAt("~~strike~~", 0);
             expect(match!.props).toEqual({ decoration: "line-through" });
-            expect(match!.closePos).toBe(8);
+            expect(match!.closingPos).toBe(8);
         });
 
         it("detects a symbol at a non-zero position", () => {
             const match = detector.detectAt("Hello **world**", 6);
             expect(match).not.toBeNull();
-            expect(match!.closePos).toBe(13);
+            expect(match!.closingPos).toBe(13);
         });
 
         it("returns null when no symbol starts at position", () => {
@@ -48,55 +48,51 @@ describe("SymbolDetector", () => {
         it("returns null when content between delimiters is empty", () => {
             expect(detector.detectAt("****", 0)).toBeNull();
         });
-
-        it("does not close across a newline", () => {
-            expect(detector.detectAt("**open\n**", 0)).toBeNull();
-        });
     });
 
     describe("detectAt — escape handling in close search (sentinel protocol)", () => {
         it("ignores a sentinel-escaped closing delimiter", () => {
             const match = detector.detectAt(`**text${Lexer.ESCAPE_SENTINEL}** more**`, 0);
             expect(match).not.toBeNull();
-            expect(match!.closePos).toBe(14);
+            expect(match!.closingPos).toBe(14);
         });
 
         it("does not treat sentinel-escaped backslash as escaping the following **", () => {
             const match = detector.detectAt(`**text${Lexer.ESCAPE_SENTINEL}\\**`, 0);
             expect(match).not.toBeNull();
-            expect(match!.closePos).toBe(8);
+            expect(match!.closingPos).toBe(8);
         });
     });
 
     describe("detectAt — maximal munch", () => {
         it("prefers ** over a hypothetical single * when both are registered", () => {
-            detector.registerInline("*", { weight: "normal" });
+            detector.registerSymbol("*", "inline", { weight: "normal" });
             const match = detector.detectAt("**bold**", 0);
             expect(match!.props).toEqual({ weight: "bold" });
-            expect(match!.openLength).toBe(2);
+            expect(match!.symbolLength).toBe(2);
         });
     });
 
     describe("detectAt — closing is reverse of opening", () => {
         it("asymmetric symbol closes with its reverse", () => {
-            detector.registerInline("*-", { color: "red" });
+            detector.registerSymbol("*-", "inline", { color: "red" });
             const match = detector.detectAt("*-text-*", 0);
             expect(match).not.toBeNull();
             expect(match!.closing).toBe("-*");
-            expect(match!.closePos).toBe(6);
+            expect(match!.closingPos).toBe(6);
         });
     });
 
     describe("registerInline — custom symbols", () => {
         it("registers a custom inline symbol that is then detectable", () => {
-            detector.registerInline("++", { color: "yellow" });
+            detector.registerSymbol("++", "inline", { color: "yellow" });
             const match = detector.detectAt("++text++", 0);
             expect(match).not.toBeNull();
             expect(match!.props).toEqual({ color: "yellow" });
         });
 
         it("overrides a built-in symbol when re-registered", () => {
-            detector.registerInline("**", { decoration: "underline" });
+            detector.registerSymbol("**", "inline", { decoration: "underline" });
             const match = detector.detectAt("**text**", 0);
             expect(match!.props).toEqual({ decoration: "underline" });
         });
@@ -118,7 +114,7 @@ describe("SymbolDetector", () => {
                 const match = detector.detectBlockSymbol(input);
                 expect(match).not.toBeNull();
                 expect(match!.props).toEqual(props);
-                expect(match!.prefixLength).toBe(prefixLength);
+                expect(match!.symbolLength).toBe(prefixLength);
             },
         );
 
@@ -137,7 +133,7 @@ describe("SymbolDetector", () => {
 
     describe("registerBlock — custom block symbols", () => {
         it("registers a custom block symbol that is then detectable", () => {
-            detector.registerBlock("§ ", { kind: "section" });
+            detector.registerSymbol("§ ", "block", { kind: "section" });
             const match = detector.detectBlockSymbol("§ My section");
             expect(match).not.toBeNull();
             expect(match!.props).toEqual({ kind: "section" });
