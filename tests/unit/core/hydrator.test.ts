@@ -24,7 +24,7 @@ describe("Hydrator", () => {
             const { ir, errors } = compileToIR("");
             expect(errors).toHaveLength(0);
             expect(ir.root.type).toBe("BLOCK");
-            expect(ir.root.props).toEqual({});
+            expect(ir.root.props.size).toBe(0);
             expect(ir.root.children).toHaveLength(0);
         });
 
@@ -37,14 +37,14 @@ describe("Hydrator", () => {
         it("the root block has empty classes and ownProps", () => {
             const { ir } = compileToIR("Hello");
             expect(ir.root.classes).toEqual([]);
-            expect(ir.root.ownProps).toEqual({});
+            expect(ir.root.ownProps.size).toBe(0);
         });
     });
 
     describe("IRDocument structure", () => {
         it("classDefinitions is empty when no classes are defined", () => {
             const { ir } = compileToIR("Hello");
-            expect(ir.classDefinitions).toEqual({});
+            expect(ir.classDefinitions.size).toBe(0);
         });
 
         it("classDefinitions contains all defined classes after compilation", () => {
@@ -52,15 +52,17 @@ describe("Hydrator", () => {
                 "[[DEFINE class: big; size: 24; weight: bold]]\nHello",
             );
             expect(errors).toHaveLength(0);
-            expect(ir.classDefinitions["big"]).toEqual({ size: "24", weight: "bold" });
+            const bigClass = ir.classDefinitions.get("big");
+            expect(bigClass?.get("size")).toBe("24");
+            expect(bigClass?.get("weight")).toBe("bold");
         });
 
         it("classDefinitions contains multiple classes", () => {
             const { ir } = compileToIR(
                 "[[DEFINE class: big; size: 24]]\n[[DEFINE class: red; color: red]]\nHello",
             );
-            expect(ir.classDefinitions["big"]).toBeDefined();
-            expect(ir.classDefinitions["red"]).toBeDefined();
+            expect(ir.classDefinitions.has("big")).toBe(true);
+            expect(ir.classDefinitions.has("red")).toBe(true);
         });
     });
 
@@ -85,7 +87,7 @@ describe("Hydrator", () => {
             const { ir } = compileToIR("Hello");
             const text = texts(ir.root)[0];
             expect(text.classes).toEqual([]);
-            expect(text.ownProps).toEqual({});
+            expect(text.ownProps.size).toBe(0);
         });
     });
 
@@ -95,7 +97,7 @@ describe("Hydrator", () => {
             expect(errors).toHaveLength(0);
             const block = blocks(ir.root)[0];
             expect(block.type).toBe("BLOCK");
-            expect(block.props).toEqual({});
+            expect(block.props.size).toBe(0);
         });
 
         it("a block with text produces an IR.Block containing IR.Text children", () => {
@@ -117,20 +119,20 @@ describe("Hydrator", () => {
             const { ir, errors } = compileToIR("[[color: red]] Hello");
             expect(errors).toHaveLength(0);
             const text = textWith(ir.root, "Hello");
-            expect(text?.props.color).toBe("red");
+            expect(text?.props.get("color")).toBe("red");
         });
 
         it("applies multiple inline props in one annotation", () => {
             const { ir } = compileToIR("[[color: red; size: 16]] Hello");
             const text = textWith(ir.root, "Hello");
-            expect(text?.props.color).toBe("red");
-            expect(text?.props.size).toBe("16");
+            expect(text?.props.get("color")).toBe("red");
+            expect(text?.props.get("size")).toBe("16");
         });
 
         it("inline props are only on the target node — not on subsequent text", () => {
             const { ir } = compileToIR("[[color: red]] Target\nOther");
-            expect(textWith(ir.root, "Target")?.props.color).toBe("red");
-            expect(textWith(ir.root, "Other")?.props.color).toBeUndefined();
+            expect(textWith(ir.root, "Target")?.props.get("color")).toBe("red");
+            expect(textWith(ir.root, "Other")?.props.has("color")).toBe(false);
         });
     });
 
@@ -138,17 +140,17 @@ describe("Hydrator", () => {
         it("applies block props to an IR.Block when the annotation targets a block", () => {
             const { ir, errors } = compileToIR("[[fill: #ccc]]\n{\nHello\n}");
             expect(errors).toHaveLength(0);
-            expect(blocks(ir.root)[0].props.fill).toBe("#ccc");
+            expect(blocks(ir.root)[0].props.get("fill")).toBe("#ccc");
         });
 
         it("block-scope props applied to a TEXT target are discarded — scope enforcement", () => {
             const { ir } = compileToIR("[[fill: #ccc]] Hello");
-            expect(textWith(ir.root, "Hello")?.props.fill).toBeUndefined();
+            expect(textWith(ir.root, "Hello")?.props.has("fill")).toBe(false);
         });
 
         it("inline-scope props applied to a BLOCK target are discarded — scope enforcement", () => {
             const { ir } = compileToIR("[[color: red]]\n{\nHello\n}");
-            expect(blocks(ir.root)[0].props.color).toBeUndefined();
+            expect(blocks(ir.root)[0].props.has("color")).toBe(false);
         });
     });
 
@@ -193,21 +195,21 @@ describe("Hydrator", () => {
             expect(errors).toHaveLength(0);
             // The block is the direct target — it records what was written directly
             const block = blocks(ir.root)[0];
-            expect(block.ownProps.color).toBe("red");
-            expect(block.ownProps.size).toBeUndefined();
+            expect(block.ownProps.get("color")).toBe("red");
+            expect(block.ownProps.has("size")).toBe(false);
         });
 
         it("children of a targeted block have empty ownProps — ownProps belongs to the direct target", () => {
             const { ir } = compileToIR("[[color: red; size: 16]] Hello");
             const block = blocks(ir.root)[0];
             const text = textWith(block, "Hello");
-            expect(text?.ownProps).toEqual({});
+            expect(text?.ownProps.size).toBe(0);
         });
 
         it("a plain text node with no annotation has empty ownProps", () => {
             const { ir } = compileToIR("Hello");
             const text = texts(ir.root)[0];
-            expect(text.ownProps).toEqual({});
+            expect(text.ownProps.size).toBe(0);
         });
 
         it("ownProps is empty on the target block when all props come from a class", () => {
@@ -216,14 +218,14 @@ describe("Hydrator", () => {
             );
             expect(errors).toHaveLength(0);
             const block = blocks(ir.root)[0];
-            expect(block.ownProps).toEqual({});
+            expect(block.ownProps.size).toBe(0);
         });
 
         it("ownProps on a block target contains all directly declared block-scoped props", () => {
             const { ir } = compileToIR("[[fill: #eee; align: center]]\n{\nContent\n}");
             const block = blocks(ir.root)[0];
-            expect(block.ownProps.fill).toBe("#eee");
-            expect(block.ownProps.align).toBe("center");
+            expect(block.ownProps.get("fill")).toBe("#eee");
+            expect(block.ownProps.get("align")).toBe("center");
         });
 
         it("props on the text child is fully resolved regardless of ownProps being empty", () => {
@@ -231,8 +233,8 @@ describe("Hydrator", () => {
             const block = blocks(ir.root)[0];
             const text = textWith(block, "Hello");
             // props is fully resolved — ownProps is just the provenance record
-            expect(text?.props.color).toBe("red");
-            expect(text?.props.size).toBe("16");
+            expect(text?.props.get("color")).toBe("red");
+            expect(text?.props.get("size")).toBe("16");
         });
     });
 
@@ -240,21 +242,21 @@ describe("Hydrator", () => {
         it("+toggle adds a prop to all subsequent sibling TEXT nodes", () => {
             const { ir, errors } = compileToIR("[[+color: red]]\nHello\nWorld");
             expect(errors).toHaveLength(0);
-            expect(textWith(ir.root, "Hello")?.props.color).toBe("red");
-            expect(textWith(ir.root, "World")?.props.color).toBe("red");
+            expect(textWith(ir.root, "Hello")?.props.get("color")).toBe("red");
+            expect(textWith(ir.root, "World")?.props.get("color")).toBe("red");
         });
 
         it("-toggle removes a prop from subsequent sibling TEXT nodes", () => {
             const { ir } = compileToIR("[[+color: red]]\nHello\n[[-color]]\nWorld");
-            expect(textWith(ir.root, "Hello")?.props.color).toBe("red");
-            expect(textWith(ir.root, "World")?.props.color).toBeUndefined();
+            expect(textWith(ir.root, "Hello")?.props.get("color")).toBe("red");
+            expect(textWith(ir.root, "World")?.props.has("color")).toBe(false);
         });
 
         it("multiple toggle-adds accumulate in the backpack", () => {
             const { ir } = compileToIR("[[+color: red]]\n[[+size: 16]]\nHello");
             const text = textWith(ir.root, "Hello");
-            expect(text?.props.color).toBe("red");
-            expect(text?.props.size).toBe("16");
+            expect(text?.props.get("color")).toBe("red");
+            expect(text?.props.get("size")).toBe("16");
         });
 
         it("+toggle with no following text nodes produces no node itself", () => {
@@ -265,29 +267,34 @@ describe("Hydrator", () => {
         it("backpack from outer scope propagates into nested blocks via inheritedProps", () => {
             const { ir } = compileToIR("[[+color: red]]\n{\nNested\n}");
             const block = blocks(ir.root)[0];
-            expect(textWith(block, "Nested")?.props.color).toBe("red");
+            expect(textWith(block, "Nested")?.props.get("color")).toBe("red");
         });
 
         it("backpack changes inside a block do not propagate to the outer scope", () => {
             const { ir } = compileToIR("{\n[[+color: red]]\nInside\n}\nOutside");
-            expect(textWith(ir.root, "Outside")?.props.color).toBeUndefined();
+            expect(textWith(ir.root, "Outside")?.props.has("color")).toBe(false);
         });
 
         it("-toggle removes only the specified prop, leaving others intact", () => {
             const { ir } = compileToIR("[[+color: red]]\n[[+size: 16]]\nBefore\n[[-color]]\nAfter");
             const before = textWith(ir.root, "Before");
             const after = textWith(ir.root, "After");
-            expect(before?.props.color).toBe("red");
-            expect(before?.props.size).toBe("16");
-            expect(after?.props.color).toBeUndefined();
-            expect(after?.props.size).toBe("16");
+            expect(before?.props.get("color")).toBe("red");
+            expect(before?.props.get("size")).toBe("16");
+            expect(after?.props.has("color")).toBe(false);
+            expect(after?.props.get("size")).toBe("16");
         });
 
         it("popping one value from a multi-item stack leaves the remaining value active", () => {
             const { ir } = compileToIR(
                 "[[+weight: bold]]\n[[+weight: 900]]\nBefore\n[[-weight]]\nAfter",
             );
-            expect(textWith(ir.root, "After")?.props.weight).toBe("bold");
+            expect(textWith(ir.root, "After")?.props.get("weight")).toBe("bold");
+        });
+
+        it("-toggle on an unknown property does not break the compiler", () => {
+            const { errors } = compileToIR("[[-alien-prop]]\nHello");
+            expect(errors).toHaveLength(0);
         });
     });
 
@@ -296,13 +303,13 @@ describe("Hydrator", () => {
             const { ir, errors } = compileToIR("[[SET align: center]]\nHello\nWorld");
             expect(errors).toHaveLength(0);
             const wrapper = blocks(ir.root)[0];
-            expect(wrapper.props.align).toBe("center");
+            expect(wrapper.props.get("align")).toBe("center");
         });
 
         it("SET captures only block-scope props in the wrapper", () => {
             const { ir } = compileToIR("[[SET color: red]]\nHello");
             const wrapper = blocks(ir.root)[0];
-            expect(wrapper.props.color).toBeUndefined();
+            expect(wrapper.props.has("color")).toBe(false);
         });
 
         it("the children of the SET wrapper contain all following siblings", () => {
@@ -331,15 +338,15 @@ describe("Hydrator", () => {
             );
             expect(errors).toHaveLength(0);
             const text = textWith(ir.root, "Hello");
-            expect(text?.props.size).toBe("24");
-            expect(text?.props.weight).toBe("bold");
+            expect(text?.props.get("size")).toBe("24");
+            expect(text?.props.get("weight")).toBe("bold");
         });
 
         it("inline props override class props for the same key", () => {
             const { ir } = compileToIR(
                 "[[DEFINE class: big; size: 24]]\n[[class: big; size: 32]] Hello",
             );
-            expect(textWith(ir.root, "Hello")?.props.size).toBe("32");
+            expect(textWith(ir.root, "Hello")?.props.get("size")).toBe("32");
         });
 
         it("a class with block-scope props applied to a block target works correctly", () => {
@@ -347,7 +354,7 @@ describe("Hydrator", () => {
                 "[[DEFINE class: shaded; fill: #eee]]\n[[class: shaded]]\n{\nContent\n}",
             );
             expect(errors).toHaveLength(0);
-            expect(blocks(ir.root)[0].props.fill).toBe("#eee");
+            expect(blocks(ir.root)[0].props.get("fill")).toBe("#eee");
         });
 
         it("compose: child inherits parent properties at hydration time", () => {
@@ -358,8 +365,8 @@ describe("Hydrator", () => {
             );
             expect(errors).toHaveLength(0);
             const text = textWith(ir.root, "Hello");
-            expect(text?.props.color).toBe("red");
-            expect(text?.props.size).toBe("16");
+            expect(text?.props.get("color")).toBe("red");
+            expect(text?.props.get("size")).toBe("16");
         });
 
         it("emits a HYDRATOR error when applying an undefined class", () => {
@@ -372,12 +379,12 @@ describe("Hydrator", () => {
         it("hidden: true on a block target arrives in the IR as a block prop", () => {
             const { ir, errors } = compileToIR("[[hidden: true]]\n{\nContent\n}");
             expect(errors).toHaveLength(0);
-            expect(blocks(ir.root)[0].props.hidden).toBe("true");
+            expect(blocks(ir.root)[0].props.get("hidden")).toBe("true");
         });
 
         it("hidden: false also arrives in the IR", () => {
             const { ir } = compileToIR("[[hidden: false]]\n{\nContent\n}");
-            expect(blocks(ir.root)[0].props.hidden).toBe("false");
+            expect(blocks(ir.root)[0].props.get("hidden")).toBe("false");
         });
     });
 
@@ -405,12 +412,12 @@ describe("Hydrator", () => {
         it("nested block inherits the outer backpack via inheritedProps", () => {
             const { ir } = compileToIR("[[+size: 20]]\n{\nInner\n}");
             const block = blocks(ir.root)[0];
-            expect(textWith(block, "Inner")?.props.size).toBe("20");
+            expect(textWith(block, "Inner")?.props.get("size")).toBe("20");
         });
 
         it("props on an inner block do not affect the outer scope", () => {
             const { ir } = compileToIR("{\n[[fill: blue]]\n{\nInner\n}\n}\nOuter");
-            expect(textWith(ir.root, "Outer")?.props.fill).toBeUndefined();
+            expect(textWith(ir.root, "Outer")?.props.has("fill")).toBe(false);
         });
     });
 
@@ -439,12 +446,12 @@ describe("Hydrator", () => {
     describe("kind and leaf promotion", () => {
         it("a leaf block without container props is promoted to kind: paragraph", () => {
             const { ir } = compileToIR("{\nHello\n}");
-            expect(blocks(ir.root)[0].props.kind).toBe("paragraph");
+            expect(blocks(ir.root)[0].props.get("kind")).toBe("paragraph");
         });
 
         it("a leaf block with container props is not promoted to paragraph", () => {
             const { ir } = compileToIR("[[fill: #ccc]]\n{\nHello\n}");
-            expect(blocks(ir.root)[0].props.kind).toBeUndefined();
+            expect(blocks(ir.root)[0].props.has("kind")).toBe(false);
         });
 
         it("a leaf-incompatible kind on a non-leaf block emits a HYDRATOR error", () => {

@@ -39,29 +39,33 @@ function defineAnnotation(
     };
 }
 
+function toMap(record: Record<string, string>): Map<string, string> {
+    return new Map(Object.entries(record));
+}
+
 describe("PropertyResolver", () => {
     describe("resolveProperties — single property", () => {
         it("resolves a valid inline property", () => {
             const { resolver, errors } = makeResolver();
-            expect(resolver.resolveProperties([prop("color", "red")]).props).toEqual({
-                color: "red",
-            });
+            expect(resolver.resolveProperties([prop("color", "red")]).props).toEqual(
+                toMap({ color: "red" }),
+            );
             expect(errors).toHaveLength(0);
         });
 
         it("resolves a valid block property", () => {
             const { resolver } = makeResolver();
-            expect(resolver.resolveProperties([prop("align", "center")]).props).toEqual({
-                align: "center",
-            });
+            expect(resolver.resolveProperties([prop("align", "center")]).props).toEqual(
+                toMap({ align: "center" }),
+            );
         });
 
         it("returns empty props for an empty property list", () => {
             const { resolver } = makeResolver();
             const result = resolver.resolveProperties([]);
-            expect(result.props).toEqual({});
+            expect(result.props).toEqual(toMap({}));
             expect(result.classes).toEqual([]);
-            expect(result.directProps).toEqual({});
+            expect(result.directProps).toEqual(toMap({}));
         });
     });
 
@@ -73,13 +77,13 @@ describe("PropertyResolver", () => {
                 prop("size", "16"),
                 prop("align", "center"),
             ]);
-            expect(result.props).toEqual({ color: "red", size: "16", align: "center" });
+            expect(result.props).toEqual(toMap({ color: "red", size: "16", align: "center" }));
         });
 
-        it("resolves a mix of block and inline properties into a flat record", () => {
+        it("resolves a mix of block and inline properties into a flat Map", () => {
             const { resolver } = makeResolver();
             const result = resolver.resolveProperties([prop("fill", "#ccc"), prop("color", "red")]);
-            expect(result.props).toEqual({ fill: "#ccc", color: "red" });
+            expect(result.props).toEqual(toMap({ fill: "#ccc", color: "red" }));
         });
     });
 
@@ -87,7 +91,7 @@ describe("PropertyResolver", () => {
         it("emits a warning and skips an unknown property", () => {
             const { resolver, errors } = makeResolver();
             const result = resolver.resolveProperties([prop("alien-prop", "value")]);
-            expect(result.props).toEqual({});
+            expect(result.props).toEqual(toMap({}));
             expect(errors).toHaveLength(1);
             expect(errors[0]).toContain("alien-prop");
         });
@@ -95,7 +99,7 @@ describe("PropertyResolver", () => {
         it("emits a warning and skips a property with an invalid value", () => {
             const { resolver, errors } = makeResolver();
             const result = resolver.resolveProperties([prop("align", "diagonal")]);
-            expect(result.props).toEqual({});
+            expect(result.props).toEqual(toMap({}));
             expect(errors).toHaveLength(1);
             expect(errors[0]).toContain("align");
         });
@@ -107,7 +111,7 @@ describe("PropertyResolver", () => {
                 prop("align", "diagonal"),
                 prop("size", "16"),
             ]);
-            expect(result.props).toEqual({ color: "red", size: "16" });
+            expect(result.props).toEqual(toMap({ color: "red", size: "16" }));
             expect(errors).toHaveLength(1);
         });
     });
@@ -116,13 +120,13 @@ describe("PropertyResolver", () => {
         it("includes plus-toggle properties in the resolved result", () => {
             const { resolver } = makeResolver();
             const result = resolver.resolveProperties([prop("color", "blue", "plus")]);
-            expect(result.props).toEqual({ color: "blue" });
+            expect(result.props).toEqual(toMap({ color: "blue" }));
         });
 
         it("excludes minus-toggle properties from the resolved result", () => {
             const { resolver, errors } = makeResolver();
             const result = resolver.resolveProperties([prop("color", "", "minus")]);
-            expect(result.props).toEqual({});
+            expect(result.props).toEqual(toMap({}));
             expect(errors).toHaveLength(0);
         });
     });
@@ -132,7 +136,7 @@ describe("PropertyResolver", () => {
             const { resolver } = makeResolver();
             const result = resolver.resolveProperties([prop("color", "red")]);
             expect(result.classes).toEqual([]);
-            expect(result.directProps).toEqual({ color: "red" });
+            expect(result.directProps).toEqual(toMap({ color: "red" }));
         });
 
         it("classes contains the applied class name", () => {
@@ -146,24 +150,24 @@ describe("PropertyResolver", () => {
             const { resolver } = makeResolver();
             resolver.defineClass(defineAnnotation("big", { size: "24" }));
             const result = resolver.resolveProperties([prop("class", "big"), prop("color", "red")]);
-            // color was written directly; size came from the class definition
-            expect(result.directProps).toEqual({ color: "red" });
-            expect(result.directProps.size).toBeUndefined();
+
+            expect(result.directProps).toEqual(toMap({ color: "red" }));
+            expect(result.directProps.has("size")).toBe(false);
         });
 
         it("props contains both class-inherited and direct properties merged", () => {
             const { resolver } = makeResolver();
             resolver.defineClass(defineAnnotation("big", { size: "24" }));
             const result = resolver.resolveProperties([prop("class", "big"), prop("color", "red")]);
-            expect(result.props).toEqual({ size: "24", color: "red" });
+            expect(result.props).toEqual(toMap({ size: "24", color: "red" }));
         });
 
         it("direct props override class props in the merged result", () => {
             const { resolver } = makeResolver();
             resolver.defineClass(defineAnnotation("big", { size: "24" }));
             const result = resolver.resolveProperties([prop("class", "big"), prop("size", "32")]);
-            expect(result.props.size).toBe("32");
-            expect(result.directProps.size).toBe("32");
+            expect(result.props.get("size")).toBe("32");
+            expect(result.directProps.get("size")).toBe("32");
         });
     });
 
@@ -172,7 +176,7 @@ describe("PropertyResolver", () => {
             const { resolver } = makeResolver();
             resolver.defineClass(defineAnnotation("bold-red", { color: "red", weight: "bold" }));
             const result = resolver.resolveProperties([prop("class", "bold-red")]);
-            expect(result.props).toEqual({ color: "red", weight: "bold" });
+            expect(result.props).toEqual(toMap({ color: "red", weight: "bold" }));
         });
 
         it("inline properties override class properties for conflicting keys", () => {
@@ -182,15 +186,15 @@ describe("PropertyResolver", () => {
                 prop("class", "fancy"),
                 prop("color", "blue"),
             ]);
-            expect(result.props.color).toBe("blue");
-            expect(result.props.size).toBe("20");
+            expect(result.props.get("color")).toBe("blue");
+            expect(result.props.get("size")).toBe("20");
         });
 
         it("class properties do not override inline properties when class is declared first", () => {
             const { resolver } = makeResolver();
             resolver.defineClass(defineAnnotation("base", { size: "14" }));
             const result = resolver.resolveProperties([prop("size", "20"), prop("class", "base")]);
-            expect(result.props.size).toBe("20");
+            expect(result.props.get("size")).toBe("20");
         });
 
         it("emits a warning when applying an undefined class", () => {
@@ -219,7 +223,7 @@ describe("PropertyResolver", () => {
             resolver.defineClass(defineAnnotation("bad", { align: "diagonal" }));
             expect(errors).toHaveLength(1);
             const result = resolver.resolveProperties([prop("class", "bad")]);
-            expect(result.props.align).toBeUndefined();
+            expect(result.props.has("align")).toBe(false);
         });
 
         it("resolveClassByName returns null for a name not in the registry", () => {
@@ -229,9 +233,9 @@ describe("PropertyResolver", () => {
     });
 
     describe("getClassDefinitions", () => {
-        it("returns empty object when no classes are defined", () => {
+        it("returns empty Map when no classes are defined", () => {
             const { resolver } = makeResolver();
-            expect(resolver.getClassDefinitions()).toEqual({});
+            expect(resolver.getClassDefinitions()).toEqual(new Map());
         });
 
         it("returns all defined classes with their resolved props", () => {
@@ -239,16 +243,16 @@ describe("PropertyResolver", () => {
             resolver.defineClass(defineAnnotation("big", { size: "24", weight: "bold" }));
             resolver.defineClass(defineAnnotation("red", { color: "red" }));
             const defs = resolver.getClassDefinitions();
-            expect(defs["big"]).toEqual({ size: "24", weight: "bold" });
-            expect(defs["red"]).toEqual({ color: "red" });
+            expect(defs.get("big")).toEqual(toMap({ size: "24", weight: "bold" }));
+            expect(defs.get("red")).toEqual(toMap({ color: "red" }));
         });
 
         it("returns a copy — mutations do not affect the internal registry", () => {
             const { resolver } = makeResolver();
             resolver.defineClass(defineAnnotation("big", { size: "24" }));
             const defs = resolver.getClassDefinitions();
-            defs["big"] = { size: "999" };
-            expect(resolver.getClassDefinitions()["big"]).toEqual({ size: "24" });
+            defs.set("big", toMap({ size: "999" }));
+            expect(resolver.getClassDefinitions().get("big")).toEqual(toMap({ size: "24" }));
         });
     });
 
@@ -259,8 +263,8 @@ describe("PropertyResolver", () => {
             resolver.defineClass(defineAnnotation("child", { size: "18" }, "base"));
 
             const result = resolver.resolveProperties([prop("class", "child")]);
-            expect(result.props.color).toBe("red");
-            expect(result.props.size).toBe("18");
+            expect(result.props.get("color")).toBe("red");
+            expect(result.props.get("size")).toBe("18");
         });
 
         it("child properties override composed properties", () => {
@@ -269,7 +273,7 @@ describe("PropertyResolver", () => {
             resolver.defineClass(defineAnnotation("child", { color: "blue" }, "base"));
 
             const result = resolver.resolveProperties([prop("class", "child")]);
-            expect(result.props.color).toBe("blue");
+            expect(result.props.get("color")).toBe("blue");
         });
 
         it("emits a warning when compose references an undefined class", () => {
@@ -283,56 +287,66 @@ describe("PropertyResolver", () => {
     describe("routePropertiesByScope", () => {
         it("routes all block properties to blockProps", () => {
             const { resolver } = makeResolver();
-            const { blockProps, inlineProps } = resolver.routePropertiesByScope({
-                fill: "#ccc",
-                align: "center",
-                hidden: "true",
-            });
-            expect(blockProps).toEqual({
-                fill: "#ccc",
-                align: "center",
-                hidden: "true",
-            });
-            expect(inlineProps).toEqual({});
+            const { blockProps, inlineProps } = resolver.routePropertiesByScope(
+                toMap({
+                    fill: "#ccc",
+                    align: "center",
+                    hidden: "true",
+                }),
+            );
+            expect(blockProps).toEqual(
+                toMap({
+                    fill: "#ccc",
+                    align: "center",
+                    hidden: "true",
+                }),
+            );
+            expect(inlineProps).toEqual(toMap({}));
         });
 
         it("routes all inline properties to inlineProps", () => {
             const { resolver } = makeResolver();
-            const { blockProps, inlineProps } = resolver.routePropertiesByScope({
-                color: "red",
-                size: "16",
-                weight: "bold",
-            });
-            expect(blockProps).toEqual({});
-            expect(inlineProps).toEqual({ color: "red", size: "16", weight: "bold" });
+            const { blockProps, inlineProps } = resolver.routePropertiesByScope(
+                toMap({
+                    color: "red",
+                    size: "16",
+                    weight: "bold",
+                }),
+            );
+            expect(blockProps).toEqual(toMap({}));
+            expect(inlineProps).toEqual(toMap({ color: "red", size: "16", weight: "bold" }));
         });
 
         it("splits a mixed set of properties into the correct buckets", () => {
             const { resolver } = makeResolver();
-            const { blockProps, inlineProps } = resolver.routePropertiesByScope({
-                fill: "#ccc",
-                color: "red",
-                align: "center",
-                size: "16",
-            });
-            expect(blockProps).toEqual({ fill: "#ccc", align: "center" });
-            expect(inlineProps).toEqual({ color: "red", size: "16" });
+            const { blockProps, inlineProps } = resolver.routePropertiesByScope(
+                toMap({
+                    fill: "#ccc",
+                    color: "red",
+                    align: "center",
+                    size: "16",
+                }),
+            );
+            expect(blockProps).toEqual(toMap({ fill: "#ccc", align: "center" }));
+            expect(inlineProps).toEqual(toMap({ color: "red", size: "16" }));
         });
 
         it("silently drops properties that are not in the registry", () => {
             const { resolver } = makeResolver();
-            const { blockProps, inlineProps } = resolver.routePropertiesByScope({
-                unknown: "value",
-            });
-            expect(blockProps).toEqual({});
-            expect(inlineProps).toEqual({});
+            const { blockProps, inlineProps } = resolver.routePropertiesByScope(
+                toMap({
+                    unknown: "value",
+                }),
+            );
+            expect(blockProps).toEqual(toMap({}));
+            expect(inlineProps).toEqual(toMap({}));
         });
 
         it("returns empty buckets for an empty input", () => {
             const { resolver } = makeResolver();
-            expect(resolver.routePropertiesByScope({})).toEqual({
-                blockProps: {},
-                inlineProps: {},
+            expect(resolver.routePropertiesByScope(toMap({}))).toEqual({
+                blockProps: toMap({}),
+                inlineProps: toMap({}),
             });
         });
     });
@@ -353,7 +367,7 @@ describe("PropertyResolver", () => {
             resolver.reset();
             resolver.defineClass(defineAnnotation("cls", { color: "blue" }));
             const result = resolver.resolveProperties([prop("class", "cls")]);
-            expect(result.props.color).toBe("blue");
+            expect(result.props.get("color")).toBe("blue");
             expect(errors).toHaveLength(0);
         });
 
@@ -361,7 +375,7 @@ describe("PropertyResolver", () => {
             const { resolver } = makeResolver();
             resolver.defineClass(defineAnnotation("cls", { color: "red" }));
             resolver.reset();
-            expect(resolver.getClassDefinitions()).toEqual({});
+            expect(resolver.getClassDefinitions()).toEqual(new Map());
         });
     });
 });

@@ -31,9 +31,9 @@ export class Hydrator {
         const rootBlock: IR.Block = {
             id: this.nextId(),
             type: "BLOCK",
-            props: {},
+            props: new Map(),
             classes: [],
-            ownProps: {},
+            ownProps: new Map(),
             line: document.line,
             column: document.column,
             children: this.transformNodeList(document.children, COMPILER_DEFAULTS),
@@ -62,7 +62,7 @@ export class Hydrator {
 
     private transformNodeList(
         nodes: AST.BlockContentNode[],
-        inheritedProps: IR.ResolvedProps = {},
+        inheritedProps: IR.ResolvedProps = new Map(),
     ): IR.Node[] {
         const output: IR.Node[] = [];
         const backpack = new Backpack(inheritedProps);
@@ -133,10 +133,10 @@ export class Hydrator {
             ownProps: annotationResult.directProps,
             line: annotation.line,
             column: annotation.column,
-            children: this.transformNodeList(remainingSiblings, {
-                ...backpack.snapshot(),
-                ...inlineProps,
-            }),
+            children: this.transformNodeList(
+                remainingSiblings,
+                new Map([...backpack.snapshot(), ...inlineProps]),
+            ),
         };
         return this.register(block) as IR.Block;
     }
@@ -156,8 +156,7 @@ export class Hydrator {
                         backpack.pushMany(classProps);
                     }
                 } else if (prop.toggle === "minus") {
-                    const snapshot = backpack.snapshot();
-                    const className = snapshot["class"];
+                    const className = backpack.snapshot().get("class");
                     if (className) {
                         const classProps = this.propertyResolver.resolveClassByName(className)!;
                         backpack.popMany(classProps);
@@ -169,15 +168,14 @@ export class Hydrator {
 
             if (prop.toggle === "minus") {
                 backpack.pop(prop.key);
-            } else if (prop.toggle === "plus" && annotationResult.props[prop.key]) {
-                backpack.push(prop.key, annotationResult.props[prop.key]);
+            } else if (prop.toggle === "plus" && annotationResult.props.has(prop.key)) {
+                backpack.push(prop.key, annotationResult.props.get(prop.key)!);
             }
         }
 
         if (!annotation.target) return null;
 
-        const snapshot = backpack.snapshot();
-        const activeProps = { ...snapshot, ...annotationResult.props };
+        const activeProps = new Map([...backpack.snapshot(), ...annotationResult.props]);
         const { blockProps } = this.propertyResolver.routePropertiesByScope(activeProps);
 
         return this.transformBlockNode(
@@ -204,7 +202,7 @@ export class Hydrator {
                     type: "TEXT",
                     props: scopedActiveInline,
                     classes: [],
-                    ownProps: {},
+                    ownProps: new Map(),
                     line: node.line,
                     column: node.column,
                     content: node.content,
@@ -219,7 +217,7 @@ export class Hydrator {
         blockProps: IR.ResolvedProps,
         activeProps: IR.ResolvedProps,
         classes: string[] = [],
-        directProps: IR.ResolvedProps = {},
+        directProps: IR.ResolvedProps = new Map(),
     ): IR.Block {
         const { inlineProps: propsForChildren } =
             this.propertyResolver.routePropertiesByScope(activeProps);
@@ -248,16 +246,16 @@ export class Hydrator {
         if (children.length === 0) return;
 
         const isLeaf = children.every((c) => c.type === "TEXT" || c.type === "NEWLINE");
-        const explicitKind = blockProps["kind"];
+        const explicitKind = blockProps.get("kind");
 
         if (!explicitKind) {
-            const isContainer = Object.keys(blockProps).some(
+            const isContainer = [...blockProps.keys()].some(
                 (key) => getPropertyDefinition(key)?.container === true,
             );
-            if (isLeaf && !isContainer) blockProps["kind"] = "paragraph";
+            if (isLeaf && !isContainer) blockProps.set("kind", "paragraph");
         }
 
-        const kindDef = getKindDefinition(explicitKind);
+        const kindDef = explicitKind ? getKindDefinition(explicitKind) : null;
         if (kindDef && kindDef.leafCompatible && !isLeaf) {
             this.pushErrorAt(
                 `kind '${explicitKind}' is only valid on leaf blocks but contains child blocks.`,

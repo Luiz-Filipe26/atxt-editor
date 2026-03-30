@@ -43,11 +43,11 @@ export class Generator {
     private renderNode(node: IR.Node): string {
         if (node.type === "NEWLINE") return "<br>";
 
-        if (node.type === "BLOCK" && node.props["hidden"]?.toLowerCase() === "true") {
+        if (node.type === "BLOCK" && node.props.get("hidden")?.toLowerCase() === "true") {
             return "";
         }
 
-        const className = Object.keys(node.props).length > 0 ? this.resolveClass(node.props) : "";
+        const className = node.props.size > 0 ? this.resolveClass(node.props) : "";
         const classAttribute = className ? ` class="${className}"` : "";
         const dataAttribute = ` data-id="${node.id}"`;
 
@@ -61,8 +61,8 @@ export class Generator {
     private renderBlockNode(node: IR.Block, classAttribute: string, dataAttribute: string): string {
         if (node.children.length === 0) return "";
 
-        const tag = getHtmlTag(node.props["kind"]);
-        const childrenHtml = this.renderChildrenWithIndent(node.children, node.props["indent"]);
+        const tag = getHtmlTag(node.props.get("kind"));
+        const childrenHtml = this.renderChildrenWithIndent(node.children, node.props.get("indent"));
         return `<${tag}${classAttribute}${dataAttribute}>${childrenHtml}</${tag}>`;
     }
 
@@ -89,18 +89,15 @@ export class Generator {
     }
 
     private resolveClass(props: IR.ResolvedProps): string {
-        const propsForCss = Object.fromEntries(
-            Object.entries(props).filter(([key]) => getCssMapping(key) !== null),
-        );
+        const propsForCss = new Map<string, string>();
+        for (const [key, value] of props) {
+            if (getCssMapping(key) !== null) propsForCss.set(key, value);
+        }
 
-        if (Object.keys(propsForCss).length === 0) return "";
+        if (propsForCss.size === 0) return "";
 
         const signature = JSON.stringify(
-            Object.fromEntries(
-                Object.keys(propsForCss)
-                    .sort()
-                    .map((k) => [k, propsForCss[k]]),
-            ),
+            Object.fromEntries([...propsForCss.entries()].sort(([a], [b]) => a.localeCompare(b))),
         );
 
         if (this.classCache.has(signature)) {
@@ -118,7 +115,7 @@ export class Generator {
     private buildCssRule(className: string, props: IR.ResolvedProps): string {
         let cssBody = "";
 
-        for (const [key, value] of Object.entries(props)) {
+        for (const [key, value] of props) {
             const mapping = getCssMapping(key)!;
             const formattedValue = formatCssUnit(value, mapping.unit);
             cssBody += `  ${mapping.cssProperty}: ${formattedValue};\n`;

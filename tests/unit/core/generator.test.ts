@@ -7,6 +7,10 @@ beforeEach(() => {
     idCounter = 0;
 });
 
+function makeProps(props: Record<string, string>): Map<string, string> {
+    return new Map(Object.entries(props));
+}
+
 function makeBlock(
     props: Record<string, string> = {},
     children: IR.Node[] = [],
@@ -16,9 +20,9 @@ function makeBlock(
     return {
         id: `b${idCounter++}`,
         type: "BLOCK",
-        props,
+        props: makeProps(props),
         classes: [],
-        ownProps: {},
+        ownProps: new Map(),
         children,
         line,
         column,
@@ -34,9 +38,9 @@ function makeText(
     return {
         id: `t${idCounter++}`,
         type: "TEXT",
-        props,
+        props: makeProps(props),
         classes: [],
-        ownProps: {},
+        ownProps: new Map(),
         content,
         line,
         column,

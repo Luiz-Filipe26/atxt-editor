@@ -1,5 +1,3 @@
-import type * as IR from "../types/ir";
-
 type ValidatorFn = (value: string) => boolean;
 
 export interface PropertyDefinition {
@@ -35,9 +33,7 @@ export function getKindDefinition(kind: string): KindDefinition | null {
     return KIND_REGISTRY[kind] ?? null;
 }
 
-export const COMPILER_DEFAULTS: IR.ResolvedProps = {
-    size: "16",
-};
+export const COMPILER_DEFAULTS = new Map([["size", "16"]]);
 
 const isNumber = (val: string) => /^-?\d+$/.test(val);
 

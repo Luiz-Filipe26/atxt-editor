@@ -17,6 +17,6 @@ const KIND_TAG_REGISTRY: Record<string, string> = {
     footer: "footer",
 };
 
-export function getHtmlTag(kind: string): string {
-    return KIND_TAG_REGISTRY[kind] ?? "div";
+export function getHtmlTag(kind: string | undefined | null): string {
+    return KIND_TAG_REGISTRY[kind ?? ""] ?? "div";
 }

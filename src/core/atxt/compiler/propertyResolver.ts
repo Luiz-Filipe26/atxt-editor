@@ -9,7 +9,7 @@ export interface ResolvedResult {
 }
 
 export class PropertyResolver {
-    private classRegistry: Record<string, IR.ResolvedProps> = {};
+    private classRegistry: Map<string, IR.ResolvedProps> = new Map();
     private pushError: (message: string, line: number, column: number) => void;
 
     constructor(errorCallback: (message: string, line: number, column: number) => void) {
@@ -17,11 +17,11 @@ export class PropertyResolver {
     }
 
     public reset(): void {
-        this.classRegistry = {};
+        this.classRegistry = new Map();
     }
 
-    public getClassDefinitions(): Record<string, IR.ResolvedProps> {
-        return { ...this.classRegistry };
+    public getClassDefinitions(): Map<string, IR.ResolvedProps> {
+        return new Map(this.classRegistry);
     }
 
     public defineClass(annotation: AST.AnnotationNode): void {
@@ -34,27 +34,27 @@ export class PropertyResolver {
 
         const className = classProp.value;
         const composeProp = annotation.properties.find((p) => p.key === "compose");
-        const bag: IR.ResolvedProps = {};
+        const bag: IR.ResolvedProps = new Map();
 
         this.inheritComposedClasses(bag, composeProp);
         this.assignExplicitProperties(bag, annotation.properties);
 
-        this.classRegistry[className] = bag;
+        this.classRegistry.set(className, bag);
     }
 
     public resolveClassByName(name: string): IR.ResolvedProps | null {
-        return this.classRegistry[name] ?? null;
+        return this.classRegistry.get(name) ?? null;
     }
 
     public resolveProperties(properties: AST.PropertyNode[]): ResolvedResult {
-        const classProps: IR.ResolvedProps = {};
-        const directProps: IR.ResolvedProps = {};
+        const classProps: IR.ResolvedProps = new Map();
+        const directProps: IR.ResolvedProps = new Map();
         const classes: string[] = [];
 
         this.applyClassProperties(classProps, properties, classes);
         this.applyInlineProperties(directProps, properties);
 
-        const props: IR.ResolvedProps = { ...classProps, ...directProps };
+        const props: IR.ResolvedProps = new Map([...classProps, ...directProps]);
 
         return { props, classes, directProps };
     }
@@ -63,14 +63,14 @@ export class PropertyResolver {
         blockProps: IR.ResolvedProps;
         inlineProps: IR.ResolvedProps;
     } {
-        const blockProps: IR.ResolvedProps = {};
-        const inlineProps: IR.ResolvedProps = {};
+        const blockProps: IR.ResolvedProps = new Map();
+        const inlineProps: IR.ResolvedProps = new Map();
 
-        for (const [key, value] of Object.entries(props)) {
+        for (const [key, value] of props) {
             const propDef = getPropertyDefinition(key);
             if (!propDef) continue;
-            if (propDef.scope === "block") blockProps[key] = value;
-            else inlineProps[key] = value;
+            if (propDef.scope === "block") blockProps.set(key, value);
+            else inlineProps.set(key, value);
         }
 
         return { blockProps, inlineProps };
@@ -81,10 +81,13 @@ export class PropertyResolver {
 
         const classesToCompose = composeProp.value.split(/\s+/).filter(Boolean);
         for (const cls of classesToCompose) {
-            if (this.classRegistry[cls]) {
-                Object.assign(bag, this.classRegistry[cls]);
-            } else {
+            const classProps = this.classRegistry.get(cls);
+            if (!classProps) {
                 this.pushErrorAt(`Warning: Base class '${cls}' not found in compose.`, composeProp);
+                continue;
+            }
+            for (const [k, v] of classProps) {
+                bag.set(k, v);
             }
         }
     }
@@ -101,7 +104,7 @@ export class PropertyResolver {
                 );
                 continue;
             }
-            bag[prop.key] = prop.value;
+            bag.set(prop.key, prop.value);
         }
     }
 
@@ -116,14 +119,13 @@ export class PropertyResolver {
         const classNames = classProp.value.split(/\s+/).filter(Boolean);
         for (const cls of classNames) {
             classes.push(cls);
-            if (this.classRegistry[cls]) {
-                Object.assign(bag, this.classRegistry[cls]);
-            } else {
-                this.pushError(
-                    `Warning: Class '${cls}' not found.`,
-                    classProp.line,
-                    classProp.column,
-                );
+            const classProps = this.classRegistry.get(cls);
+            if (!classProps) {
+                this.pushErrorAt(`Warning: Class '${cls}' not found.`, classProp);
+                continue;
+            }
+            for (const [k, v] of classProps) {
+                bag.set(k, v);
             }
         }
     }
@@ -135,24 +137,23 @@ export class PropertyResolver {
 
             const propertyDef = getPropertyDefinition(prop.key);
             if (!propertyDef) {
-                this.pushError(`Warning: Unknown property '${prop.key}'.`, prop.line, prop.column);
+                this.pushErrorAt(`Warning: Unknown property '${prop.key}'.`, prop);
                 continue;
             }
 
             if (!propertyDef.validate(prop.value)) {
-                this.pushError(
+                this.pushErrorAt(
                     `Warning: Invalid value '${prop.value}' for property '${prop.key}'.`,
-                    prop.line,
-                    prop.column,
+                    prop,
                 );
                 continue;
             }
 
-            bag[prop.key] = prop.value;
+            bag.set(prop.key, prop.value);
         }
     }
 
-    private pushErrorAt(message: string, node: AST.ASTNode) {
-        this.pushError(message, node.line, node.column);
+    private pushErrorAt(message: string, source: { line: number; column: number }) {
+        this.pushError(message, source.line, source.column);
     }
 }

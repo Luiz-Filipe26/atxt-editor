@@ -1,4 +1,4 @@
-export type ResolvedProps = Record<string, string>;
+export type ResolvedProps = Map<string, string>;
 
 interface PositionalNode {
     id: string;
@@ -31,5 +31,5 @@ export type Node = Block | Text | Newline;
 export interface IRDocument {
     root: Block;
     nodeMap: Map<string, Node>;
-    classDefinitions: Record<string, ResolvedProps>;
+    classDefinitions: Map<string, ResolvedProps>;
 }

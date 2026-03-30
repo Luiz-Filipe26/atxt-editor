@@ -1,19 +1,37 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, beforeEach } from "vitest";
 import { serialize, IR } from "@atxt";
 
 let idCounter = 0;
 
-function makeBlock(
-    props: IR.ResolvedProps = {},
-    children: IR.Node[] = [],
-    classes: string[] = [],
-    ownProps: IR.ResolvedProps = {},
-): IR.Block {
-    return { id: `b${idCounter++}`, type: "BLOCK", props, classes, ownProps, children };
+function toMap(record: Record<string, string>): Map<string, string> {
+    return new Map(Object.entries(record));
 }
 
-function makeText(content: string, props: IR.ResolvedProps = {}): IR.Text {
-    return { id: `t${idCounter++}`, type: "TEXT", props, classes: [], ownProps: {}, content };
+function makeBlock(
+    props: Record<string, string> = {},
+    children: IR.Node[] = [],
+    classes: string[] = [],
+    ownProps: Record<string, string> = {},
+): IR.Block {
+    return {
+        id: `b${idCounter++}`,
+        type: "BLOCK",
+        props: toMap(props),
+        classes,
+        ownProps: toMap(ownProps),
+        children,
+    };
+}
+
+function makeText(content: string, props: Record<string, string> = {}): IR.Text {
+    return {
+        id: `t${idCounter++}`,
+        type: "TEXT",
+        props: toMap(props),
+        classes: [],
+        ownProps: new Map(),
+        content,
+    };
 }
 
 function makeNewline(): IR.Newline {
@@ -22,12 +40,17 @@ function makeNewline(): IR.Newline {
 
 function makeDoc(
     children: IR.Node[],
-    classDefinitions: Record<string, IR.ResolvedProps> = {},
+    classDefinitions: Record<string, Record<string, string>> = {},
 ): IR.IRDocument {
+    const classDefMap = new Map<string, IR.ResolvedProps>();
+    for (const [key, value] of Object.entries(classDefinitions)) {
+        classDefMap.set(key, toMap(value));
+    }
+
     return {
         root: makeBlock({}, children),
         nodeMap: new Map(),
-        classDefinitions,
+        classDefinitions: classDefMap,
     };
 }
 
@@ -200,7 +223,7 @@ describe("Serializer", () => {
                     children: [makeText("orphan")],
                 },
                 nodeMap: new Map(),
-                classDefinitions: {},
+                classDefinitions: new Map(),
             };
             expect(serialize(doc)).toBe("orphan");
         });
