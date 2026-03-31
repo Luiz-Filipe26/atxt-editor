@@ -238,7 +238,7 @@ describe("Hydrator", () => {
         });
     });
 
-    describe("toggle system (backpack)", () => {
+    describe("toggle system (propertyContext)", () => {
         it("+toggle adds a prop to all subsequent sibling TEXT nodes", () => {
             const { ir, errors } = compileToIR("[[+color: red]]\nHello\nWorld");
             expect(errors).toHaveLength(0);
@@ -252,7 +252,7 @@ describe("Hydrator", () => {
             expect(textWith(ir.root, "World")?.props.has("color")).toBe(false);
         });
 
-        it("multiple toggle-adds accumulate in the backpack", () => {
+        it("multiple toggle-adds accumulate in the propertyContext", () => {
             const { ir } = compileToIR("[[+color: red]]\n[[+size: 16]]\nHello");
             const text = textWith(ir.root, "Hello");
             expect(text?.props.get("color")).toBe("red");
@@ -264,13 +264,13 @@ describe("Hydrator", () => {
             expect(ir.root.children).toHaveLength(0);
         });
 
-        it("backpack from outer scope propagates into nested blocks via inheritedProps", () => {
+        it("propertyContext from outer scope propagates into nested blocks via inheritedProps", () => {
             const { ir } = compileToIR("[[+color: red]]\n{\nNested\n}");
             const block = blocks(ir.root)[0];
             expect(textWith(block, "Nested")?.props.get("color")).toBe("red");
         });
 
-        it("backpack changes inside a block do not propagate to the outer scope", () => {
+        it("propertyContext changes inside a block do not propagate to the outer scope", () => {
             const { ir } = compileToIR("{\n[[+color: red]]\nInside\n}\nOutside");
             expect(textWith(ir.root, "Outside")?.props.has("color")).toBe(false);
         });
@@ -409,7 +409,7 @@ describe("Hydrator", () => {
     });
 
     describe("nested blocks", () => {
-        it("nested block inherits the outer backpack via inheritedProps", () => {
+        it("nested block inherits the outer propertyContext via inheritedProps", () => {
             const { ir } = compileToIR("[[+size: 20]]\n{\nInner\n}");
             const block = blocks(ir.root)[0];
             expect(textWith(block, "Inner")?.props.get("size")).toBe("20");

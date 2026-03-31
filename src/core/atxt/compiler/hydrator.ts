@@ -4,7 +4,7 @@ import {
     getKindDefinition,
     getPropertyDefinition,
 } from "../domain/propertyDefinitions";
-import { Backpack } from "./backpack";
+import { PropertyContext } from "./propertyContext";
 import * as AST from "../types/ast";
 import * as IR from "../types/ir";
 import type { CompilerError } from "../types/errors";
@@ -65,7 +65,7 @@ export class Hydrator {
         inheritedProps: IR.ResolvedProps = new Map(),
     ): IR.Node[] {
         const output: IR.Node[] = [];
-        const backpack = new Backpack(inheritedProps);
+        const propertyContext = new PropertyContext(inheritedProps);
 
         for (let i = 0; i < nodes.length; i++) {
             const node = nodes[i];
@@ -76,20 +76,20 @@ export class Hydrator {
             }
 
             if (node.type !== AST.NodeType.ANNOTATION) {
-                output.push(this.transformBareNode(node, backpack));
+                output.push(this.transformBareNode(node, propertyContext));
                 continue;
             }
 
             switch (node.directive) {
                 case "SET":
-                    const blockWrapper = this.processSetDirective(node, nodes, i, backpack);
+                    const blockWrapper = this.processSetDirective(node, nodes, i, propertyContext);
                     output.push(blockWrapper);
                     return output;
                 case "DEFINE":
                     this.propertyResolver.defineClass(node);
                     break;
                 case "NORMAL":
-                    const normalNode = this.processNormalDirective(node, backpack);
+                    const normalNode = this.processNormalDirective(node, propertyContext);
                     if (normalNode) output.push(normalNode);
                     break;
             }
@@ -113,7 +113,7 @@ export class Hydrator {
         annotation: AST.AnnotationNode,
         allNodes: AST.BlockContentNode[],
         currentIndex: number,
-        backpack: Backpack,
+        propertyContext: PropertyContext,
     ): IR.Block {
         /* v8 ignore start -- @preserve */
         if (annotation.target !== null) {
@@ -135,7 +135,7 @@ export class Hydrator {
             column: annotation.column,
             children: this.transformNodeList(
                 remainingSiblings,
-                new Map([...backpack.snapshot(), ...inlineProps]),
+                propertyContext.snapshotWith(inlineProps),
             ),
         };
         return this.register(block) as IR.Block;
@@ -143,7 +143,7 @@ export class Hydrator {
 
     private processNormalDirective(
         annotation: AST.AnnotationNode,
-        backpack: Backpack,
+        propertyContext: PropertyContext,
     ): IR.Node | null {
         const annotationResult = this.propertyResolver.resolveProperties(annotation.properties);
 
@@ -151,31 +151,37 @@ export class Hydrator {
             if (prop.key === "class") {
                 if (prop.toggle === "plus") {
                     const classProps = this.propertyResolver.resolveClassByName(prop.value);
-                    if (classProps) {
-                        backpack.push("class", prop.value);
-                        backpack.pushMany(classProps);
-                    }
+                    if (classProps) propertyContext.pushClass(prop.value, classProps);
                 } else if (prop.toggle === "minus") {
-                    const className = backpack.snapshot().get("class");
-                    if (className) {
-                        const classProps = this.propertyResolver.resolveClassByName(className)!;
-                        backpack.popMany(classProps);
-                        backpack.pop("class");
+                    const className = propertyContext.peek("class");
+                    if (!className) {
+                        this.pushErrorAt(
+                            "'-class' toggle has no matching '+class' in the current scope.",
+                            prop,
+                        );
+                        continue;
                     }
+                    const classProps = this.propertyResolver.resolveClassByName(className);
+                    /* v8 ignore next -- @preserve */
+                    if (!classProps)
+                        throw new Error(
+                            `Invariant violation: class '${className}' in PropertyContext but not in registry.`,
+                        );
+                    propertyContext.popClass(classProps);
                 }
                 continue;
             }
 
             if (prop.toggle === "minus") {
-                backpack.pop(prop.key);
+                propertyContext.pop(prop.key);
             } else if (prop.toggle === "plus" && annotationResult.props.has(prop.key)) {
-                backpack.push(prop.key, annotationResult.props.get(prop.key)!);
+                propertyContext.push(prop.key, annotationResult.props.get(prop.key)!);
             }
         }
 
         if (!annotation.target) return null;
 
-        const activeProps = new Map([...backpack.snapshot(), ...annotationResult.props]);
+        const activeProps = propertyContext.snapshotWith(annotationResult.props);
         const { blockProps } = this.propertyResolver.routePropertiesByScope(activeProps);
 
         return this.transformBlockNode(
@@ -187,9 +193,12 @@ export class Hydrator {
         );
     }
 
-    private transformBareNode(node: AST.BlockNode | AST.TextNode, backpack: Backpack): IR.Node {
-        const activeProps = backpack.snapshot();
-        const { blockProps, inlineProps: scopedActiveInline } =
+    private transformBareNode(
+        node: AST.BlockNode | AST.TextNode,
+        propertyContext: PropertyContext,
+    ): IR.Node {
+        const activeProps = propertyContext.snapshot();
+        const { blockProps, inlineProps } =
             this.propertyResolver.routePropertiesByScope(activeProps);
 
         switch (node.type) {
@@ -200,7 +209,7 @@ export class Hydrator {
                 const text: IR.Text = {
                     id: this.nextId(),
                     type: "TEXT",
-                    props: scopedActiveInline,
+                    props: inlineProps,
                     classes: [],
                     ownProps: new Map(),
                     line: node.line,

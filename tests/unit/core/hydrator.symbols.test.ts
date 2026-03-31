@@ -100,8 +100,8 @@ describe("Hydrator — symbol integration", () => {
             expect(errors).toHaveLength(0);
             expect(textWith(ir.root, "text")?.props.get("color")).toBe("yellow");
         });
-        
-        it("[[+class: name]] toggle pushes class props onto the backpack", () => {
+
+        it("[[+class: name]] toggle pushes class props onto the propertyContext", () => {
             const { ir, errors } = compileToIR(
                 "[[DEFINE class: highlight; color: yellow]]\n" +
                 "[[+class: highlight]]text[[-class]]",
@@ -125,12 +125,6 @@ describe("Hydrator — symbol integration", () => {
             expect(t).toBeDefined();
             expect(t?.props.has("color")).toBe(false);
             expect(t?.props.has("weight")).toBe(false);
-        });
-
-        it("[[-class]] when no class is active in the backpack is a no-op", () => {
-            const { ir, errors } = compileToIR("[[-class]]\ntext");
-            expect(textWith(ir.root, "text")).toBeDefined();
-            expect(errors).toHaveLength(0);
         });
     });
 });

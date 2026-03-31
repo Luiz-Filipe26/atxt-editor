@@ -187,7 +187,7 @@ annotation_target
 
 **Target resolution rule:** If tokens of non-whitespace text follow the annotation on the same line, those tokens form the target (inline target). If no such tokens exist, the parser skips whitespace and newlines and captures the next non-empty line or block as the target.
 
-Annotations whose property list contains only toggle properties (all keys prefixed with `+` or `-`) have no target. They apply to the backpack of the enclosing context.
+Annotations whose property list contains only toggle properties (all keys prefixed with `+` or `-`) have no target. They apply to the propertyContext of the enclosing context.
 
 ### 4.3 Block Statement
 
@@ -200,7 +200,7 @@ Blocks may be nested arbitrarily. A block opened with `{` must be closed with `}
 
 #### Anonymous scope blocks
 
-A `{ }` that is not the target of an annotation is an **anonymous scope block**. Its purpose is to limit the scope of `SET` directives and toggle annotations — when the block closes, all backpack state accumulated inside it is discarded.
+A `{ }` that is not the target of an annotation is an **anonymous scope block**. Its purpose is to limit the scope of `SET` directives and toggle annotations — when the block closes, all propertyContext state accumulated inside it is discarded.
 
 ```atxt
 {
@@ -387,7 +387,7 @@ This prevents CSS inheritance from leaking typographic styles from parent blocks
 Within a single node, properties are resolved in ascending priority:
 
 1. **Compiler defaults** — a baseline `size: 16` is applied to the document root before any author-declared properties. This ensures all text has a predictable default size regardless of the output format or rendering environment. Authors may override this at any scope with a more specific annotation or `SET`.
-2. Properties inherited via `SET` propagation (backpack)
+2. Properties inherited via `SET` propagation (propertyContext)
 3. Properties from an applied class (`[[class: name]]`)
 4. Properties declared inline on the annotation
 
@@ -520,13 +520,13 @@ more text inheriting both props
 text with only prop2
 ```
 
-A `+prop: val` annotation adds `prop` to the **backpack** — a set of properties that propagates to subsequent sibling text nodes within the current block scope.
+A `+prop: val` annotation adds `prop` to the **propertyContext** — a set of properties that propagates to subsequent sibling text nodes within the current block scope.
 
-A `-prop` annotation removes `prop` from the backpack. The value argument is not allowed on a remove toggle.
+A `-prop` annotation removes `prop` from the propertyContext. The value argument is not allowed on a remove toggle.
 
 ### 8.2 Toggle Scope
 
-The backpack is scoped to the enclosing block. It does not propagate to the parent block, sibling blocks, or child blocks. When a block closes, its backpack is discarded.
+The propertyContext is scoped to the enclosing block. It does not propagate to the parent block, sibling blocks, or child blocks. When a block closes, its propertyContext is discarded.
 
 Anonymous scope blocks (§4.3) are the primary tool for limiting toggle scope without introducing semantic structure:
 
@@ -540,21 +540,21 @@ This text is not bold — the toggle did not escape the anonymous block.
 
 ### 8.3 Toggle Annotations Have No Target
 
-An annotation whose property list consists exclusively of toggle operations (`+` or `-` prefixed keys) does not resolve a target. It modifies the backpack in place. Attempting to assign a block or line target to a toggle-only annotation is a parser error.
+An annotation whose property list consists exclusively of toggle operations (`+` or `-` prefixed keys) does not resolve a target. It modifies the propertyContext in place. Attempting to assign a block or line target to a toggle-only annotation is a parser error.
 
 ### 8.4 Toggle Stack Semantics
 
-The backpack maintains a **stack per property key**. This enables safe nesting of toggles for the same property:
+The propertyContext maintains a **stack per property key**. This enables safe nesting of toggles for the same property:
 
 - `[[+weight: bold]]` pushes `"bold"` onto the `weight` stack.
 - `[[+weight: 900]]` pushes `"900"` onto the `weight` stack.
 - `[[-weight]]` pops the top value, restoring the previous value.
 
-This means `[[-prop]]` never destroys state that was set by an outer toggle — it only undoes the most recent `[[+prop]]` in the current nesting. If the stack for a key becomes empty after a pop, the property is removed from the backpack entirely.
+This means `[[-prop]]` never destroys state that was set by an outer toggle — it only undoes the most recent `[[+prop]]` in the current nesting. If the stack for a key becomes empty after a pop, the property is removed from the propertyContext entirely.
 
 ### 8.5 Class Expansion in Toggles
 
-When `[[+class: name]]` is used as a toggle, the class is **expanded into its concrete properties** at the moment of application. Each property is pushed onto its respective stack in the backpack. The class name itself never enters the backpack.
+When `[[+class: name]]` is used as a toggle, the class is **expanded into its concrete properties** at the moment of application. Each property is pushed onto its respective stack in the propertyContext. The class name itself never enters the propertyContext.
 
 `[[-class: name]]` pops exactly the properties that `[[+class: name]]` pushed — no more, no less.
 
@@ -570,11 +570,11 @@ This is internally equivalent to:
 [[+color: #1a3a6e; +weight: bold]]Service Provider[[-color; -weight]]
 ```
 
-The class name is a convenience for the author. It has no presence in the IR backpack or in `IRText` props.
+The class name is a convenience for the author. It has no presence in the IR propertyContext or in `IRText` props.
 
 ### 8.6 Text Slicing
 
-Because inline styles may overlap arbitrarily via toggles, the Hydrator produces flat runs of `TEXT` nodes with complete, explicit property sets per node. Each `TEXT` node carries the full snapshot of the backpack at the moment of its creation. No two adjacent `TEXT` nodes share a reference to the same property set.
+Because inline styles may overlap arbitrarily via toggles, the Hydrator produces flat runs of `TEXT` nodes with complete, explicit property sets per node. Each `TEXT` node carries the full snapshot of the propertyContext at the moment of its creation. No two adjacent `TEXT` nodes share a reference to the same property set.
 
 This model enables overlapping styles that cannot be represented as a strict tree hierarchy.
 
@@ -644,7 +644,7 @@ Symbols may be declared with a `class` reference or with concrete properties dir
 [[SYMBOL symbol: §; class: section-header; type: block]]
 ```
 
-When declared with `class`, the class is expanded into its concrete properties at the moment the symbol is applied — following the same expansion rules as toggle class (§8.5). When declared with direct properties, those properties are used directly. In both cases, the class name never enters the backpack.
+When declared with `class`, the class is expanded into its concrete properties at the moment the symbol is applied — following the same expansion rules as toggle class (§8.5). When declared with direct properties, those properties are used directly. In both cases, the class name never enters the propertyContext.
 
 Custom symbol definitions register a new symbol in the Parser's symbol registry. The `type` property is optional and defaults to `inline`. A `SYMBOL` directive with neither a `class` nor any property is silently ignored.
 
@@ -685,7 +685,7 @@ Source ATXT
            ▼
 ┌──────────────────────────┐
 │  Hydrator + PropertyResolver│  Traverses AST. Resolves classes and properties.
-└──────────┬───────────────┘  Manages backpack per block scope.
+└──────────┬───────────────┘  Manages propertyContext per block scope.
            │                  Routes properties by scope.
            │                  Resolves placeholders against data context (§15).
            │                  Produces the IR.
@@ -783,7 +783,7 @@ The following invariants hold on any valid IR produced by the Hydrator:
 9. A **leaf block** is an `IRBlock` whose `children` array contains only `IRText` and `IRNewline` nodes — no nested `IRBlock`. This is the criterion used for leaf-node promotion (§6.5) and for Serializer output decisions (§16).
 10. `IRNewline` nodes appear only as children of `IRBlock` nodes. They are never children of `IRText` nodes.
 11. The `indent` property in an `IRBlock`'s `props` is never pre-applied to child `IRText` content. The raw content of every `IRText` node reflects exactly what the author wrote — without leading spaces injected by the `indent` mechanism. Generators are responsible for applying `indent` at render time.
-12. `ownProps` contains only the properties explicitly declared on the annotation itself — never properties inherited from classes or the backpack. It is a snapshot of authorial intent, used by the Serializer and future selectors.
+12. `ownProps` contains only the properties explicitly declared on the annotation itself — never properties inherited from classes or the propertyContext. It is a snapshot of authorial intent, used by the Serializer and future selectors.
 
 ### 11.3 IR as Serialization Target
 
