@@ -3,16 +3,8 @@
         "target": "ES2022",
         "useDefineForClassFields": true,
         "module": "ESNext",
-        "lib": [
-            "ES2022",
-            "DOM",
-            "DOM.Iterable"
-        ],
-        "types": [
-            "vite/client",
-            "vitest/globals",
-            "node"
-        ],
+        "lib": ["ES2022", "DOM", "DOM.Iterable"],
+        "types": ["vite/client", "vitest/globals", "node"],
         "skipLibCheck": true,
         /* Bundler mode */
         "moduleResolution": "bundler",
@@ -28,22 +20,11 @@
         "noFallthroughCasesInSwitch": true,
         "noUncheckedSideEffectImports": true,
         "allowSyntheticDefaultImports": true,
-        "baseUrl": "./src",
         "paths": {
-            "@/*": [
-                "./*"
-            ],
-            "@atxt": [
-                "core/atxt/index.ts"
-            ],
-            "@atxt/*": [
-                "core/atxt/*"
-            ]
+            "@/*": ["./src/*"],
+            "@atxt": ["./src/core/atxt/index.ts"],
+            "@atxt/*": ["./src/core/atxt/*"]
         }
     },
-    "include": [
-        "src",
-        "tests",
-        "vite.config.ts"
-    ]
+    "include": ["src", "tests", "vite.config.ts"]
 }

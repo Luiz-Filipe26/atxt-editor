@@ -1,26 +1,27 @@
 {
-  "name": "atxt-editor",
-  "private": true,
-  "version": "0.0.0",
-  "type": "module",
-  "scripts": {
-    "dev": "vite",
-    "build": "tsc && vite build",
-    "preview": "vite preview",
-    "test": "vitest",
-    "coverage": "vitest run --coverage"
-  },
-  "devDependencies": {
-    "@types/dompurify": "^3.0.5",
-    "@types/node": "^25.5.0",
-    "@vitest/coverage-v8": "^4.1.0",
-    "typescript": "~5.9.3",
-    "vite": "^7.3.1",
-    "vite-plugin-singlefile": "^2.3.2",
-    "vitest": "^4.1.0"
-  },
-  "dependencies": {
-    "isomorphic-dompurify": "^3.5.1",
-    "vite-tsconfig-paths": "^6.1.1"
-  }
+    "name": "atxt-editor",
+    "private": true,
+    "version": "0.0.0",
+    "type": "module",
+    "scripts": {
+        "dev": "vite",
+        "build": "tsc && vite build",
+        "preview": "vite preview",
+        "test": "vitest",
+        "coverage": "vitest run --coverage"
+    },
+    "devDependencies": {
+        "@types/node": "25.5.0",
+        "@vitest/coverage-v8": "4.1.2",
+        "typescript": "6.0.2",
+        "vite": "8.0.3",
+        "vite-plugin-singlefile": "2.3.2",
+        "vitest": "4.1.2"
+    },
+    "dependencies": {
+        "isomorphic-dompurify": "3.7.1"
+    },
+    "overrides": {
+        "picomatch": "4.0.4"
+    }
 }

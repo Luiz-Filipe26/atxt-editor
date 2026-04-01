@@ -1,11 +1,15 @@
 import { defineConfig } from "vitest/config";
-import tsconfigPaths from "vite-tsconfig-paths";
 import { viteSingleFile } from "vite-plugin-singlefile";
 import path from "path";
 
 export default defineConfig({
-    plugins: [tsconfigPaths(), viteSingleFile()],
+    plugins: [viteSingleFile()],
+
     root: "src/pages",
+
+    resolve: {
+        tsconfigPaths: true,
+    },
 
     envDir: path.resolve(__dirname),
     publicDir: path.resolve(__dirname, "public"),
@@ -18,11 +22,6 @@ export default defineConfig({
         chunkSizeWarningLimit: 30000,
         cssCodeSplit: false,
         reportCompressedSize: false,
-        rollupOptions: {
-            output: {
-                inlineDynamicImports: true,
-            },
-        },
     },
 
     test: {
