@@ -17,7 +17,7 @@ export default defineConfig({
     build: {
         outDir: path.resolve(__dirname, "dist"),
         emptyOutDir: true,
-        target: "esnext",
+        target: "es2018",
         assetsInlineLimit: 30000000,
         chunkSizeWarningLimit: 30000,
         cssCodeSplit: false,
