@@ -1,4 +1,4 @@
-import type { SourceLocation, Token } from "../types/tokens";
+import type { Token } from "../types/tokens";
 import * as AST from "../types/ast";
 import { Lexer } from "./lexer";
 import { SymbolDetector, type InlineSymbolMatch } from "./symbolDetector";
@@ -9,6 +9,7 @@ import {
     buildToggleCloseNode,
     buildToggleOpenNode,
 } from "./astBuilders";
+import type { SourceLocation } from "../types/location";
 
 export interface Source {
     text: string;

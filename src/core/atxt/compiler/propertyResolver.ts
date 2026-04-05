@@ -1,18 +1,21 @@
 import { getPropertyDefinition } from "../domain/propertyDefinitions";
 import * as IR from "../types/ir";
 import * as AST from "../types/ast";
+import type { SourceLocation } from "../types/location";
 
 export interface ResolvedResult {
     props: IR.ResolvedProps;
     classes: string[];
-    directProps: IR.ResolvedProps;
+    ownProps: IR.ResolvedProps;
 }
+
+type ErrorCallback = (message: string, source: SourceLocation) => void;
 
 export class PropertyResolver {
     private classRegistry: Map<string, IR.ResolvedProps> = new Map();
-    private pushError: (message: string, line: number, column: number) => void;
+    private readonly pushError: ErrorCallback;
 
-    constructor(errorCallback: (message: string, line: number, column: number) => void) {
+    constructor(errorCallback: ErrorCallback) {
         this.pushError = errorCallback;
     }
 
@@ -28,35 +31,35 @@ export class PropertyResolver {
         const classProp = annotation.properties.find((p) => p.key === "class");
 
         if (!classProp) {
-            this.pushErrorAt("DEFINE directive requires a 'class' property.", annotation);
+            this.pushError("DEFINE directive requires a 'class' property.", annotation);
             return;
         }
 
         const className = classProp.value;
         const composeProp = annotation.properties.find((p) => p.key === "compose");
-        const bag: IR.ResolvedProps = new Map();
+        const props: IR.ResolvedProps = new Map();
 
-        this.inheritComposedClasses(bag, composeProp);
-        this.assignExplicitProperties(bag, annotation.properties);
+        this.applyCompose(props, composeProp);
+        this.applyDefinedProperties(props, annotation.properties);
 
-        this.classRegistry.set(className, bag);
+        this.classRegistry.set(className, props);
     }
 
-    public resolveClassByName(name: string): IR.ResolvedProps | null {
+    public resolveClass(name: string): IR.ResolvedProps | null {
         return this.classRegistry.get(name) ?? null;
     }
 
     public resolveProperties(properties: AST.PropertyNode[]): ResolvedResult {
         const classProps: IR.ResolvedProps = new Map();
-        const directProps: IR.ResolvedProps = new Map();
+        const ownProps: IR.ResolvedProps = new Map();
         const classes: string[] = [];
 
         this.applyClassProperties(classProps, properties, classes);
-        this.applyInlineProperties(directProps, properties);
+        this.applyOwnProperties(ownProps, properties);
 
-        const props: IR.ResolvedProps = new Map([...classProps, ...directProps]);
+        const props: IR.ResolvedProps = new Map([...classProps, ...ownProps]);
 
-        return { props, classes, directProps };
+        return { props, classes, ownProps };
     }
 
     public routePropertiesByScope(props: IR.ResolvedProps): {
@@ -76,40 +79,40 @@ export class PropertyResolver {
         return { blockProps, inlineProps };
     }
 
-    private inheritComposedClasses(bag: IR.ResolvedProps, composeProp?: AST.PropertyNode): void {
+    private applyCompose(props: IR.ResolvedProps, composeProp?: AST.PropertyNode): void {
         if (!composeProp) return;
 
         const classesToCompose = composeProp.value.split(/\s+/).filter(Boolean);
         for (const cls of classesToCompose) {
             const classProps = this.classRegistry.get(cls);
             if (!classProps) {
-                this.pushErrorAt(`Warning: Base class '${cls}' not found in compose.`, composeProp);
+                this.pushError(`Warning: Base class '${cls}' not found in compose.`, composeProp);
                 continue;
             }
-            for (const [k, v] of classProps) {
-                bag.set(k, v);
+            for (const [key, value] of classProps) {
+                props.set(key, value);
             }
         }
     }
 
-    private assignExplicitProperties(bag: IR.ResolvedProps, properties: AST.PropertyNode[]): void {
+    private applyDefinedProperties(props: IR.ResolvedProps, properties: AST.PropertyNode[]): void {
         for (const prop of properties) {
             if (prop.key === "class" || prop.key === "compose") continue;
 
             const propertyDef = getPropertyDefinition(prop.key);
             if (!propertyDef || !propertyDef.validate(prop.value)) {
-                this.pushErrorAt(
+                this.pushError(
                     `Warning: Invalid or unknown property '${prop.key}' ignored in DEFINE.`,
                     prop,
                 );
                 continue;
             }
-            bag.set(prop.key, prop.value);
+            props.set(prop.key, prop.value);
         }
     }
 
     private applyClassProperties(
-        bag: IR.ResolvedProps,
+        props: IR.ResolvedProps,
         properties: AST.PropertyNode[],
         classes: string[],
     ): void {
@@ -121,39 +124,35 @@ export class PropertyResolver {
             classes.push(cls);
             const classProps = this.classRegistry.get(cls);
             if (!classProps) {
-                this.pushErrorAt(`Warning: Class '${cls}' not found.`, classProp);
+                this.pushError(`Warning: Class '${cls}' not found.`, classProp);
                 continue;
             }
             for (const [k, v] of classProps) {
-                bag.set(k, v);
+                props.set(k, v);
             }
         }
     }
 
-    private applyInlineProperties(bag: IR.ResolvedProps, properties: AST.PropertyNode[]): void {
+    private applyOwnProperties(props: IR.ResolvedProps, properties: AST.PropertyNode[]): void {
         for (const prop of properties) {
             const isAlreadyHandled = prop.key === "class" || prop.toggle === "minus";
             if (isAlreadyHandled) continue;
 
             const propertyDef = getPropertyDefinition(prop.key);
             if (!propertyDef) {
-                this.pushErrorAt(`Warning: Unknown property '${prop.key}'.`, prop);
+                this.pushError(`Warning: Unknown property '${prop.key}'.`, prop);
                 continue;
             }
 
             if (!propertyDef.validate(prop.value)) {
-                this.pushErrorAt(
+                this.pushError(
                     `Warning: Invalid value '${prop.value}' for property '${prop.key}'.`,
                     prop,
                 );
                 continue;
             }
 
-            bag.set(prop.key, prop.value);
+            props.set(prop.key, prop.value);
         }
-    }
-
-    private pushErrorAt(message: string, source: { line: number; column: number }) {
-        this.pushError(message, source.line, source.column);
     }
 }

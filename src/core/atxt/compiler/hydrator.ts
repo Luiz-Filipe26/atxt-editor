@@ -8,6 +8,7 @@ import { PropertyContext } from "./propertyContext";
 import * as AST from "../types/ast";
 import * as IR from "../types/ir";
 import type { CompilerError } from "../types/errors";
+import { buildBlockNode, buildTextNode, buildNewlineNode } from "./irBuilders";
 
 export class Hydrator {
     private compilerErrors: CompilerError[] = [];
@@ -28,18 +29,14 @@ export class Hydrator {
         this.nodeMap = new Map();
         this.idCounter = 0;
 
-        const rootBlock: IR.Block = {
-            id: this.nextId(),
-            type: "BLOCK",
-            props: new Map(),
-            classes: [],
-            ownProps: new Map(),
-            line: document.line,
-            column: document.column,
-            children: this.transformNodeList(document.children, COMPILER_DEFAULTS),
-        };
-
-        this.nodeMap.set(rootBlock.id, rootBlock);
+        const rootBlock = this.register(
+            buildBlockNode({
+                source: document,
+                id: this.nextId(),
+                props: new Map(),
+                children: this.transformNodeList(document.children, COMPILER_DEFAULTS),
+            }),
+        );
 
         return {
             document: {
@@ -55,7 +52,7 @@ export class Hydrator {
         return (this.idCounter++).toString(36);
     }
 
-    private register(node: IR.Node): IR.Node {
+    private register<T extends IR.Node>(node: T): T {
         this.nodeMap.set(node.id, node);
         return node;
     }
@@ -71,7 +68,7 @@ export class Hydrator {
             const node = nodes[i];
 
             if (node.type === AST.NodeType.NEWLINE) {
-                output.push(this.makeNewlineNode(node));
+                output.push(this.register(buildNewlineNode(node, this.nextId())));
                 continue;
             }
 
@@ -98,17 +95,6 @@ export class Hydrator {
         return output;
     }
 
-    private makeNewlineNode(node: AST.NewlineNode): IR.Newline {
-        const newline: IR.Newline = {
-            id: this.nextId(),
-            type: "NEWLINE",
-            line: node.line,
-            column: node.column,
-        };
-        this.nodeMap.set(newline.id, newline);
-        return newline;
-    }
-
     private processSetDirective(
         annotation: AST.AnnotationNode,
         allNodes: AST.BlockContentNode[],
@@ -117,7 +103,7 @@ export class Hydrator {
     ): IR.Block {
         /* v8 ignore start -- @preserve */
         if (annotation.target !== null) {
-            this.pushErrorAt("Invariant violation: SET directive received a target.", annotation);
+            this.pushError("Invariant violation: SET directive received a target.", annotation);
         }
         /* v8 ignore stop -- @preserve */
         const annotationResult = this.propertyResolver.resolveProperties(annotation.properties);
@@ -125,20 +111,20 @@ export class Hydrator {
             annotationResult.props,
         );
         const remainingSiblings = allNodes.slice(currentIndex + 1);
-        const block: IR.Block = {
-            id: this.nextId(),
-            type: "BLOCK",
-            props: blockProps,
-            classes: annotationResult.classes,
-            ownProps: annotationResult.directProps,
-            line: annotation.line,
-            column: annotation.column,
-            children: this.transformNodeList(
-                remainingSiblings,
-                propertyContext.snapshotWith(inlineProps),
-            ),
-        };
-        return this.register(block) as IR.Block;
+
+        return this.register(
+            buildBlockNode({
+                source: annotation,
+                id: this.nextId(),
+                props: blockProps,
+                classes: annotationResult.classes,
+                ownProps: annotationResult.ownProps,
+                children: this.transformNodeList(
+                    remainingSiblings,
+                    propertyContext.snapshotWith(inlineProps),
+                ),
+            }),
+        );
     }
 
     private processNormalDirective(
@@ -150,18 +136,18 @@ export class Hydrator {
         for (const prop of annotation.properties) {
             if (prop.key === "class") {
                 if (prop.toggle === "plus") {
-                    const classProps = this.propertyResolver.resolveClassByName(prop.value);
+                    const classProps = this.propertyResolver.resolveClass(prop.value);
                     if (classProps) propertyContext.pushClass(prop.value, classProps);
                 } else if (prop.toggle === "minus") {
                     const className = propertyContext.peek("class");
                     if (!className) {
-                        this.pushErrorAt(
+                        this.pushError(
                             "'-class' toggle has no matching '+class' in the current scope.",
                             prop,
                         );
                         continue;
                     }
-                    const classProps = this.propertyResolver.resolveClassByName(className);
+                    const classProps = this.propertyResolver.resolveClass(className);
                     /* v8 ignore next -- @preserve */
                     if (!classProps)
                         throw new Error(
@@ -189,7 +175,7 @@ export class Hydrator {
             blockProps,
             activeProps,
             annotationResult.classes,
-            annotationResult.directProps,
+            annotationResult.ownProps,
         );
     }
 
@@ -202,22 +188,10 @@ export class Hydrator {
             this.propertyResolver.routePropertiesByScope(activeProps);
 
         switch (node.type) {
-            case AST.NodeType.BLOCK: {
+            case AST.NodeType.BLOCK:
                 return this.transformBlockNode(node, blockProps, activeProps);
-            }
-            case AST.NodeType.TEXT: {
-                const text: IR.Text = {
-                    id: this.nextId(),
-                    type: "TEXT",
-                    props: inlineProps,
-                    classes: [],
-                    ownProps: new Map(),
-                    line: node.line,
-                    column: node.column,
-                    content: node.content,
-                };
-                return this.register(text);
-            }
+            case AST.NodeType.TEXT:
+                return this.register(buildTextNode(node, this.nextId(), inlineProps, node.content));
         }
     }
 
@@ -234,17 +208,16 @@ export class Hydrator {
 
         this.resolveKind(blockProps, children, node);
 
-        const block: IR.Block = {
-            id: this.nextId(),
-            type: "BLOCK",
-            props: blockProps,
-            classes,
-            ownProps: directProps,
-            line: node.line,
-            column: node.column,
-            children,
-        };
-        return this.register(block) as IR.Block;
+        return this.register(
+            buildBlockNode({
+                source: node,
+                id: this.nextId(),
+                props: blockProps,
+                classes,
+                ownProps: directProps,
+                children,
+            }),
+        );
     }
 
     private resolveKind(
@@ -266,25 +239,19 @@ export class Hydrator {
 
         const kindDef = explicitKind ? getKindDefinition(explicitKind) : null;
         if (kindDef && kindDef.leafCompatible && !isLeaf) {
-            this.pushErrorAt(
+            this.pushError(
                 `kind '${explicitKind}' is only valid on leaf blocks but contains child blocks.`,
                 node,
             );
         }
     }
 
-    /* v8 ignore start -- @preserve */
-    private pushErrorAt(message: string, node: AST.ASTNode) {
-        this.pushError(message, node.line, node.column);
-    }
-    /* v8 ignore stop -- @preserve */
-
-    private pushError(message: string, line: number, column: number) {
+    private pushError(message: string, source: { line: number; column: number }) {
         this.compilerErrors.push({
             type: "HYDRATOR",
             message,
-            line,
-            column,
+            line: source.line,
+            column: source.column,
         });
     }
 }

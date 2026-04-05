@@ -65,7 +65,7 @@ describe("PropertyResolver", () => {
             const result = resolver.resolveProperties([]);
             expect(result.props).toEqual(toMap({}));
             expect(result.classes).toEqual([]);
-            expect(result.directProps).toEqual(toMap({}));
+            expect(result.ownProps).toEqual(toMap({}));
         });
     });
 
@@ -132,11 +132,11 @@ describe("PropertyResolver", () => {
     });
 
     describe("resolveProperties — classes and directProps", () => {
-        it("returns empty classes and directProps for plain properties", () => {
+        it("returns empty classes and ownProps for plain properties", () => {
             const { resolver } = makeResolver();
             const result = resolver.resolveProperties([prop("color", "red")]);
             expect(result.classes).toEqual([]);
-            expect(result.directProps).toEqual(toMap({ color: "red" }));
+            expect(result.ownProps).toEqual(toMap({ color: "red" }));
         });
 
         it("classes contains the applied class name", () => {
@@ -146,13 +146,13 @@ describe("PropertyResolver", () => {
             expect(result.classes).toEqual(["big"]);
         });
 
-        it("directProps contains only properties written directly on the annotation — not class-inherited ones", () => {
+        it("ownProps contains only properties written directly on the annotation — not class-inherited ones", () => {
             const { resolver } = makeResolver();
             resolver.defineClass(defineAnnotation("big", { size: "24" }));
             const result = resolver.resolveProperties([prop("class", "big"), prop("color", "red")]);
 
-            expect(result.directProps).toEqual(toMap({ color: "red" }));
-            expect(result.directProps.has("size")).toBe(false);
+            expect(result.ownProps).toEqual(toMap({ color: "red" }));
+            expect(result.ownProps.has("size")).toBe(false);
         });
 
         it("props contains both class-inherited and direct properties merged", () => {
@@ -167,7 +167,7 @@ describe("PropertyResolver", () => {
             resolver.defineClass(defineAnnotation("big", { size: "24" }));
             const result = resolver.resolveProperties([prop("class", "big"), prop("size", "32")]);
             expect(result.props.get("size")).toBe("32");
-            expect(result.directProps.get("size")).toBe("32");
+            expect(result.ownProps.get("size")).toBe("32");
         });
     });
 
@@ -226,9 +226,9 @@ describe("PropertyResolver", () => {
             expect(result.props.has("align")).toBe(false);
         });
 
-        it("resolveClassByName returns null for a name not in the registry", () => {
+        it("resolveClass returns null for a name not in the registry", () => {
             const { resolver } = makeResolver();
-            expect(resolver.resolveClassByName("nonexistent")).toBeNull();
+            expect(resolver.resolveClass("nonexistent")).toBeNull();
         });
     });
 

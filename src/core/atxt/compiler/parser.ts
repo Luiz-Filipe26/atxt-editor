@@ -1,4 +1,4 @@
-import { TokenType, type SourceLocation, type Token } from "../types/tokens";
+import { TokenType, type Token } from "../types/tokens";
 import { TokenStream } from "./tokenStream";
 import * as AST from "../types/ast";
 import type { CompilerError } from "../types/errors";
@@ -11,6 +11,7 @@ import {
     buildPropertyNode,
     type PropEntry,
 } from "./astBuilders";
+import type { SourceLocation } from "../types/location";
 
 type ParsedPropertyKey = {
     source: Token;

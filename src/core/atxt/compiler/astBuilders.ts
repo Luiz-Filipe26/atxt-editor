@@ -1,5 +1,5 @@
 import * as AST from "../types/ast";
-import type { SourceLocation } from "../types/tokens";
+import type { SourceLocation } from "../types/location";
 
 export interface BuildPropertyArgs {
     source: SourceLocation;

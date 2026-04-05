@@ -210,7 +210,7 @@ A `{ }` that is not the target of an annotation is an **anonymous scope block**.
 This text is unaffected — the SET did not escape the block.
 ```
 
-An anonymous scope block carries no semantic information beyond scope delimitation. It produces an `IRBlock` in the IR with no properties, no classes, and no inlineProps. The Serializer preserves it as a bare `{ }` — it is never flattened or discarded, because it may be structurally significant to selectors and to the WYSIWYG editor.
+An anonymous scope block carries no semantic information beyond scope delimitation. It produces an `IR.Block` in the IR with no properties, no classes, and no inlineProps. The Serializer preserves it as a bare `{ }` — it is never flattened or discarded, because it may be structurally significant to selectors and to the WYSIWYG editor.
 
 ### 4.4 Text Line
 
@@ -292,7 +292,7 @@ Line two.
 
 Both produce the same IR. `SET` is therefore a convenience directive — it applies its properties to all remaining siblings in the current scope, exactly as if those siblings were wrapped in an annotated block.
 
-**Inline props propagation:** `SET` routes its properties by scope before applying them. Block-scope properties are applied to the wrapper block's `props`. Inline-scope properties are passed as `inheritedProps` to child nodes within the wrapper, ensuring that typographic properties such as `font`, `size`, and `color` propagate correctly to `IRText` nodes.
+**Inline props propagation:** `SET` routes its properties by scope before applying them. Block-scope properties are applied to the wrapper block's `props`. Inline-scope properties are passed as `inheritedProps` to child nodes within the wrapper, ensuring that typographic properties such as `font`, `size`, and `color` propagate correctly to `IR.Text` nodes.
 
 ### 5.2 DEFINE
 
@@ -422,7 +422,7 @@ A block with no `kind` property renders as `<div>` in the HTML Generator. A text
 
 #### Leaf-node promotion
 
-A **leaf block** is an `IRBlock` whose `children` array contains only `IRText` and `IRNewline` nodes — no nested `IRBlock`. This is a structural property of the IR, not a property declared in the source.
+A **leaf block** is an `IR.Block` whose `children` array contains only `IR.Text` and `IR.Newline` nodes — no nested `IR.Block`. This is a structural property of the IR, not a property declared in the source.
 
 The HTML Generator applies the following rule: if a leaf block carries no explicit `kind`, it is promoted to `paragraph` automatically. This means plain text lines produce `<p>` elements without any annotation from the author.
 
@@ -433,7 +433,7 @@ This line produces a <p> element automatically.
 This annotated line also produces a <p> because it is still a leaf block.
 ```
 
-A non-leaf block (containing at least one child `IRBlock`) is never promoted. It renders as `<div>` unless an explicit `kind` is declared.
+A non-leaf block (containing at least one child `IR.Block`) is never promoted. It renders as `<div>` unless an explicit `kind` is declared.
 
 #### Structural compatibility
 
@@ -570,7 +570,7 @@ This is internally equivalent to:
 [[+color: #1a3a6e; +weight: bold]]Service Provider[[-color; -weight]]
 ```
 
-The class name is a convenience for the author. It has no presence in the IR propertyContext or in `IRText` props.
+The class name is a convenience for the author. It has no presence in the IR propertyContext or in `IR.Text` props.
 
 ### 8.6 Text Slicing
 
@@ -713,7 +713,7 @@ Each stage has exclusive responsibility:
 
 The Generator skips any IR node carrying `hidden: true` in standard rendering mode. WYSIWYG tools may override this behavior to implement revision mode.
 
-The HTML Generator selects the output HTML tag for each `IRBlock` based on the `kind` property. If no `kind` is present, leaf blocks are promoted to `<p>` and non-leaf blocks render as `<div>`. If a `kind` is present but structurally incompatible with the block's children, the Generator emits an error.
+The HTML Generator selects the output HTML tag for each `IR.Block` based on the `kind` property. If no `kind` is present, leaf blocks are promoted to `<p>` and non-leaf blocks render as `<div>`. If a `kind` is present but structurally incompatible with the block's children, the Generator emits an error.
 
 ---
 
@@ -724,26 +724,26 @@ The HTML Generator selects the output HTML tag for each `IRBlock` based on the `
 The IR consists of three node types organized into an `IRDocument`:
 
 ```typescript
-interface IRDocument {
-  root: IRBlock;
-  nodeMap: Map<string, IRNode>;        // O(1) lookup by node id
+interface IR.Document {
+  root: IR.Block;
+  nodeMap: Map<string, IR.Node>;        // O(1) lookup by node id
   classDefinitions: Record<string, ResolvedProps>;
 }
 
-type IRNode = IRBlock | IRText | IRNewline ;
+type IR.Node = IR.Block | IR.Text | IR.Newline ;
 
-interface IRBlock {
+interface IR.Block {
   id: string;                          // base-36 integer, unique per compilation
   type: "BLOCK";
   props: Record<string, string>;       // block-scope properties only (merged)
   classes: string[];                   // original class names applied to this node
   ownProps: Record<string, string>;    // properties declared directly on the annotation (snapshot for serialization and selectors)
-  children: IRNode[];
+  children: IR.Node[];
   line?: number;
   column?: number;
 }
 
-interface IRText {
+interface IR.Text {
   id: string;
   type: "TEXT";
   props: Record<string, string>;       // inline-scope properties only (full snapshot)
@@ -754,11 +754,11 @@ interface IRText {
   column?: number;
   // Note: the IR will include a mechanism to mark certain text nodes as computed
   // (e.g. resolved from a placeholder or trigger) and non-editable by the author.
-  // The exact representation — whether as flags on IRText or as a distinct node type
-  // such as IRComputedText — is not yet decided and will be specified in §15.
+  // The exact representation — whether as flags on IR.Text or as a distinct node type
+  // such as IR.ComputedText — is not yet decided and will be specified in §15.
 }
 
-interface IRNewline {
+interface IR.Newline {
   id: string;
   type: "NEWLINE";
   line?: number;
@@ -766,23 +766,23 @@ interface IRNewline {
 }
 ```
 
-`IRNewline` represents a content line break — a newline the author explicitly wrote between lines of text. It carries no properties. It is distinct from structural newlines, which are consumed by the Parser and never reach the IR (see §4.4).
+`IR.Newline` represents a content line break — a newline the author explicitly wrote between lines of text. It carries no properties. It is distinct from structural newlines, which are consumed by the Parser and never reach the IR (see §4.4).
 
 ### 11.2 Invariants
 
 The following invariants hold on any valid IR produced by the Hydrator:
 
-1. An `IRBlock` node contains only block-scope properties in `props`.
-2. An `IRText` node contains only inline-scope properties in `props`.
+1. An `IR.Block` node contains only block-scope properties in `props`.
+2. An `IR.Text` node contains only inline-scope properties in `props`.
 3. No property in any node fails the validation predicate of its registry entry.
-4. Every `IRText` node carries a complete, standalone property snapshot — it does not inherit from its parent `IRBlock`.
+4. Every `IR.Text` node carries a complete, standalone property snapshot — it does not inherit from its parent `IR.Block`.
 5. Source position (`line`, `column`) is preserved on all nodes to enable WYSIWYG jump-to-source.
 6. Every node has a unique `id`, expressed as a base-36 integer generated per compilation. Ids do not persist across compilations.
 7. `nodeMap` contains every node in the tree, enabling O(1) lookup by `data-id` from the DOM.
 8. Certain text nodes may be marked as computed — produced by the template system rather than authored directly. The exact representation is not yet decided (see §15). The Serializer must never write the resolved content of a computed node back to the source; it must always reconstruct the original placeholder or trigger expression.
-9. A **leaf block** is an `IRBlock` whose `children` array contains only `IRText` and `IRNewline` nodes — no nested `IRBlock`. This is the criterion used for leaf-node promotion (§6.5) and for Serializer output decisions (§16).
-10. `IRNewline` nodes appear only as children of `IRBlock` nodes. They are never children of `IRText` nodes.
-11. The `indent` property in an `IRBlock`'s `props` is never pre-applied to child `IRText` content. The raw content of every `IRText` node reflects exactly what the author wrote — without leading spaces injected by the `indent` mechanism. Generators are responsible for applying `indent` at render time.
+9. A **leaf block** is an `IR.Block` whose `children` array contains only `IR.Text` and `IR.Newline` nodes — no nested `IR.Block`. This is the criterion used for leaf-node promotion (§6.5) and for Serializer output decisions (§16).
+10. `IR.Newline` nodes appear only as children of `IR.Block` nodes. They are never children of `IR.Text` nodes.
+11. The `indent` property in an `IR.Block`'s `props` is never pre-applied to child `IR.Text` content. The raw content of every `IR.Text` node reflects exactly what the author wrote — without leading spaces injected by the `indent` mechanism. Generators are responsible for applying `indent` at render time.
 12. `ownProps` contains only the properties explicitly declared on the annotation itself — never properties inherited from classes or the propertyContext. It is a snapshot of authorial intent, used by the Serializer and future selectors.
 
 ### 11.3 IR as Serialization Target
@@ -820,7 +820,7 @@ The Lexer processes `\x` for any character `x`, emitting an internal escape sent
 
 ### 12.4 Block Content Trimming
 
-The leading blank lines within a block `{ ... }` are discarded by `parseBlock` via `skipWhitespaceTokens` before content parsing begins. The trailing NEWLINE at the end of a block's content is removed by `parseBlock` before returning. Interior blank lines between paragraphs are significant and produce `IRNewline` nodes in the IR.
+The leading blank lines within a block `{ ... }` are discarded by `parseBlock` via `skipWhitespaceTokens` before content parsing begins. The trailing NEWLINE at the end of a block's content is removed by `parseBlock` before returning. Interior blank lines between paragraphs are significant and produce `IR.Newline` nodes in the IR.
 
 ---
 
@@ -1021,7 +1021,7 @@ The Serializer applies the following rules to produce canonical output:
 
 **Annotations** emit `class` before `inlineProps`. Within each group, properties are sorted alphabetically.
 
-**Inline toggles** are emitted as `[[+key: val; ...]]` and `[[-key; ...]]` annotations between `IRText` nodes within a run. Added properties are sorted alphabetically. Removed properties are sorted alphabetically and listed after added properties.
+**Inline toggles** are emitted as `[[+key: val; ...]]` and `[[-key; ...]]` annotations between `IR.Text` nodes within a run. Added properties are sorted alphabetically. Removed properties are sorted alphabetically and listed after added properties.
 
 **`Newline` nodes** serialize as a line break in the output file. The number of consecutive `Newline` nodes in the IR is preserved exactly — if the author wrote two blank lines, two `Newline` nodes exist in the IR and two blank lines appear in the serialized output. The Serializer never collapses or adds blank lines.
 
@@ -1031,7 +1031,7 @@ The Serializer applies the following rules to produce canonical output:
 
 ### 16.3 Block Preservation Invariant
 
-Every `IRBlock` in the IR serializes as a block in the output. The Serializer never flattens, merges, or discards blocks. This invariant exists because:
+Every `IR.Block` in the IR serializes as a block in the output. The Serializer never flattens, merges, or discards blocks. This invariant exists because:
 
 1. Anonymous scope blocks are structurally significant — they limit toggle and SET scope, and future selectors may query them by identity.
 2. The WYSIWYG editor may create anonymous blocks intentionally (e.g., when the user creates a region without applying any class).

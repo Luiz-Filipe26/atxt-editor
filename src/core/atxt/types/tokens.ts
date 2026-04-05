@@ -1,3 +1,5 @@
+import type { SourceLocation } from "./location";
+
 export const TokenType = {
     TEXT: "TEXT",
     NEWLINE: "NEWLINE",
@@ -13,11 +15,6 @@ export const TokenType = {
 } as const;
 
 export type TokenType = (typeof TokenType)[keyof typeof TokenType];
-
-export interface SourceLocation {
-    line: number;
-    column: number;
-}
 
 export interface Token extends SourceLocation {
     type: TokenType;

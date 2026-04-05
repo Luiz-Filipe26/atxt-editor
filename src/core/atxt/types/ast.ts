@@ -55,4 +55,4 @@ export interface AnnotationNode extends BaseNode {
     target: BlockNode | null;
 }
 
-export type ASTNode = DocumentNode | BlockContentNode | PropertyNode;
+export type Node = DocumentNode | BlockContentNode | PropertyNode;
