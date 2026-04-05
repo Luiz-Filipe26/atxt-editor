@@ -357,10 +357,10 @@ describe("Hydrator", () => {
             expect(blocks(ir.root)[0].props.get("fill")).toBe("#eee");
         });
 
-        it("compose: child inherits parent properties at hydration time", () => {
+        it("merge: child inherits parent properties at hydration time", () => {
             const { ir, errors } = compileToIR(
                 "[[DEFINE class: base; color: red]]\n" +
-                "[[DEFINE class: child; compose: base; size: 16]]\n" +
+                "[[DEFINE class: child; merge: base; size: 16]]\n" +
                 "[[class: child]] Hello",
             );
             expect(errors).toHaveLength(0);

@@ -22,11 +22,11 @@ function prop(key: string, value: string, toggle?: "plus" | "minus"): AST.Proper
 function defineAnnotation(
     className: string,
     extraProps: Record<string, string> = {},
-    compose?: string,
+    merge?: string,
 ): AST.AnnotationNode {
     const properties: AST.PropertyNode[] = [
         prop("class", className),
-        ...(compose ? [prop("compose", compose)] : []),
+        ...(merge ? [prop("merge", merge)] : []),
         ...Object.entries(extraProps).map(([k, v]) => prop(k, v)),
     ];
     return {
@@ -256,8 +256,8 @@ describe("PropertyResolver", () => {
         });
     });
 
-    describe("compose inheritance", () => {
-        it("child class inherits all properties from parent via compose", () => {
+    describe("merge inheritance", () => {
+        it("child class inherits all properties from parent via merge", () => {
             const { resolver } = makeResolver();
             resolver.defineClass(defineAnnotation("base", { color: "red", size: "14" }));
             resolver.defineClass(defineAnnotation("child", { size: "18" }, "base"));
@@ -267,7 +267,7 @@ describe("PropertyResolver", () => {
             expect(result.props.get("size")).toBe("18");
         });
 
-        it("child properties override composed properties", () => {
+        it("child properties override merged properties", () => {
             const { resolver } = makeResolver();
             resolver.defineClass(defineAnnotation("base", { color: "red" }));
             resolver.defineClass(defineAnnotation("child", { color: "blue" }, "base"));
@@ -276,7 +276,7 @@ describe("PropertyResolver", () => {
             expect(result.props.get("color")).toBe("blue");
         });
 
-        it("emits a warning when compose references an undefined class", () => {
+        it("emits a warning when merge references an undefined class", () => {
             const { resolver, errors } = makeResolver();
             resolver.defineClass(defineAnnotation("orphan", {}, "missing-parent"));
             expect(errors).toHaveLength(1);

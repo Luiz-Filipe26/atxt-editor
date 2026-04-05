@@ -188,10 +188,10 @@ describe("Parser", () => {
             expect(keys).toContain("weight");
         });
 
-        it("DEFINE with compose property includes compose in the property list", () => {
-            const node = annotation("[[DEFINE class: child; compose: parent; size: 18]]");
+        it("DEFINE with merge property includes merge in the property list", () => {
+            const node = annotation("[[DEFINE class: child; merge: parent; size: 18]]");
             const keys = node.properties.map((p) => p.key);
-            expect(keys).toContain("compose");
+            expect(keys).toContain("merge");
         });
     });
 

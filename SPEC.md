@@ -296,7 +296,7 @@ Both produce the same IR. `SET` is therefore a convenience directive — it appl
 
 ### 5.2 DEFINE
 
-`[[DEFINE class: name; prop: val; ...]]` registers a named class in the StyleResolver. A `compose: other-class` property may be included to inherit all properties of a previously defined class before applying overrides.
+`[[DEFINE class: name; prop: val; ...]]` registers a named class in the StyleResolver. A `merge: other-class` property may be included to copy all properties from one or more previously defined classes before applying the class's own properties.
 
 ### 5.3 NORMAL
 
@@ -492,13 +492,13 @@ A class definition registers a named bag of properties in the StyleResolver. The
 
 All properties registered under `name` are applied to the target node. Inline properties on the same annotation override class properties for conflicting keys.
 
-### 7.3 Inheritance via `compose`
+### 7.3 Merging via `merge`
 
 ```atxt
-[[DEFINE class: child; compose: parent; size: 14]]
+[[DEFINE class: child; merge: base emphasis; size: 14]]
 ```
 
-`compose` copies all properties from the named parent class into the new class definition before applying the remaining properties. The parent must have been defined earlier in the same scope. Multiple `compose` values are not supported in v1.
+`merge` copies all properties from the named classes into the new class definition, left to right, before applying the remaining properties. A class listed later in the value overwrites conflicting keys from a class listed earlier. The class's own properties take final precedence over all merged values. All referenced classes must have been defined before this declaration.
 
 ### 7.4 Default Classes
 
@@ -863,7 +863,7 @@ interface CompilerError {
 | Property value fails validation | `Invalid value for property '<key>': '<value>'` |
 | Class applied before definition | `Class '<n>' used before definition` |
 | Class redefined in same scope | `Class '<n>' already defined in this scope` |
-| `compose` references undefined class | `Cannot compose undefined class '<n>'` |
+| `merge` references undefined class | `Cannot merge undefined class '<n>'` |
 | `kind` value not in registry | `Unknown kind: '<value>'` |
 | Placeholder field value fails validation | `Invalid value for field '<n>': '<value>'` |
 

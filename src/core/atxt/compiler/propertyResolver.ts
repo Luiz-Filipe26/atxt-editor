@@ -36,10 +36,10 @@ export class PropertyResolver {
         }
 
         const className = classProp.value;
-        const composeProp = annotation.properties.find((p) => p.key === "compose");
+        const mergeProp = annotation.properties.find((p) => p.key === "merge");
         const props: IR.ResolvedProps = new Map();
 
-        this.applyCompose(props, composeProp);
+        this.applyMerge(props, mergeProp);
         this.applyDefinedProperties(props, annotation.properties);
 
         this.classRegistry.set(className, props);
@@ -79,14 +79,14 @@ export class PropertyResolver {
         return { blockProps, inlineProps };
     }
 
-    private applyCompose(props: IR.ResolvedProps, composeProp?: AST.PropertyNode): void {
-        if (!composeProp) return;
+    private applyMerge(props: IR.ResolvedProps, mergeProp?: AST.PropertyNode): void {
+        if (!mergeProp) return;
 
-        const classesToCompose = composeProp.value.split(/\s+/).filter(Boolean);
-        for (const cls of classesToCompose) {
+        const classesToMerge = mergeProp.value.split(/\s+/).filter(Boolean);
+        for (const cls of classesToMerge) {
             const classProps = this.classRegistry.get(cls);
             if (!classProps) {
-                this.pushError(`Warning: Base class '${cls}' not found in compose.`, composeProp);
+                this.pushError(`Warning: Base class '${cls}' not found in merge.`, mergeProp);
                 continue;
             }
             for (const [key, value] of classProps) {
@@ -97,7 +97,7 @@ export class PropertyResolver {
 
     private applyDefinedProperties(props: IR.ResolvedProps, properties: AST.PropertyNode[]): void {
         for (const prop of properties) {
-            if (prop.key === "class" || prop.key === "compose") continue;
+            if (prop.key === "class" || prop.key === "merge") continue;
 
             const propertyDef = getPropertyDefinition(prop.key);
             if (!propertyDef || !propertyDef.validate(prop.value)) {
