@@ -4,8 +4,8 @@ import { BUILT_IN_SYMBOLS } from "@atxt/domain/builtInSymbols";
 const { NodeType } = AST;
 
 function parse(source: string) {
-    const { tokens } = new Lexer().tokenize(source);
-    return new Parser().parse(tokens);
+    const { tokens } = Lexer.tokenize(source);
+    return Parser.parse(tokens);
 }
 
 function annotations(nodes: AST.BlockContentNode[]): AST.AnnotationNode[] {

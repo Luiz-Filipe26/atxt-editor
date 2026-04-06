@@ -1,11 +1,12 @@
 import { describe, it, expect } from "vitest";
-import { Lexer, AST } from "@atxt";
+import { Lexer, AST, TokenType } from "@atxt";
 import { SymbolDetector } from "@atxt/compiler/symbolDetector";
 import { SymbolParser } from "@atxt/compiler/symbolParser";
 const { NodeType } = AST;
 
-function expand(text: string, line = 1, startCol = 1): AST.BlockContentNode[] {
-    return new SymbolParser(new SymbolDetector()).expandInline({ text, line, startCol });
+function expand(text: string): AST.BlockContentNode[] {
+    const token = { literal: text, line: 1, column: 1, type: TokenType.TEXT };
+    return SymbolParser.expandInlineAt(token, new SymbolDetector());
 }
 
 function texts(nodes: AST.BlockContentNode[]): string[] {

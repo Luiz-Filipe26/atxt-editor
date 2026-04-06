@@ -3,8 +3,8 @@ import { Lexer, Parser, AST } from "@atxt";
 const { NodeType } = AST;
 
 function parse(source: string) {
-    const { tokens } = new Lexer().tokenize(source);
-    return new Parser().parse(tokens);
+    const { tokens } = Lexer.tokenize(source);
+    return Parser.parse(tokens);
 }
 
 function annotation(source: string): AST.AnnotationNode {

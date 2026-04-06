@@ -2,6 +2,11 @@ import { TokenType, type Token } from "../types/tokens";
 import type { CompilerError } from "../types/errors";
 import { Scanner } from "./scanner";
 
+export interface LexerResult {
+    tokens: Token[];
+    errors: CompilerError[];
+}
+
 const LexerMode = {
     NORMAL: "NORMAL",
     ANNOTATION_KEY: "ANNOTATION_KEY",
@@ -11,7 +16,7 @@ const LexerMode = {
 type LexerMode = (typeof LexerMode)[keyof typeof LexerMode];
 
 export class Lexer {
-    private scanner!: Scanner;
+    private scanner: Scanner;
     private tokens: Token[] = [];
     private compilerErrors: CompilerError[] = [];
     private modeStack: LexerMode[] = [LexerMode.NORMAL];
@@ -37,12 +42,18 @@ export class Lexer {
         this.PURE_TEXT_DELIMITERS.map((d) => d[0]),
     );
 
-    tokenize(source: string): { tokens: Token[]; errors: CompilerError[] } {
+    private constructor(source: string) {
         this.scanner = new Scanner(this.sanitizeSource(source));
         this.tokens = [];
         this.compilerErrors = [];
         this.modeStack = [LexerMode.NORMAL];
+    }
 
+    public static tokenize(source: string): LexerResult {
+        return new Lexer(source).tokenize();
+    }
+
+    private tokenize(): LexerResult {
         while (!this.scanner.isAtEnd()) {
             this.scanner.mark();
             this.scanToken();

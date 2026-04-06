@@ -4,7 +4,7 @@ import { Lexer, TokenType } from "@atxt";
 const S = Lexer.ESCAPE_SENTINEL;
 
 function tokenize(source: string) {
-    return new Lexer().tokenize(source);
+    return Lexer.tokenize(source);
 }
 
 function onlyTypes(source: string) {

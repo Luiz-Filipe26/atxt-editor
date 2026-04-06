@@ -15,22 +15,19 @@ function runCompiler(source: string) {
     console.group("🚀 Starting ATXT Compilation");
 
     try {
-        const lexer = new Atxt.Lexer();
-        const { tokens, errors: lexerErrors } = lexer.tokenize(source);
+        const { tokens, errors: lexerErrors } = Atxt.Lexer.tokenize(source);
         console.groupCollapsed("1. Lexer Output");
         console.log("Tokens:", tokens);
         if (lexerErrors.length) console.error("Lexer Errors:", lexerErrors);
         console.groupEnd();
 
-        const parser = new Atxt.Parser();
-        const { document: ast, errors: parserErrors } = parser.parse(tokens);
+        const { document: ast, errors: parserErrors } = Atxt.Parser.parse(tokens);
         console.groupCollapsed("2. Parser Output (AST)");
         console.log("AST:", ast);
         if (parserErrors.length) console.error("Parser Errors:", parserErrors);
         console.groupEnd();
 
-        const hydrator = new Atxt.Hydrator();
-        const { document: irDocument, errors: hydratorErrors } = hydrator.hydrate(ast);
+        const { document: irDocument, errors: hydratorErrors } = Atxt.Hydrator.hydrate(ast);
         console.groupCollapsed("3. Hydrator Output (IR)");
         console.log("IR Document:", irDocument);
         if (hydratorErrors.length) console.error("Hydrator Errors:", hydratorErrors);

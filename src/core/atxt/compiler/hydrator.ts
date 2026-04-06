@@ -10,20 +10,26 @@ import * as IR from "../types/ir";
 import type { CompilerError } from "../types/errors";
 import { buildBlockNode, buildTextNode, buildNewlineNode } from "./irBuilders";
 
+export interface HydrateResult {
+    document: IR.IRDocument;
+    errors: CompilerError[];
+}
+
 export class Hydrator {
     private compilerErrors: CompilerError[] = [];
     private propertyResolver: PropertyResolver;
     private nodeMap: Map<string, IR.Node> = new Map();
     private idCounter = 0;
 
-    constructor() {
+    private constructor() {
         this.propertyResolver = new PropertyResolver(this.pushError.bind(this));
     }
 
-    public hydrate(document: AST.DocumentNode): {
-        document: IR.IRDocument;
-        errors: CompilerError[];
-    } {
+    public static hydrate(document: AST.DocumentNode): HydrateResult {
+        return new Hydrator().hydrate(document);
+    }
+
+    private hydrate(document: AST.DocumentNode): HydrateResult {
         this.compilerErrors = [];
         this.propertyResolver.reset();
         this.nodeMap = new Map();

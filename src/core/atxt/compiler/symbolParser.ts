@@ -27,11 +27,19 @@ export class SymbolParser {
     private buffer = { content: "", docCol: 0 };
     private readonly symbolDetector: SymbolDetector;
 
-    constructor(symbolDetector: SymbolDetector) {
+    private constructor(symbolDetector: SymbolDetector) {
         this.symbolDetector = symbolDetector;
     }
 
-    expandLine(token: Token): AST.BlockContentNode[] {
+    public static expandLine(token: Token, detector: SymbolDetector): AST.BlockContentNode[] {
+        return new SymbolParser(detector).expandLine(token);
+    }
+
+    public static expandInlineAt(token: Token, detector: SymbolDetector): AST.BlockContentNode[] {
+        return new SymbolParser(detector).expandInlineAt(token);
+    }
+
+    private expandLine(token: Token): AST.BlockContentNode[] {
         const blockSymbol = this.symbolDetector.detectBlockSymbol(token.literal);
         if (!blockSymbol) {
             return this.expandInline({
@@ -60,7 +68,7 @@ export class SymbolParser {
         ];
     }
 
-    expandInlineAt(token: Token) {
+    private expandInlineAt(token: Token) {
         return this.expandInline({
             text: token.literal,
             line: token.line,
@@ -68,7 +76,7 @@ export class SymbolParser {
         });
     }
 
-    expandInline(source: Source): AST.BlockContentNode[] {
+    private expandInline(source: Source): AST.BlockContentNode[] {
         this.source = source;
         this.buffer = { content: "", docCol: this.source.startCol };
         const result: AST.BlockContentNode[] = [];

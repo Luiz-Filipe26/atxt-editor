@@ -13,6 +13,11 @@ import {
 } from "./astBuilders";
 import type { SourceLocation } from "../types/location";
 
+export interface ParseResult {
+    document: AST.DocumentNode;
+    errors: CompilerError[];
+}
+
 type ParsedPropertyKey = {
     source: Token;
     key: string;
@@ -20,20 +25,24 @@ type ParsedPropertyKey = {
 };
 
 export class Parser {
-    private stream!: TokenStream;
+    private stream: TokenStream;
     private compilerErrors: CompilerError[] = [];
     private symbolDetector = new SymbolDetector();
-    private textExpander = new SymbolParser(this.symbolDetector);
     private static readonly BLOCK_BOUNDARY_TOKENS = new Set<TokenType>([
         TokenType.NEWLINE,
         TokenType.BLOCK_CLOSE,
         TokenType.EOF,
     ]);
 
-    parse(tokens: Token[]): { document: AST.DocumentNode; errors: CompilerError[] } {
+    private constructor(tokens: Token[]) {
         this.stream = new TokenStream(tokens);
-        this.compilerErrors = [];
+    }
 
+    public static parse(tokens: Token[]): ParseResult {
+        return new Parser(tokens).parse();
+    }
+
+    private parse(): ParseResult {
         const root: AST.DocumentNode = {
             type: AST.NodeType.DOCUMENT,
             line: 1,
@@ -156,7 +165,7 @@ export class Parser {
                 `Invariant violation: adjacent TEXT tokens at ${this.stream.peek().line}:${this.stream.peek().column}.`,
             );
         /*! v8 ignore stop -- @preserve */
-        const nodes = this.textExpander.expandLine(startToken);
+        const nodes = SymbolParser.expandLine(startToken, this.symbolDetector);
         const newlineToken = this.stream.match(TokenType.NEWLINE);
         if (newlineToken) nodes.push(buildNewlineNode(newlineToken));
 
@@ -181,7 +190,7 @@ export class Parser {
                 if (node) children.push(node);
                 continue;
             }
-            children.push(...this.textExpander.expandInlineAt(token));
+            children.push(...SymbolParser.expandInlineAt(token, this.symbolDetector));
         }
 
         return children.length > 0 ? buildBlockNode(startToken, children) : null;
