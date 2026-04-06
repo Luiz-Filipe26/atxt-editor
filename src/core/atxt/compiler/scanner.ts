@@ -12,11 +12,11 @@ export class Scanner {
         this.source = source;
     }
 
-    isAtEnd(): boolean {
+    public isAtEnd(): boolean {
         return this.current >= this.source.length;
     }
 
-    advance(): string {
+    public advance(): string {
         const char = this.source[this.current++];
         if (char === "\n") {
             this.line++;
@@ -27,28 +27,28 @@ export class Scanner {
         return char;
     }
 
-    peek(): string {
+    public peek(): string {
         return this.isAtEnd() ? "\0" : this.source[this.current];
     }
 
-    check(literal: string): boolean {
+    public check(literal: string): boolean {
         if (this.current + literal.length > this.source.length) return false;
         return this.source.substring(this.current, this.current + literal.length) === literal;
     }
 
-    match(expected: string): boolean {
+    public match(expected: string): boolean {
         if (this.isAtEnd() || this.source[this.current] !== expected) return false;
         this.advance();
         return true;
     }
 
-    mark() {
+    public mark() {
         this.markStart = this.current;
         this.markLine = this.line;
         this.markColumn = this.column;
     }
 
-    getMarkedSubstring(): string {
+    public getMarkedSubstring(): string {
         return this.source.substring(this.markStart, this.current);
     }
 }

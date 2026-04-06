@@ -8,7 +8,7 @@ export class Generator {
     private cssRules: string[] = [];
     private classCounter = 0;
 
-    generate(root: IR.Block): string {
+    public generate(root: IR.Block): string {
         this.classCache.clear();
         this.cssRules = [];
         this.classCounter = 0;

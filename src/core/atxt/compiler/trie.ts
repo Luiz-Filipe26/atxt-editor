@@ -11,7 +11,7 @@ export interface TrieMatch<T> {
 export class Trie<T> {
     private root: TrieNode<T> = { children: new Map() };
 
-    insert(sequence: string, value: T): void {
+    public insert(sequence: string, value: T): void {
         let node = this.root;
         for (const char of sequence) {
             if (!node.children.has(char)) node.children.set(char, { children: new Map() });
@@ -20,7 +20,7 @@ export class Trie<T> {
         node.value = value;
     }
 
-    match(text: string, pos: number): TrieMatch<T> | null {
+    public match(text: string, pos: number): TrieMatch<T> | null {
         let node = this.root;
         let bestValue: T | null = null;
         let bestEnd = -1;

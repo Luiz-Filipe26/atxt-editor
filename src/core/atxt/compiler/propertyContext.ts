@@ -12,32 +12,32 @@ export class PropertyContext {
         }
     }
 
-    push(key: PropName, value: string): void {
+    public push(key: PropName, value: string): void {
         const stack = this.propToValueStack.get(key);
         if (stack) stack.push(value);
         else this.propToValueStack.set(key, [value]);
     }
 
-    pushMany(props: ResolvedProps): void {
+    public pushMany(props: ResolvedProps): void {
         for (const [key, value] of props) {
             this.push(key, value);
         }
     }
 
-    pop(key: PropName): void {
+    public pop(key: PropName): void {
         const stack = this.propToValueStack.get(key);
         if (!stack) return;
         stack.pop();
         if (stack.length === 0) this.propToValueStack.delete(key);
     }
 
-    popMany(props: ResolvedProps): void {
+    public popMany(props: ResolvedProps): void {
         for (const key of props.keys()) {
             this.pop(key);
         }
     }
 
-    snapshot(): ResolvedProps {
+    public snapshot(): ResolvedProps {
         const result: ResolvedProps = new Map();
         for (const [key, stack] of this.propToValueStack) {
             result.set(key, stack[stack.length - 1]);
@@ -45,7 +45,7 @@ export class PropertyContext {
         return result;
     }
 
-    snapshotWith(overrides: ResolvedProps): ResolvedProps {
+    public snapshotWith(overrides: ResolvedProps): ResolvedProps {
         const result = this.snapshot();
         for (const [key, value] of overrides) {
             result.set(key, value);
@@ -53,17 +53,17 @@ export class PropertyContext {
         return result;
     }
 
-    pushClass(className: string, classProps: ResolvedProps): void {
+    public pushClass(className: string, classProps: ResolvedProps): void {
         this.push("class", className);
         this.pushMany(classProps);
     }
 
-    popClass(classProps: ResolvedProps): void {
+    public popClass(classProps: ResolvedProps): void {
         this.popMany(classProps);
         this.pop("class");
     }
 
-    peek(key: string): string | undefined {
+    public peek(key: string): string | undefined {
         const stack = this.propToValueStack.get(key);
         return stack ? stack[stack.length - 1] : undefined;
     }

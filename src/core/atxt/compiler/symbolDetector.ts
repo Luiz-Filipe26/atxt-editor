@@ -38,13 +38,13 @@ export class SymbolDetector {
         }
     }
 
-    registerSymbol(sequence: string, type: SymbolEntry["type"], props: PropEntry[]): void {
+    public registerSymbol(sequence: string, type: SymbolEntry["type"], props: PropEntry[]): void {
         const closing = [...sequence].reverse().join("");
         if (type === "inline") this.trie.insert(sequence, { type, props, closing });
         else this.trie.insert(sequence, { type, props });
     }
 
-    detectAt(text: string, pos: number): InlineSymbolMatch | null {
+    public detectAt(text: string, pos: number): InlineSymbolMatch | null {
         const entry = this.trie.match(text, pos);
         if (entry?.value.type !== "inline") return null;
 
@@ -60,7 +60,7 @@ export class SymbolDetector {
         };
     }
 
-    detectBlockSymbol(text: string): BlockSymbolMatch | null {
+    public detectBlockSymbol(text: string): BlockSymbolMatch | null {
         const entry = this.trie.match(text, 0);
         if (entry?.value.type !== "block") return null;
         return { props: entry.value.props, symbolLength: entry.literal.length };

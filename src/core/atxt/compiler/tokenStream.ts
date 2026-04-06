@@ -8,19 +8,19 @@ export class TokenStream {
         this.tokens = tokens;
     }
 
-    peek(): Token {
+    public peek(): Token {
         return this.tokens[this.current];
     }
 
-    previous(): Token {
+    public previous(): Token {
         return this.tokens[this.current - 1];
     }
 
-    isAtEnd(): boolean {
+    public isAtEnd(): boolean {
         return this.peek().type === TokenType.EOF;
     }
 
-    advance(): Token {
+    public advance(): Token {
         /* v8 ignore next -- @preserve */
         if (this.isAtEnd()) {
             throw new Error("Invariant violation: advance() called past EOF.");
@@ -29,7 +29,7 @@ export class TokenStream {
         return this.previous();
     }
 
-    match(...types: TokenType[]): Token | null {
+    public match(...types: TokenType[]): Token | null {
         for (const type of types) {
             if (!this.isAtEnd() && this.peek().type === type) {
                 return this.advance();
@@ -38,16 +38,16 @@ export class TokenStream {
         return null;
     }
 
+    public skipWhitespaceTokens(): void {
+        while (!this.isAtEnd() && this.isBlankToken(this.peek())) {
+            this.advance();
+        }
+    }
+
     private isBlankToken(token: Token): boolean {
         return (
             token.type === TokenType.NEWLINE ||
             (token.type === TokenType.TEXT && /^[ \t]*$/.test(token.literal))
         );
-    }
-
-    skipWhitespaceTokens(): void {
-        while (!this.isAtEnd() && this.isBlankToken(this.peek())) {
-            this.advance();
-        }
     }
 }
