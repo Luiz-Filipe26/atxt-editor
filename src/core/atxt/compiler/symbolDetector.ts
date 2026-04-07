@@ -1,4 +1,5 @@
 import { BUILT_IN_SYMBOLS } from "../domain/builtInSymbols";
+import { CLOSING_CHARS } from "../domain/closingChars";
 import type { PropEntry } from "./astBuilders";
 import { Lexer } from "./lexer";
 import { Trie } from "./trie";
@@ -7,6 +8,7 @@ interface BaseEntry {
     type: string;
     props: PropEntry[];
 }
+
 interface InlineEntry extends BaseEntry {
     type: "inline";
     closing: string;
@@ -29,19 +31,58 @@ export interface InlineSymbolMatch extends BaseSymbolMatch {
     closingPos: number;
 }
 
+export type SymbolRegistrationResult = "ok" | "duplicate" | "closing-conflict" | "invalid-sequence";
+
 export class SymbolDetector {
     private trie = new Trie<SymbolEntry>();
+    private builtInSymbols = new Set<string>();
+    private registeredSymbols = new Set<string>();
+
+    private static VALID_SYMBOL_CATEGORIES = [
+        "Pc",
+        "Po",
+        "Pd",
+        "Sm",
+        "So",
+        "Sk",
+        "Ps",
+        "Pe",
+        "Pi",
+        "Pf",
+    ];
+    private static VALID_SYMBOL_PATTERN = new RegExp(
+        `^[ ${SymbolDetector.VALID_SYMBOL_CATEGORIES.map((c) => `\\p{${c}}`).join("")}]+$`,
+        "u",
+    );
+
+    private static INVALID_SYMBOL_PATTERN = /[{}]/;
 
     constructor() {
         for (const { sequence, type, props } of BUILT_IN_SYMBOLS) {
             this.registerSymbol(sequence, type, props);
+            this.builtInSymbols.add(sequence);
         }
     }
 
-    public registerSymbol(sequence: string, type: SymbolEntry["type"], props: PropEntry[]): void {
-        const closing = [...sequence].reverse().join("");
-        if (type === "inline") this.trie.insert(sequence, { type, props, closing });
-        else this.trie.insert(sequence, { type, props });
+    public registerSymbol(
+        sequence: string,
+        type: SymbolEntry["type"],
+        props: PropEntry[],
+    ): SymbolRegistrationResult {
+        const closing = this.reverse(sequence);
+        if (!this.builtInSymbols.has(sequence)) {
+            if (this.registeredSymbols.has(sequence)) return "duplicate";
+            if (this.registeredSymbols.has(closing)) return "closing-conflict";
+        }
+        if (SymbolDetector.INVALID_SYMBOL_PATTERN.test(sequence)) return "invalid-sequence";
+        if (!SymbolDetector.VALID_SYMBOL_PATTERN.test(sequence)) return "invalid-sequence";
+        if (type === "inline") {
+            this.trie.insert(sequence, { type, props, closing });
+        } else {
+            this.trie.insert(sequence, { type, props });
+        }
+        this.registeredSymbols.add(sequence);
+        return "ok";
     }
 
     public detectAt(text: string, pos: number): InlineSymbolMatch | null {
@@ -64,6 +105,13 @@ export class SymbolDetector {
         const entry = this.trie.match(text, 0);
         if (entry?.value.type !== "block") return null;
         return { props: entry.value.props, symbolLength: entry.literal.length };
+    }
+
+    private reverse(sequence: string): string {
+        return [...sequence]
+            .reverse()
+            .map((ch) => CLOSING_CHARS.get(ch) ?? ch)
+            .join("");
     }
 
     private findClosingPos(text: string, from: number, closing: string): number {

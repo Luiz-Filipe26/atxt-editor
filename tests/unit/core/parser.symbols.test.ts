@@ -169,4 +169,47 @@ describe("Parser — symbol expansion", () => {
             expect(newlines.length).toBeGreaterThanOrEqual(1);
         });
     });
+
+    describe("custom symbol registration errors", () => {
+        it("emits an error when registering a duplicate symbol", () => {
+            const { errors } = parse(
+                "[[SYMBOL symbol: ++; class: highlight]]\n" + "[[SYMBOL symbol: ++; class: other]]",
+            );
+            expect(errors).toHaveLength(1);
+            expect(errors[0].message).toContain("++");
+            expect(errors[0].message).toContain("already registered");
+        });
+
+        it("emits an error when the symbol sequence contains invalid characters", () => {
+            const { errors } = parse("[[SYMBOL symbol: aa; class: highlight]]");
+            expect(errors).toHaveLength(1);
+            expect(errors[0].message).toContain("aa");
+            expect(errors[0].message).toContain("invalid characters");
+        });
+
+        it("emits an error when the closing sequence conflicts with an existing symbol", () => {
+            const { errors } = parse(
+                "[[SYMBOL symbol: ->; class: arrow]]\n" + "[[SYMBOL symbol: <-; class: back]]",
+            );
+            expect(errors).toHaveLength(1);
+            expect(errors[0].message).toContain("<-");
+            expect(errors[0].message).toContain("conflicts");
+        });
+
+        it("a rejected symbol is not registered and does not expand", () => {
+            const { document } = parse(
+                "[[SYMBOL symbol: ++; class: highlight]]\n" +
+                "[[SYMBOL symbol: ++; class: other]]\n" +
+                "++text++",
+            );
+            const ann = annotations(document.children).filter((a) => a.directive === "NORMAL");
+            expect(ann[0].properties[0].value).toBe("highlight");
+            expect(ann).toHaveLength(2);
+        });
+
+        it("emits error at the correct source position", () => {
+            const { errors } = parse("[[SYMBOL symbol: aa; class: highlight]]");
+            expect(errors[0].line).toBe(1);
+        });
+    });
 });

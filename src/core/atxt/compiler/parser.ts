@@ -2,7 +2,7 @@ import { TokenType, type Token } from "../types/tokens";
 import { TokenStream } from "./tokenStream";
 import * as AST from "../types/ast";
 import type { CompilerError } from "../types/errors";
-import { SymbolDetector } from "./symbolDetector";
+import { SymbolDetector, type SymbolRegistrationResult } from "./symbolDetector";
 import { SymbolParser } from "./symbolParser";
 import {
     buildAnnotationNode,
@@ -120,13 +120,13 @@ export class Parser {
     }
 
     private handleSymbolDefinition(props: AST.PropertyNode[]): void {
-        let symbol: string | undefined;
+        let symbolProp: AST.PropertyNode | undefined;
         let type: string | undefined;
         const symbolProps: PropEntry[] = [];
 
         for (const prop of props) {
             if (prop.key === "symbol") {
-                symbol = prop.value;
+                symbolProp = prop;
                 continue;
             }
             if (prop.key === "type") {
@@ -136,9 +136,27 @@ export class Parser {
             symbolProps.push({ name: prop.key, value: prop.value });
         }
 
-        if (!symbol || symbolProps.length === 0) return;
+        if (!symbolProp || symbolProps.length === 0) return;
         const symbolType = type === "block" ? "block" : "inline";
-        this.symbolDetector.registerSymbol(symbol, symbolType, symbolProps);
+        const result = this.symbolDetector.registerSymbol(
+            symbolProp.value,
+            symbolType,
+            symbolProps,
+        );
+        if (result !== "ok") this.reportSymbolRegistrationError(result, symbolProp);
+    }
+
+    private reportSymbolRegistrationError(
+        result: Exclude<SymbolRegistrationResult, "ok">,
+        symbolProp: AST.PropertyNode,
+    ): void {
+        const messages = {
+            duplicate: `Symbol '${symbolProp.value}' is already registered.`,
+            "closing-conflict": `The closing sequence of '${symbolProp.value}' conflicts with an existing symbol.`,
+            "invalid-sequence": `'${symbolProp.value}' contains invalid characters for a symbol sequence.`,
+        };
+        const message = messages[result];
+        this.pushError(message, symbolProp);
     }
 
     private parseBlock(blockToken: Token): AST.BlockNode {
