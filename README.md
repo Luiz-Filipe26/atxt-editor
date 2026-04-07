@@ -1,6 +1,8 @@
 # ATXT — Annotated Text
 
-ATXT is a document protocol. Its canonical form is a plain-text file that compiles to HTML, PDF, and DOCX through pluggable output generators.
+[**Open ATXT Studio (Live Demo)**](https://luiz-filipe26.github.io/atxt-editor/)
+
+ATXT is a document protocol with a live reference implementation available directly in the browser. Its canonical form is a plain-text file that compiles to HTML, PDF, and DOCX through pluggable output generators.
 
 It occupies the space between Markdown (too limited for rich documents) and DOCX (opaque, binary, undiffable). An `.atxt` file is human-readable, Git-diffable, and expressive enough to produce corporate-grade documents.
 
@@ -76,18 +78,29 @@ An `.atz` file is a ZIP archive containing a `main.atxt` document alongside its 
 
 ---
 
-## Getting started
+## Interactive Playground
 
-The project uses **Vite** and **TypeScript**.
+The ATXT Studio is a reference implementation of the compiler pipeline running entirely client-side.
+
+[**Open ATXT Studio (Live Demo)**](https://luiz-filipe26.github.io/atxt-editor/)
+
+This lightweight static application serves as a visual debugger for the full compilation stack:
+- **Compiler Transparency:** Real-time inspection of Lexer Tokens, AST, and IR via browser Developer Tools (Console).
+- **Visual Source Mapping:** Double-click any rendered element to resolve its exact line and column in the source editor.
+- **Real-time Rendering:** Side-by-side preview with sub-100ms compilation debounce.
+- **Canonical Export:** Serialization of the current IR into a normalized `.atxt` file.
+- **Local Persistence:** Automatic draft caching via `localStorage`.
+
+---
+
+## Local Development
+
+To compile `.atxt` files locally or contribute to the core compiler, you can set up the development environment. The project uses **Vite** and **TypeScript**.
 
 ```bash
 npm install
 npm run dev
 ```
-
-This starts the ATXT Studio — a live editor with real-time preview and AST inspection in the console.
-
----
 
 ## Status
 
