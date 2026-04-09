@@ -15,11 +15,18 @@ export interface HydrateResult {
     errors: CompilerError[];
 }
 
+interface TransformBlockArgs {
+    node: AST.BlockNode;
+    blockProps: IR.ResolvedProps;
+    activeProps: IR.ResolvedProps;
+    classes?: string[];
+    ownProps?: IR.ResolvedProps;
+}
+
 export class Hydrator {
     private compilerErrors: CompilerError[] = [];
     private propertyResolver: PropertyResolver;
     private nodeMap: Map<string, IR.Node> = new Map();
-    private idCounter = 0;
 
     private constructor() {
         this.propertyResolver = new PropertyResolver(this.pushError.bind(this));
@@ -30,11 +37,6 @@ export class Hydrator {
     }
 
     private hydrate(document: AST.DocumentNode): HydrateResult {
-        this.compilerErrors = [];
-        this.propertyResolver.reset();
-        this.nodeMap = new Map();
-        this.idCounter = 0;
-
         const rootBlock = this.register(
             buildBlockNode({
                 source: document,
@@ -43,7 +45,6 @@ export class Hydrator {
                 children: this.transformNodeList(document.children, COMPILER_DEFAULTS),
             }),
         );
-
         return {
             document: {
                 root: rootBlock,
@@ -55,7 +56,7 @@ export class Hydrator {
     }
 
     private nextId(): string {
-        return (this.idCounter++).toString(36);
+        return crypto.randomUUID();
     }
 
     private register<T extends IR.Node>(node: T): T {
@@ -84,17 +85,20 @@ export class Hydrator {
             }
 
             switch (node.directive) {
-                case "SET":
-                    const blockWrapper = this.processSetDirective(node, nodes, i, propertyContext);
-                    output.push(blockWrapper);
+                case "SET": {
+                    output.push(
+                        this.processSetDirective(node, nodes.slice(i + 1), propertyContext),
+                    );
                     return output;
+                }
                 case "DEFINE":
                     this.propertyResolver.defineClass(node);
                     break;
-                case "NORMAL":
+                case "NORMAL": {
                     const normalNode = this.processNormalDirective(node, propertyContext);
                     if (normalNode) output.push(normalNode);
                     break;
+                }
             }
         }
 
@@ -103,8 +107,7 @@ export class Hydrator {
 
     private processSetDirective(
         annotation: AST.AnnotationNode,
-        allNodes: AST.BlockContentNode[],
-        currentIndex: number,
+        remainingSiblings: AST.BlockContentNode[],
         propertyContext: PropertyContext,
     ): IR.Block {
         /* v8 ignore start -- @preserve */
@@ -112,19 +115,18 @@ export class Hydrator {
             this.pushError("Invariant violation: SET directive received a target.", annotation);
         }
         /* v8 ignore stop -- @preserve */
-        const annotationResult = this.propertyResolver.resolveProperties(annotation.properties);
-        const { blockProps, inlineProps } = this.propertyResolver.routePropertiesByScope(
-            annotationResult.props,
+        const { props, classes, ownProps } = this.propertyResolver.resolveProperties(
+            annotation.properties,
         );
-        const remainingSiblings = allNodes.slice(currentIndex + 1);
+        const { blockProps, inlineProps } = this.propertyResolver.partitionByScope(props);
 
         return this.register(
             buildBlockNode({
                 source: annotation,
                 id: this.nextId(),
                 props: blockProps,
-                classes: annotationResult.classes,
-                ownProps: annotationResult.ownProps,
+                classes,
+                ownProps,
                 children: this.transformNodeList(
                     remainingSiblings,
                     propertyContext.snapshotWith(inlineProps),
@@ -137,52 +139,64 @@ export class Hydrator {
         annotation: AST.AnnotationNode,
         propertyContext: PropertyContext,
     ): IR.Node | null {
-        const annotationResult = this.propertyResolver.resolveProperties(annotation.properties);
-
-        for (const prop of annotation.properties) {
-            if (prop.key === "class") {
-                if (prop.toggle === "plus") {
-                    const classProps = this.propertyResolver.resolveClass(prop.value);
-                    if (classProps) propertyContext.pushClass(prop.value, classProps);
-                } else if (prop.toggle === "minus") {
-                    const className = propertyContext.peek("class");
-                    if (!className) {
-                        this.pushError(
-                            "'-class' toggle has no matching '+class' in the current scope.",
-                            prop,
-                        );
-                        continue;
-                    }
-                    const classProps = this.propertyResolver.resolveClass(className);
-                    /* v8 ignore next -- @preserve */
-                    if (!classProps)
-                        throw new Error(
-                            `Invariant violation: class '${className}' in PropertyContext but not in registry.`,
-                        );
-                    propertyContext.popClass(classProps);
-                }
-                continue;
-            }
-
-            if (prop.toggle === "minus") {
-                propertyContext.pop(prop.key);
-            } else if (prop.toggle === "plus" && annotationResult.props.has(prop.key)) {
-                propertyContext.push(prop.key, annotationResult.props.get(prop.key)!);
-            }
-        }
+        const { props, classes, ownProps } = this.propertyResolver.resolveProperties(
+            annotation.properties,
+        );
+        this.applyTogglesToContext(annotation.properties, props, propertyContext);
 
         if (!annotation.target) return null;
 
-        const activeProps = propertyContext.snapshotWith(annotationResult.props);
-        const { blockProps } = this.propertyResolver.routePropertiesByScope(activeProps);
+        const activeProps = propertyContext.snapshotWith(props);
+        const { blockProps } = this.propertyResolver.partitionByScope(activeProps);
 
-        return this.transformBlockNode(
-            annotation.target,
+        return this.transformBlockNode({
+            node: annotation.target,
             blockProps,
             activeProps,
-            annotationResult.classes,
-            annotationResult.ownProps,
-        );
+            classes,
+            ownProps,
+        });
+    }
+
+    private applyTogglesToContext(
+        properties: AST.PropertyNode[],
+        resolvedProps: IR.ResolvedProps,
+        propertyContext: PropertyContext,
+    ): void {
+        for (const prop of properties) {
+            if (prop.key === "class") {
+                this.applyClassToggle(prop, propertyContext);
+                continue;
+            }
+            if (prop.toggle === "minus") {
+                propertyContext.pop(prop.key);
+            } else if (prop.toggle === "plus" && resolvedProps.has(prop.key)) {
+                propertyContext.push(prop.key, resolvedProps.get(prop.key)!);
+            }
+        }
+    }
+
+    private applyClassToggle(prop: AST.PropertyNode, propertyContext: PropertyContext): void {
+        if (prop.toggle === "plus") {
+            const classProps = this.propertyResolver.resolveClass(prop.value);
+            if (classProps) propertyContext.pushClass(prop.value, classProps);
+        } else if (prop.toggle === "minus") {
+            const className = propertyContext.peek("class");
+            if (!className) {
+                this.pushError(
+                    "'-class' toggle has no matching '+class' in the current scope.",
+                    prop,
+                );
+                return;
+            }
+            const classProps = this.propertyResolver.resolveClass(className);
+            /* v8 ignore next -- @preserve */
+            if (!classProps)
+                throw new Error(
+                    `Invariant violation: class '${className}' in PropertyContext but not in registry.`,
+                );
+            propertyContext.popClass(classProps);
+        }
     }
 
     private transformBareNode(
@@ -190,29 +204,24 @@ export class Hydrator {
         propertyContext: PropertyContext,
     ): IR.Node {
         const activeProps = propertyContext.snapshot();
-        const { blockProps, inlineProps } =
-            this.propertyResolver.routePropertiesByScope(activeProps);
+        const { blockProps, inlineProps } = this.propertyResolver.partitionByScope(activeProps);
 
         switch (node.type) {
             case AST.NodeType.BLOCK:
-                return this.transformBlockNode(node, blockProps, activeProps);
+                return this.transformBlockNode({ node, blockProps, activeProps });
             case AST.NodeType.TEXT:
                 return this.register(buildTextNode(node, this.nextId(), inlineProps, node.content));
         }
     }
 
-    private transformBlockNode(
-        node: AST.BlockNode,
-        blockProps: IR.ResolvedProps,
-        activeProps: IR.ResolvedProps,
-        classes: string[] = [],
-        directProps: IR.ResolvedProps = new Map(),
-    ): IR.Block {
+    private transformBlockNode(args: TransformBlockArgs): IR.Block {
+        const { node, blockProps, activeProps, classes, ownProps } = args;
         const { inlineProps: propsForChildren } =
-            this.propertyResolver.routePropertiesByScope(activeProps);
+            this.propertyResolver.partitionByScope(activeProps);
         const children = this.transformNodeList(node.children, propsForChildren);
 
-        this.resolveKind(blockProps, children, node);
+        const kind = this.resolveKind(blockProps, children, node);
+        if (kind) blockProps.set("kind", kind);
 
         return this.register(
             buildBlockNode({
@@ -220,7 +229,7 @@ export class Hydrator {
                 id: this.nextId(),
                 props: blockProps,
                 classes,
-                ownProps: directProps,
+                ownProps,
                 children,
             }),
         );
@@ -230,8 +239,8 @@ export class Hydrator {
         blockProps: IR.ResolvedProps,
         children: IR.Node[],
         node: AST.BlockNode,
-    ): void {
-        if (children.length === 0) return;
+    ): string | null {
+        if (children.length === 0) return null;
 
         const isLeaf = children.every((c) => c.type === "TEXT" || c.type === "NEWLINE");
         const explicitKind = blockProps.get("kind");
@@ -240,7 +249,7 @@ export class Hydrator {
             const isContainer = [...blockProps.keys()].some(
                 (key) => getPropertyDefinition(key)?.container === true,
             );
-            if (isLeaf && !isContainer) blockProps.set("kind", "paragraph");
+            if (isLeaf && !isContainer) return "paragraph";
         }
 
         const kindDef = explicitKind ? getKindDefinition(explicitKind) : null;
@@ -250,6 +259,8 @@ export class Hydrator {
                 node,
             );
         }
+
+        return null;
     }
 
     private pushError(message: string, source: { line: number; column: number }) {

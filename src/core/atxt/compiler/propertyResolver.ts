@@ -9,6 +9,11 @@ export interface ResolvedResult {
     ownProps: IR.ResolvedProps;
 }
 
+export interface ScopePartition {
+    blockProps: IR.ResolvedProps;
+    inlineProps: IR.ResolvedProps;
+}
+
 type ErrorCallback = (message: string, source: SourceLocation) => void;
 
 export class PropertyResolver {
@@ -62,18 +67,18 @@ export class PropertyResolver {
         return { props, classes, ownProps };
     }
 
-    public routePropertiesByScope(props: IR.ResolvedProps): {
-        blockProps: IR.ResolvedProps;
-        inlineProps: IR.ResolvedProps;
-    } {
+    public partitionByScope(props: IR.ResolvedProps): ScopePartition {
         const blockProps: IR.ResolvedProps = new Map();
         const inlineProps: IR.ResolvedProps = new Map();
 
         for (const [key, value] of props) {
             const propDef = getPropertyDefinition(key);
             if (!propDef) continue;
-            if (propDef.scope === "block") blockProps.set(key, value);
-            else inlineProps.set(key, value);
+            if (propDef.scope === "block") {
+                blockProps.set(key, value);
+            } else {
+                inlineProps.set(key, value);
+            }
         }
 
         return { blockProps, inlineProps };
@@ -127,16 +132,16 @@ export class PropertyResolver {
                 this.pushError(`Warning: Class '${cls}' not found.`, classProp);
                 continue;
             }
-            for (const [k, v] of classProps) {
-                props.set(k, v);
+            for (const [key, value] of classProps) {
+                props.set(key, value);
             }
         }
     }
 
     private applyOwnProperties(props: IR.ResolvedProps, properties: AST.PropertyNode[]): void {
         for (const prop of properties) {
-            const isAlreadyHandled = prop.key === "class" || prop.toggle === "minus";
-            if (isAlreadyHandled) continue;
+            const isNotOwnProperty = prop.key === "class" || prop.toggle === "minus";
+            if (isNotOwnProperty) continue;
 
             const propertyDef = getPropertyDefinition(prop.key);
             if (!propertyDef) {

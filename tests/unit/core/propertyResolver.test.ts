@@ -287,7 +287,7 @@ describe("PropertyResolver", () => {
     describe("routePropertiesByScope", () => {
         it("routes all block properties to blockProps", () => {
             const { resolver } = makeResolver();
-            const { blockProps, inlineProps } = resolver.routePropertiesByScope(
+            const { blockProps, inlineProps } = resolver.partitionByScope(
                 toMap({
                     fill: "#ccc",
                     align: "center",
@@ -306,7 +306,7 @@ describe("PropertyResolver", () => {
 
         it("routes all inline properties to inlineProps", () => {
             const { resolver } = makeResolver();
-            const { blockProps, inlineProps } = resolver.routePropertiesByScope(
+            const { blockProps, inlineProps } = resolver.partitionByScope(
                 toMap({
                     color: "red",
                     size: "16",
@@ -319,7 +319,7 @@ describe("PropertyResolver", () => {
 
         it("splits a mixed set of properties into the correct buckets", () => {
             const { resolver } = makeResolver();
-            const { blockProps, inlineProps } = resolver.routePropertiesByScope(
+            const { blockProps, inlineProps } = resolver.partitionByScope(
                 toMap({
                     fill: "#ccc",
                     color: "red",
@@ -333,7 +333,7 @@ describe("PropertyResolver", () => {
 
         it("silently drops properties that are not in the registry", () => {
             const { resolver } = makeResolver();
-            const { blockProps, inlineProps } = resolver.routePropertiesByScope(
+            const { blockProps, inlineProps } = resolver.partitionByScope(
                 toMap({
                     unknown: "value",
                 }),
@@ -344,7 +344,7 @@ describe("PropertyResolver", () => {
 
         it("returns empty buckets for an empty input", () => {
             const { resolver } = makeResolver();
-            expect(resolver.routePropertiesByScope(toMap({}))).toEqual({
+            expect(resolver.partitionByScope(toMap({}))).toEqual({
                 blockProps: toMap({}),
                 inlineProps: toMap({}),
             });
