@@ -38,24 +38,13 @@ export class SymbolDetector {
     private builtInSymbols = new Set<string>();
     private registeredSymbols = new Set<string>();
 
-    private static VALID_SYMBOL_CATEGORIES = [
-        "Pc",
-        "Po",
-        "Pd",
-        "Sm",
-        "So",
-        "Sk",
-        "Ps",
-        "Pe",
-        "Pi",
-        "Pf",
-    ];
+    private static VALID_SYMBOL_CATEGORIES = "Pc/Po/Pd/Sm/So/Sk/Ps/Pe/Pi/Pf".split("/");
     private static VALID_SYMBOL_PATTERN = new RegExp(
         `^[ ${SymbolDetector.VALID_SYMBOL_CATEGORIES.map((c) => `\\p{${c}}`).join("")}]+$`,
         "u",
     );
 
-    private static INVALID_SYMBOL_PATTERN = /[{}]/;
+    private static INVALID_SYMBOL_PATTERN = /[{}\[\]]/;
 
     constructor() {
         for (const { sequence, type, props } of BUILT_IN_SYMBOLS) {
