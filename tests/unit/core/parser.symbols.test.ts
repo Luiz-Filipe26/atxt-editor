@@ -211,5 +211,12 @@ describe("Parser — symbol expansion", () => {
             const { errors } = parse("[[SYMBOL symbol: aa; class: highlight]]");
             expect(errors[0].line).toBe(1);
         });
+
+        it("emits an error when the symbol sequence contains structurally reserved characters", () => {
+            const { errors } = parse("[[SYMBOL symbol: {; class: highlight]]");
+            expect(errors).toHaveLength(1);
+            expect(errors[0].message).toContain("{");
+            expect(errors[0].message).toContain("invalid characters");
+        });
     });
 });
