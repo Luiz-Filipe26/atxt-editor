@@ -19,7 +19,7 @@ const KIND_REGISTRY: Record<string, KindDefinition> = {
     heading5: { leafCompatible: true },
     code: { leafCompatible: true },
     item: { leafCompatible: true },
-    quote: { leafCompatible: false },
+    quote: { leafCompatible: true },
     list: { leafCompatible: false },
     "ordered-list": { leafCompatible: false },
     aside: { leafCompatible: false },
@@ -35,11 +35,11 @@ export function getKindDefinition(kind: string): KindDefinition | null {
 
 export const COMPILER_DEFAULTS = new Map([["size", "16"]]);
 
-const isNumber = (val: string) => /^-?\d+$/.test(val);
+const isNonNegativeInteger = (val: string) => /^\d+$/.test(val);
+
+const isPositiveInteger = (val: string) => /^\d+$/.test(val) && parseInt(val, 10) > 0;
 
 const isPositiveNumber = (val: string) => /^\d+(\.\d+)?$/.test(val) && parseFloat(val) > 0;
-
-const isNonNegativeInteger = (val: string) => /^\d+$/.test(val);
 
 const isCssColor = (val: string): boolean => {
     const v = val.trim();
@@ -54,7 +54,16 @@ const isCssColor = (val: string): boolean => {
 
 const isCssBorder = (val: string): boolean => /^[a-zA-Z0-9#%.\-\s]+$/.test(val.trim());
 
-const isFontFamily = (val: string): boolean => /^[a-zA-Z0-9\s,'\-]+$/.test(val.trim());
+const isFontFamily = (val: string): boolean => {
+    const v = val.trim();
+    if (v.length === 0) return false;
+    return !/[();]|url\s*\(|expression\s*\(|javascript\s*:/i.test(v);
+};
+
+const isSizeShorthand = (val: string): boolean => {
+    const parts = val.trim().split(/\s+/);
+    return parts.length >= 1 && parts.length <= 4 && parts.every(isNonNegativeInteger);
+};
 
 const PROPERTY_REGISTRY: Record<string, PropertyDefinition> = {
     hidden: {
@@ -64,21 +73,13 @@ const PROPERTY_REGISTRY: Record<string, PropertyDefinition> = {
     },
     kind: { scope: "block", container: false, validate: (v) => getKindDefinition(v) !== null },
     fill: { scope: "block", container: true, validate: isCssColor },
-    radius: { scope: "block", container: true, validate: isNumber },
+    radius: { scope: "block", container: true, validate: isPositiveInteger },
     indent: { scope: "block", container: false, validate: isNonNegativeInteger },
-    padding: {
-        scope: "block",
-        container: true,
-        validate: (val) => val.trim().split(/\s+/).every(isNumber),
-    },
-    margin: {
-        scope: "block",
-        container: true,
-        validate: (val) => val.trim().split(/\s+/).every(isNumber),
-    },
+    padding: { scope: "block", container: true, validate: isSizeShorthand },
+    margin: { scope: "block", container: true, validate: isSizeShorthand },
     border: { scope: "block", container: true, validate: isCssBorder },
-    width: { scope: "block", container: true, validate: isNumber },
-    height: { scope: "block", container: true, validate: isNumber },
+    width: { scope: "block", container: true, validate: isPositiveInteger },
+    height: { scope: "block", container: true, validate: isPositiveInteger },
     align: {
         scope: "block",
         container: false,

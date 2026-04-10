@@ -68,15 +68,14 @@ describe("getPropertyDefinition", () => {
     });
 
     describe("radius, width, height — any integer", () => {
-        it.each(["radius", "width", "height"])(
-            "%s accepts integers including zero and negatives",
-            (key) => {
-                const { validate } = getPropertyDefinition(key)!;
-                expect(validate("0")).toBe(true);
-                expect(validate("10")).toBe(true);
-                expect(validate("-5")).toBe(true);
-            },
-        );
+        it.each(["radius", "width", "height"])("%s accepts positive integers only", (key) => {
+            const { validate } = getPropertyDefinition(key)!;
+            expect(validate("1")).toBe(true);
+            expect(validate("10")).toBe(true);
+            expect(validate("0")).toBe(false);
+            expect(validate("-5")).toBe(false);
+            expect(validate("1.5")).toBe(false);
+        });
 
         it.each(["radius", "width", "height"])(
             "%s rejects decimals, units, and non-numbers",
