@@ -22,5 +22,5 @@ export function compileToIR(source: string): compileResult {
 }
 
 export function compileToHTML(source: string) {
-    return new Generator().generate(compileToIR(source).ir.root);
+    return Generator.generate(compileToIR(source).ir.root);
 }

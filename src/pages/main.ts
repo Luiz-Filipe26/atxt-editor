@@ -33,8 +33,7 @@ function runCompiler(source: string) {
         if (hydratorErrors.length) console.error("Hydrator Errors:", hydratorErrors);
         console.groupEnd();
 
-        const generator = new Atxt.Generator();
-        const finalHtml = generator.generate(irDocument.root);
+        const finalHtml = Atxt.Generator.generate(irDocument.root);
         console.groupCollapsed("4. Generator Output");
         console.log(finalHtml);
         console.groupEnd();

@@ -48,7 +48,7 @@ function makeText(
 }
 
 function generate(root: IR.Block): string {
-    return new Generator().generate(root);
+    return Generator.generate(root);
 }
 
 describe("Generator", () => {
@@ -129,7 +129,7 @@ describe("Generator", () => {
             const newline: IR.Newline = { id: "n0", type: "NEWLINE" };
             const leaf = makeBlock({ kind: "paragraph" }, [makeText("a"), newline, makeText("b")]);
             const root = makeBlock({}, [leaf]);
-            const html = new Generator().generate(root);
+            const html = generate(root);
             expect(html).toMatch(/>a<\/span><br>/);
         });
 
@@ -137,7 +137,7 @@ describe("Generator", () => {
             const newline: IR.Newline = { id: "n0", type: "NEWLINE" };
             const inner = makeBlock({ kind: "paragraph" }, [makeText("text")]);
             const root = makeBlock({}, [inner, newline]);
-            const html = new Generator().generate(root);
+            const html = generate(root);
             expect(html).not.toContain('data-id="n0"');
         });
     });
