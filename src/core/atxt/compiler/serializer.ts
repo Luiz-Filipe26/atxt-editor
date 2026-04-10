@@ -1,15 +1,16 @@
 import * as IR from "../types/ir";
+import { sortedMapEntries } from "../utils/mapUtils";
 
 const INDENT_SIZE = 4;
 const INDENT_UNIT = " ".repeat(INDENT_SIZE);
 
-export function serialize(doc: IR.IRDocument): string {
+export function serialize(document: IR.IRDocument): string {
     const lines: string[] = [];
 
-    const definitions = serializeClassDefinitions(doc.classDefinitions);
+    const definitions = serializeClassDefinitions(document.classDefinitions);
     if (definitions.length > 0) lines.push(...definitions, "");
 
-    serializeChildren(doc.root.children, lines, 0);
+    serializeChildren(document.root.children, lines, 0);
 
     return lines.join("\n");
 }
@@ -17,14 +18,10 @@ export function serialize(doc: IR.IRDocument): string {
 function serializeClassDefinitions(classDefinitions: Map<string, IR.ResolvedProps>): string[] {
     return sortedMapEntries(classDefinitions).map(([name, props]) => {
         const propList = sortedMapEntries(props)
-            .map(([k, v]) => `${k}: ${v}`)
+            .map(([key, value]) => `${key}: ${value}`)
             .join("; ");
         return `[[DEFINE class: ${name}; ${propList}]]`;
     });
-}
-
-function sortedMapEntries<T>(map: Map<string, T>): [string, T][] {
-    return [...map.entries()].sort(([a], [b]) => a.localeCompare(b));
 }
 
 function serializeChildren(nodes: IR.Node[], lines: string[], depth: number): void {
@@ -53,22 +50,11 @@ function serializeBlock(block: IR.Block, lines: string[], depth: number): void {
     if (block.children.length === 0) return;
 
     const annotation = buildBlockAnnotation(block);
-    const isLeaf = block.children.every((c) => c.type === "TEXT" || c.type === "NEWLINE");
+    const prefix = indent(depth);
 
-    const header = annotation ? `${indent(depth)}${annotation} {` : `${indent(depth)}{`;
-    lines.push(header);
-    serializeBlockContent(block.children, isLeaf, lines, depth + 1);
-    lines.push(`${indent(depth)}}`);
-}
-
-function serializeBlockContent(
-    children: IR.Node[],
-    isLeaf: boolean,
-    lines: string[],
-    depth: number,
-): void {
-    if (isLeaf) serializeTextRun(children as (IR.Text | IR.Newline)[], lines, indent(depth));
-    else serializeChildren(children, lines, depth);
+    lines.push(annotation ? `${prefix}${annotation} {` : `${prefix}{`);
+    serializeChildren(block.children, lines, depth + 1);
+    lines.push(`${prefix}}`);
 }
 
 function buildBlockAnnotation(block: IR.Block): string | null {
@@ -78,26 +64,22 @@ function buildBlockAnnotation(block: IR.Block): string | null {
         parts.push(`class: ${block.classes.join(" ")}`);
     }
 
-    for (const [k, v] of sortedMapEntries(block.ownProps)) {
-        parts.push(`${k}: ${v}`);
+    for (const [key, value] of sortedMapEntries(block.ownProps)) {
+        parts.push(`${key}: ${value}`);
     }
 
     if (parts.length === 0) return null;
     return `[[${parts.join("; ")}]]`;
 }
 
-function serializeTextRun(
-    nodes: (IR.Text | IR.Newline)[],
-    lines: string[],
-    baseIndent: string,
-): void {
-    let prevProps: IR.ResolvedProps = new Map();
+function serializeTextRun(nodes: IR.Node[], lines: string[], baseIndent: string): void {
+    let prevProps: IR.ResolvedProps | null = null;
     let lineBuffer = baseIndent;
 
     const flushLine = () => {
         lines.push(lineBuffer === baseIndent ? "" : lineBuffer);
         lineBuffer = baseIndent;
-        prevProps = new Map();
+        prevProps = null;
     };
 
     for (const node of nodes) {
@@ -105,6 +87,8 @@ function serializeTextRun(
             flushLine();
             continue;
         }
+        /* v8 ignore next -- @preserve */
+        if (node.type !== "TEXT") continue;
         const toggles = buildToggles(prevProps, node.props);
         if (toggles) lineBuffer += toggles;
         lineBuffer += node.content;
@@ -114,16 +98,18 @@ function serializeTextRun(
     if (lineBuffer !== baseIndent) lines.push(lineBuffer);
 }
 
-function buildToggles(prev: IR.ResolvedProps, next: IR.ResolvedProps): string | null {
+function buildToggles(prev: IR.ResolvedProps | null, next: IR.ResolvedProps): string | null {
     const added: string[] = [];
     const removed: string[] = [];
 
-    for (const [k, v] of sortedMapEntries(next)) {
-        if (prev.get(k) !== v) added.push(`+${k}: ${v}`);
+    for (const [key, value] of sortedMapEntries(next)) {
+        if (prev?.get(key) !== value) added.push(`+${key}: ${value}`);
     }
 
-    for (const [k] of sortedMapEntries(prev)) {
-        if (!next.has(k)) removed.push(`-${k}`);
+    if (prev) {
+        for (const [key] of sortedMapEntries(prev)) {
+            if (!next.has(key)) removed.push(`-${key}`);
+        }
     }
 
     const parts = [...added, ...removed];
