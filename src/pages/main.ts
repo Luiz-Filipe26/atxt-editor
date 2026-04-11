@@ -68,7 +68,7 @@ const handleInput = debounce(() => {
     runCompiler(value);
 }, COMPILE_DEBOUNCE_TIME);
 
-const initialContent = localStorage.getItem(STORAGE_KEY) || atxtExample;
+const initialContent = (localStorage.getItem(STORAGE_KEY) || atxtExample).replace(/\n$/, "");
 inputEl.value = initialContent;
 inputEl.addEventListener("input", handleInput);
 

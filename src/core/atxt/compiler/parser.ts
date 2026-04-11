@@ -160,7 +160,7 @@ export class Parser {
     }
 
     private parseBlock(blockToken: Token): AST.BlockNode {
-        this.stream.skipWhitespaceTokens();
+        this.stream.match(TokenType.NEWLINE);
 
         const children: AST.BlockContentNode[] = [];
         while (!this.stream.isAtEnd() && this.stream.peek().type !== TokenType.BLOCK_CLOSE) {
