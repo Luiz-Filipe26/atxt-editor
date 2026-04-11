@@ -279,14 +279,13 @@ describe("Parser", () => {
     });
 
     describe("block separation", () => {
-        it("enforces a single synthetic newline between a block and subsequent inline text", () => {
+        it("does not insert a synthetic newline between an anonymous block and subsequent inline text", () => {
             const { document, errors } = parse("{\nTexto 1\n} Texto2");
             expect(errors).toHaveLength(0);
-            expect(document.children).toHaveLength(3);
+            expect(document.children).toHaveLength(2);
             expect(document.children[0].type).toBe(NodeType.BLOCK);
-            expect(document.children[1].type).toBe(NodeType.NEWLINE);
-            expect(document.children[2].type).toBe(NodeType.TEXT);
-            expect((document.children[2] as AST.TextNode).content).toBe(" Texto2");
+            expect(document.children[1].type).toBe(NodeType.TEXT);
+            expect((document.children[1] as AST.TextNode).content).toBe(" Texto2");
         });
 
         it("does not duplicate newlines when a block is already followed by a newline", () => {

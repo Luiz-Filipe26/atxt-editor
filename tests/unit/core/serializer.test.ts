@@ -85,14 +85,6 @@ describe("Serializer", () => {
                 "[[DEFINE class: heading; kind: heading1; size: 24; weight: bold]]",
             );
         });
-
-        it("separates definitions from document body with a blank line", () => {
-            const doc = makeDoc([makeBlock({}, [makeText("Hello")])], { note: { color: "gray" } });
-            const lines = serialize(doc).split("\n");
-            const defLine = lines.findIndex((l) => l.startsWith("[[DEFINE"));
-            const blankLine = lines[defLine + 1];
-            expect(blankLine).toBe("");
-        });
     });
 
     describe("annotated blocks", () => {

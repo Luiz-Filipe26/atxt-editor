@@ -8,7 +8,8 @@ import { PropertyContext } from "./propertyContext";
 import * as AST from "../types/ast";
 import * as IR from "../types/ir";
 import type { CompilerError } from "../types/errors";
-import { buildBlockNode, buildTextNode, buildNewlineNode } from "./irBuilders";
+import { buildBlockNode, buildTextNode, buildNewlineNode, type BuildBlockArgs } from "./irBuilders";
+import type { SourceLocation } from "../types/location";
 
 export interface HydrateResult {
     document: IR.IRDocument;
@@ -110,29 +111,28 @@ export class Hydrator {
         remainingSiblings: AST.BlockContentNode[],
         propertyContext: PropertyContext,
     ): IR.Block {
-        /* v8 ignore start -- @preserve */
-        if (annotation.target !== null) {
-            this.pushError("Invariant violation: SET directive received a target.", annotation);
-        }
-        /* v8 ignore stop -- @preserve */
         const { props, classes, ownProps } = this.propertyResolver.resolveProperties(
             annotation.properties,
         );
         const { blockProps, inlineProps } = this.propertyResolver.partitionByScope(props);
-
-        return this.register(
-            buildBlockNode({
-                source: annotation,
-                id: this.nextId(),
-                props: blockProps,
-                classes,
-                ownProps,
-                children: this.transformNodeList(
-                    remainingSiblings,
-                    propertyContext.snapshotWith(inlineProps),
-                ),
-            }),
+        const children = this.transformNodeList(
+            remainingSiblings,
+            propertyContext.snapshotWith(inlineProps),
         );
+
+        return this.finalizeBlock({
+            source: annotation,
+            props: blockProps,
+            classes,
+            ownProps,
+            children,
+        });
+    }
+
+    private finalizeBlock(args: Omit<BuildBlockArgs, "id">): IR.Block {
+        const kind = this.resolveKind(args.props, args.children, args.source);
+        if (kind) args.props.set("kind", kind);
+        return this.register(buildBlockNode({ ...args, id: this.nextId() }));
     }
 
     private processNormalDirective(
@@ -220,25 +220,13 @@ export class Hydrator {
             this.propertyResolver.partitionByScope(activeProps);
         const children = this.transformNodeList(node.children, propsForChildren);
 
-        const kind = this.resolveKind(blockProps, children, node);
-        if (kind) blockProps.set("kind", kind);
-
-        return this.register(
-            buildBlockNode({
-                source: node,
-                id: this.nextId(),
-                props: blockProps,
-                classes,
-                ownProps,
-                children,
-            }),
-        );
+        return this.finalizeBlock({ source: node, props: blockProps, classes, ownProps, children });
     }
 
     private resolveKind(
         blockProps: IR.ResolvedProps,
         children: IR.Node[],
-        node: AST.BlockNode,
+        source: SourceLocation,
     ): string | null {
         if (children.length === 0) return null;
 
@@ -256,7 +244,7 @@ export class Hydrator {
         if (kindDef && kindDef.leafCompatible && !isLeaf) {
             this.pushError(
                 `kind '${explicitKind}' is only valid on leaf blocks but contains child blocks.`,
-                node,
+                source,
             );
         }
 

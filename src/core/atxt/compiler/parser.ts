@@ -63,7 +63,7 @@ export class Parser {
             case TokenType.ANNOTATION_OPEN:
                 return this.handleAnnotationNewline(this.parseAnnotation(token));
             case TokenType.BLOCK_OPEN:
-                return this.enforceBlockSeparation([this.parseBlock(token)]);
+                return [this.parseBlock(token)];
             case TokenType.NEWLINE:
                 return [buildNewlineNode(token)];
             case TokenType.TEXT:
@@ -88,14 +88,14 @@ export class Parser {
             this.stream.match(TokenType.NEWLINE);
             return [node];
         }
-        return this.enforceBlockSeparation([node]);
+        return this.enforceBlockSeparation(node);
     }
 
-    private enforceBlockSeparation(nodes: AST.BlockContentNode[]): AST.BlockContentNode[] {
+    private enforceBlockSeparation(node: AST.BlockContentNode): AST.BlockContentNode[] {
         const nextToken = this.stream.peek();
         if (!Parser.BLOCK_BOUNDARY_TOKENS.has(nextToken.type))
-            nodes.push(buildNewlineNode(nextToken));
-        return nodes;
+            return [node, buildNewlineNode(nextToken)];
+        return [node];
     }
 
     private parseAnnotation(openingToken: Token): AST.AnnotationNode | null {

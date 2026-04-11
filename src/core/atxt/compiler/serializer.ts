@@ -8,7 +8,7 @@ export function serialize(document: IR.IRDocument): string {
     const lines: string[] = [];
 
     const definitions = serializeClassDefinitions(document.classDefinitions);
-    if (definitions.length > 0) lines.push(...definitions, "");
+    if (definitions.length > 0) lines.push(...definitions);
 
     serializeChildren(document.root.children, lines, 0);
 
@@ -34,12 +34,14 @@ function serializeChildren(nodes: IR.Node[], lines: string[], depth: number): vo
         }
     };
 
-    for (const node of nodes) {
+    for (let i = 0; i < nodes.length; i++) {
+        const node = nodes[i];
         if (node.type === "TEXT" || node.type === "NEWLINE") {
             run.push(node);
         } else {
             flushRun();
             serializeBlock(node, lines, depth);
+            if (nodes[i + 1]?.type === "NEWLINE") i++;
         }
     }
 

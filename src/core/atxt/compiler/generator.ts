@@ -112,7 +112,7 @@ export class Generator {
     private buildCssRule(className: string, props: IR.ResolvedProps): string {
         let cssBody = "";
 
-        for (const [key, value] of props) {
+        for (const [key, value] of sortedMapEntries(props)) {
             const mapping = getCssMapping(key)!;
             const formattedValue = formatCssUnit(value, mapping.unit);
             cssBody += `  ${mapping.cssProperty}: ${formattedValue};\n`;
