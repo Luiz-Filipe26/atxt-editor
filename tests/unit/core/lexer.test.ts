@@ -9,7 +9,7 @@ function tokenize(source: string) {
 
 function onlyTypes(source: string) {
     return tokenize(source)
-        .tokens.filter((t) => t.type !== TokenType.EOF)
+        .tokens.filter((t) => t.type !== TokenType.Eof)
         .map((t) => t.type);
 }
 
@@ -21,7 +21,7 @@ function stripSentinels(s: string): string {
 /** Joins all TEXT token literals with sentinels stripped — the user-visible text content. */
 function visibleText(source: string): string {
     return tokenize(source)
-        .tokens.filter((t) => t.type === TokenType.TEXT)
+        .tokens.filter((t) => t.type === TokenType.Text)
         .map((t) => stripSentinels(t.literal))
         .join("");
 }
@@ -31,35 +31,35 @@ describe("Lexer", () => {
         it("tokenizes a single word", () => {
             const { tokens, errors } = tokenize("Hello");
             expect(errors).toHaveLength(0);
-            expect(tokens[0].type).toBe(TokenType.TEXT);
+            expect(tokens[0].type).toBe(TokenType.Text);
             expect(tokens[0].literal).toBe("Hello");
         });
 
         it("tokenizes text followed by a newline", () => {
-            expect(onlyTypes("Hello\n")).toEqual([TokenType.TEXT, TokenType.NEWLINE]);
+            expect(onlyTypes("Hello\n")).toEqual([TokenType.Text, TokenType.Newline]);
         });
 
         it("emits a standalone NEWLINE for a blank line", () => {
-            expect(onlyTypes("\n")).toEqual([TokenType.NEWLINE]);
+            expect(onlyTypes("\n")).toEqual([TokenType.Newline]);
         });
 
         it("emits multiple NEWLINE tokens for consecutive blank lines", () => {
             expect(onlyTypes("\n\n\n")).toEqual([
-                TokenType.NEWLINE,
-                TokenType.NEWLINE,
-                TokenType.NEWLINE,
+                TokenType.Newline,
+                TokenType.Newline,
+                TokenType.Newline,
             ]);
         });
 
         it("strips leading whitespace at the start of a line", () => {
             const { tokens } = tokenize("    Hello");
-            expect(tokens[0].type).toBe(TokenType.TEXT);
+            expect(tokens[0].type).toBe(TokenType.Text);
             expect(tokens[0].literal).toBe("Hello");
         });
 
         it("strips leading tabs at the start of a line", () => {
             const { tokens } = tokenize("\t\tHello");
-            expect(tokens[0].type).toBe(TokenType.TEXT);
+            expect(tokens[0].type).toBe(TokenType.Text);
             expect(tokens[0].literal).toBe("Hello");
         });
 
@@ -78,39 +78,39 @@ describe("Lexer", () => {
 
     describe("blocks", () => {
         it("emits BLOCK_OPEN for {", () => {
-            expect(onlyTypes("{")).toEqual([TokenType.BLOCK_OPEN]);
+            expect(onlyTypes("{")).toEqual([TokenType.BlockOpen]);
         });
 
         it("emits BLOCK_CLOSE for }", () => {
-            expect(onlyTypes("}")).toEqual([TokenType.BLOCK_CLOSE]);
+            expect(onlyTypes("}")).toEqual([TokenType.BlockClose]);
         });
 
         it("emits both tokens for an empty block", () => {
-            expect(onlyTypes("{}")).toEqual([TokenType.BLOCK_OPEN, TokenType.BLOCK_CLOSE]);
+            expect(onlyTypes("{}")).toEqual([TokenType.BlockOpen, TokenType.BlockClose]);
         });
     });
 
     describe("annotations", () => {
         it("tokenizes a minimal annotation with one property", () => {
             expect(onlyTypes("[[key: value]]")).toEqual([
-                TokenType.ANNOTATION_OPEN,
-                TokenType.IDENTIFIER,
-                TokenType.COLON,
-                TokenType.VALUE,
-                TokenType.ANNOTATION_CLOSE,
+                TokenType.AnnotationOpen,
+                TokenType.Identifier,
+                TokenType.Colon,
+                TokenType.Value,
+                TokenType.AnnotationClose,
             ]);
         });
 
         it("extracts the key and value literals correctly", () => {
             const { tokens } = tokenize("[[color: red]]");
-            expect(tokens.find((t) => t.type === TokenType.IDENTIFIER)?.literal).toBe("color");
-            expect(tokens.find((t) => t.type === TokenType.VALUE)?.literal).toBe("red");
+            expect(tokens.find((t) => t.type === TokenType.Identifier)?.literal).toBe("color");
+            expect(tokens.find((t) => t.type === TokenType.Value)?.literal).toBe("red");
         });
 
         it("tokenizes two properties separated by a semicolon", () => {
             const { tokens } = tokenize("[[size: 16; weight: bold]]");
-            const ids = tokens.filter((t) => t.type === TokenType.IDENTIFIER).map((t) => t.literal);
-            const vals = tokens.filter((t) => t.type === TokenType.VALUE).map((t) => t.literal);
+            const ids = tokens.filter((t) => t.type === TokenType.Identifier).map((t) => t.literal);
+            const vals = tokens.filter((t) => t.type === TokenType.Value).map((t) => t.literal);
             expect(ids).toEqual(["size", "weight"]);
             expect(vals).toEqual(["16", "bold"]);
         });
@@ -118,14 +118,14 @@ describe("Lexer", () => {
         it("tokenizes three properties with trailing semicolon", () => {
             const { tokens, errors } = tokenize("[[a: 1; b: 2; c: 3]]");
             expect(errors).toHaveLength(0);
-            const vals = tokens.filter((t) => t.type === TokenType.VALUE).map((t) => t.literal);
+            const vals = tokens.filter((t) => t.type === TokenType.Value).map((t) => t.literal);
             expect(vals).toEqual(["1", "2", "3"]);
         });
 
         it("tokenizes directive keywords as IDENTIFIER tokens", () => {
             for (const keyword of ["SET", "DEFINE", "HIDE"]) {
                 const { tokens } = tokenize(`[[${keyword}]]`);
-                const id = tokens.find((t) => t.type === TokenType.IDENTIFIER);
+                const id = tokens.find((t) => t.type === TokenType.Identifier);
                 expect(id?.literal).toBe(keyword);
             }
         });
@@ -133,22 +133,22 @@ describe("Lexer", () => {
         it("includes the + prefix in the IDENTIFIER literal for toggle-add", () => {
             const { tokens, errors } = tokenize("[[+color: red]]");
             expect(errors).toHaveLength(0);
-            const id = tokens.find((t) => t.type === TokenType.IDENTIFIER);
+            const id = tokens.find((t) => t.type === TokenType.Identifier);
             expect(id?.literal).toBe("+color");
         });
 
         it("includes the - prefix in the IDENTIFIER literal for toggle-remove", () => {
             const { tokens, errors } = tokenize("[[-color]]");
             expect(errors).toHaveLength(0);
-            const id = tokens.find((t) => t.type === TokenType.IDENTIFIER);
+            const id = tokens.find((t) => t.type === TokenType.Identifier);
             expect(id?.literal).toBe("-color");
         });
 
         it("tokenizes an annotation followed by text on the same line", () => {
             const { tokens, errors } = tokenize("[[color: red]] Hello");
             expect(errors).toHaveLength(0);
-            expect(tokens[0].type).toBe(TokenType.ANNOTATION_OPEN);
-            const text = tokens.find((t) => t.type === TokenType.TEXT);
+            expect(tokens[0].type).toBe(TokenType.AnnotationOpen);
+            const text = tokens.find((t) => t.type === TokenType.Text);
             expect(text?.literal).toContain("Hello");
         });
     });
@@ -157,34 +157,34 @@ describe("Lexer", () => {
         it("unquoted value can contain spaces — stops at ] or ;", () => {
             const { tokens, errors } = tokenize("[[font: Georgia, serif]]");
             expect(errors).toHaveLength(0);
-            const value = tokens.find((t) => t.type === TokenType.VALUE);
+            const value = tokens.find((t) => t.type === TokenType.Value);
             expect(value?.literal).toBe("Georgia, serif");
         });
 
         it("trims trailing whitespace from unquoted values", () => {
             const { tokens } = tokenize("[[font: Arial   ]]");
-            const value = tokens.find((t) => t.type === TokenType.VALUE);
+            const value = tokens.find((t) => t.type === TokenType.Value);
             expect(value?.literal).toBe("Arial");
         });
 
         it("double-quoted value strips the quotes and preserves internal content", () => {
             const { tokens, errors } = tokenize('[[border: "1px solid black"]]');
             expect(errors).toHaveLength(0);
-            const value = tokens.find((t) => t.type === TokenType.VALUE);
+            const value = tokens.find((t) => t.type === TokenType.Value);
             expect(value?.literal).toBe("1px solid black");
         });
 
         it("single-quoted value works identically to double-quoted", () => {
             const { tokens, errors } = tokenize("[[border: '1px solid black']]");
             expect(errors).toHaveLength(0);
-            const value = tokens.find((t) => t.type === TokenType.VALUE);
+            const value = tokens.find((t) => t.type === TokenType.Value);
             expect(value?.literal).toBe("1px solid black");
         });
 
         it("quoted value containing semicolons is not split", () => {
             const { tokens, errors } = tokenize('[[style: "a; b; c"]]');
             expect(errors).toHaveLength(0);
-            const value = tokens.find((t) => t.type === TokenType.VALUE);
+            const value = tokens.find((t) => t.type === TokenType.Value);
             expect(value?.literal).toBe("a; b; c");
         });
     });
@@ -193,7 +193,7 @@ describe("Lexer", () => {
         it("\\[ does not produce ANNOTATION_OPEN — the characters appear as text", () => {
             const { tokens, errors } = tokenize("\\[\\[");
             expect(errors).toHaveLength(0);
-            expect(tokens.some((t) => t.type === TokenType.ANNOTATION_OPEN)).toBe(false);
+            expect(tokens.some((t) => t.type === TokenType.AnnotationOpen)).toBe(false);
             // Token literals contain sentinel — TextExpander will strip it.
             // Visible content seen by the author: [[
             expect(visibleText("\\[\\[")).toBe("[[");
@@ -202,14 +202,14 @@ describe("Lexer", () => {
         it("\\{ does not produce BLOCK_OPEN", () => {
             const { tokens, errors } = tokenize("\\{");
             expect(errors).toHaveLength(0);
-            expect(tokens.some((t) => t.type === TokenType.BLOCK_OPEN)).toBe(false);
+            expect(tokens.some((t) => t.type === TokenType.BlockOpen)).toBe(false);
             // Raw token literal carries the sentinel prefix.
             expect(tokens[0].literal).toBe(S + "{");
         });
 
         it("\\\\ produces a single literal backslash in the visible text", () => {
             const { tokens } = tokenize("\\\\");
-            expect(tokens[0].type).toBe(TokenType.TEXT);
+            expect(tokens[0].type).toBe(TokenType.Text);
             // Raw literal has sentinel; visible content is a single backslash.
             expect(tokens[0].literal).toBe(S + "\\");
             expect(visibleText("\\\\")).toBe("\\");
@@ -228,7 +228,7 @@ describe("Lexer", () => {
             const { tokens, errors } = tokenize("\\");
             expect(errors).toHaveLength(0);
             // No TEXT token produced — nothing to escape.
-            expect(tokens.filter((t) => t.type === TokenType.TEXT)).toHaveLength(0);
+            expect(tokens.filter((t) => t.type === TokenType.Text)).toHaveLength(0);
         });
 
         it("sentinel character in source is stripped before tokenization", () => {
@@ -280,9 +280,9 @@ describe("Lexer", () => {
         it("a lone '[' produces no ANNOTATION_OPEN and appears as text content", () => {
             const { tokens, errors } = tokenize("a[b");
             expect(errors).toHaveLength(0);
-            expect(tokens.some((t) => t.type === TokenType.ANNOTATION_OPEN)).toBe(false);
+            expect(tokens.some((t) => t.type === TokenType.AnnotationOpen)).toBe(false);
             const text = tokens
-                .filter((t) => t.type === TokenType.TEXT)
+                .filter((t) => t.type === TokenType.Text)
                 .map((t) => t.literal)
                 .join("");
             expect(text).toContain("[");
@@ -293,10 +293,10 @@ describe("Lexer", () => {
         it("an escaped newline produces a literal newline in text content, not a structural NEWLINE", () => {
             const { tokens, errors } = tokenize("\\\n");
             expect(errors).toHaveLength(0);
-            const text = tokens.find((t) => t.type === TokenType.TEXT);
+            const text = tokens.find((t) => t.type === TokenType.Text);
             // Raw literal: sentinel + \n. Visible content: \n.
             expect(text?.literal).toBe(S + "\n");
-            expect(tokens.some((t) => t.type === TokenType.NEWLINE)).toBe(false);
+            expect(tokens.some((t) => t.type === TokenType.Newline)).toBe(false);
         });
     });
 
@@ -304,8 +304,8 @@ describe("Lexer", () => {
         it("\\r in normal mode is silently dropped (Windows-style \\r\\n becomes one NEWLINE)", () => {
             const { tokens, errors } = tokenize("\r\n");
             expect(errors).toHaveLength(0);
-            const types = tokens.filter((t) => t.type !== TokenType.EOF).map((t) => t.type);
-            expect(types).toEqual([TokenType.NEWLINE]);
+            const types = tokens.filter((t) => t.type !== TokenType.Eof).map((t) => t.type);
+            expect(types).toEqual([TokenType.Newline]);
         });
     });
 
@@ -313,10 +313,10 @@ describe("Lexer", () => {
         it("semicolon after a value-less toggle key stays in ANNOTATION_KEY mode correctly", () => {
             const { tokens, errors } = tokenize("[[-color; +size: 16]]");
             expect(errors).toHaveLength(0);
-            const ids = tokens.filter((t) => t.type === TokenType.IDENTIFIER).map((t) => t.literal);
+            const ids = tokens.filter((t) => t.type === TokenType.Identifier).map((t) => t.literal);
             expect(ids).toContain("-color");
             expect(ids).toContain("+size");
-            const semis = tokens.filter((t) => t.type === TokenType.SEMICOLON);
+            const semis = tokens.filter((t) => t.type === TokenType.Semicolon);
             expect(semis).toHaveLength(1);
         });
     });
@@ -346,7 +346,7 @@ describe("Lexer", () => {
         it("a backslash escape inside a quoted value preserves the escaped character without sentinel", () => {
             const { tokens, errors } = tokenize('[[font: "Ar\\"ial"]]');
             expect(errors).toHaveLength(0);
-            const value = tokens.find((t) => t.type === TokenType.VALUE);
+            const value = tokens.find((t) => t.type === TokenType.Value);
             // Quoted values bypass TextExpander — no sentinel in the value.
             expect(value?.literal).toBe('Ar"ial');
         });
@@ -361,7 +361,7 @@ describe("Lexer", () => {
         it("an annotation key with no closing ']]' is tokenized without lexer errors", () => {
             const { tokens, errors } = tokenize("[[color");
             expect(errors).toHaveLength(0);
-            const id = tokens.find((t) => t.type === TokenType.IDENTIFIER);
+            const id = tokens.find((t) => t.type === TokenType.Identifier);
             expect(id?.literal).toBe("color");
         });
     });

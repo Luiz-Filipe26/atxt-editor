@@ -17,7 +17,7 @@ export class TokenStream {
     }
 
     public isAtEnd(): boolean {
-        return this.peek().type === TokenType.EOF;
+        return this.peek().type === TokenType.Eof;
     }
 
     public advance(): Token {
@@ -46,8 +46,8 @@ export class TokenStream {
 
     private isBlankToken(token: Token): boolean {
         return (
-            token.type === TokenType.NEWLINE ||
-            (token.type === TokenType.TEXT && /^[ \t]*$/.test(token.literal))
+            token.type === TokenType.Newline ||
+            (token.type === TokenType.Text && /^[ \t]*$/.test(token.literal))
         );
     }
 }

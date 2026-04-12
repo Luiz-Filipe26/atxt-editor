@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vitest";
 import { Lexer, Parser, AST } from "@atxt";
 import { BUILT_IN_SYMBOLS } from "@atxt/domain/builtInSymbols";
+import { PropertyToggle } from "@/core/atxt/types/ast";
 const { NodeType } = AST;
 
 function parse(source: string) {
@@ -9,7 +10,7 @@ function parse(source: string) {
 }
 
 function annotations(nodes: AST.BlockContentNode[]): AST.AnnotationNode[] {
-    return nodes.filter((n): n is AST.AnnotationNode => n.type === NodeType.ANNOTATION);
+    return nodes.filter((n): n is AST.AnnotationNode => n.type === NodeType.Annotation);
 }
 
 describe("Parser — symbol expansion", () => {
@@ -34,7 +35,7 @@ describe("Parser — symbol expansion", () => {
             const ann = annotations(document.children)[0];
             const target = ann.target as AST.BlockNode;
             const content = target.children
-                .filter((c): c is AST.TextNode => c.type === NodeType.TEXT)
+                .filter((c): c is AST.TextNode => c.type === NodeType.Text)
                 .map((c) => c.content)
                 .join("");
             expect(content).toBe("My Heading");
@@ -64,10 +65,10 @@ describe("Parser — symbol expansion", () => {
             expect(errors).toHaveLength(0);
             const ann = annotations(document.children);
             expect(ann).toHaveLength(2);
-            expect(ann[0].properties[0].toggle).toBe("plus");
+            expect(ann[0].properties[0].toggle).toBe(PropertyToggle.Plus);
             expect(ann[0].properties[0].key).toBe("weight");
             expect(ann[0].properties[0].value).toBe("bold");
-            expect(ann[1].properties[0].toggle).toBe("minus");
+            expect(ann[1].properties[0].toggle).toBe(PropertyToggle.Minus);
             expect(ann[1].properties[0].key).toBe("weight");
         });
 
@@ -87,7 +88,7 @@ describe("Parser — symbol expansion", () => {
             const { document } = parse("**unclosed");
             expect(annotations(document.children)).toHaveLength(0);
             const allText = document.children
-                .filter((c): c is AST.TextNode => c.type === NodeType.TEXT)
+                .filter((c): c is AST.TextNode => c.type === NodeType.Text)
                 .map((c) => c.content)
                 .join("");
             expect(allText).toContain("**unclosed");
@@ -101,7 +102,7 @@ describe("Parser — symbol expansion", () => {
         it("inline symbols expand inside annotation targets", () => {
             const { document } = parse("[[color: red]] **bold**");
             const ann = document.children.find(
-                (c): c is AST.AnnotationNode => c.type === NodeType.ANNOTATION,
+                (c): c is AST.AnnotationNode => c.type === NodeType.Annotation,
             )!;
             const target = ann.target as AST.BlockNode;
             expect(annotations(target.children)).toHaveLength(2);
@@ -133,7 +134,7 @@ describe("Parser — symbol expansion", () => {
             const { document, errors } = parse("[[SYMBOL symbol: ++; type: inline]]\n++text++");
             expect(errors).toHaveLength(0);
             const allText = document.children
-                .filter((c): c is AST.TextNode => c.type === NodeType.TEXT)
+                .filter((c): c is AST.TextNode => c.type === NodeType.Text)
                 .map((c) => c.content)
                 .join("");
             expect(allText).toContain("++text++");
@@ -145,7 +146,7 @@ describe("Parser — symbol expansion", () => {
             );
             const firstLine = document.children.slice(
                 0,
-                document.children.findIndex((c) => c.type === NodeType.ANNOTATION),
+                document.children.findIndex((c) => c.type === NodeType.Annotation),
             );
             expect(annotations(firstLine)).toHaveLength(0);
         });
@@ -165,7 +166,7 @@ describe("Parser — symbol expansion", () => {
 
         it("SYMBOL directive preserves the blank line that follows it", () => {
             const { document } = parse("[[SYMBOL symbol: ^^; weight: bold]]\n\nText");
-            const newlines = document.children.filter((c) => c.type === NodeType.NEWLINE);
+            const newlines = document.children.filter((c) => c.type === NodeType.Newline);
             expect(newlines.length).toBeGreaterThanOrEqual(1);
         });
     });

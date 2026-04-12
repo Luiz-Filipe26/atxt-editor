@@ -18,7 +18,7 @@ export function buildBlockNode(
     children: AST.BlockContentNode[],
 ): AST.BlockNode {
     return {
-        type: AST.NodeType.BLOCK,
+        type: AST.NodeType.Block,
         line: source.line,
         column: source.column,
         children,
@@ -32,7 +32,7 @@ export function buildAnnotationNode(
     target: AST.BlockNode | null,
 ): AST.AnnotationNode {
     return {
-        type: AST.NodeType.ANNOTATION,
+        type: AST.NodeType.Annotation,
         line: source.line,
         column: source.column,
         directive,
@@ -42,12 +42,12 @@ export function buildAnnotationNode(
 }
 
 export function buildNewlineNode(source: SourceLocation): AST.NewlineNode {
-    return { type: AST.NodeType.NEWLINE, line: source.line, column: source.column };
+    return { type: AST.NodeType.Newline, line: source.line, column: source.column };
 }
 
 export function buildPropertyNode(args: BuildPropertyArgs): AST.PropertyNode {
     return {
-        type: AST.NodeType.PROPERTY,
+        type: AST.NodeType.Property,
         line: args.source.line,
         column: args.source.column,
         key: args.key,
@@ -65,18 +65,18 @@ export function buildPropertyNodesFromPairs(
         buildPropertyNode({
             source,
             key: name,
-            value: toggle === "minus" ? "" : value,
+            value: toggle === AST.PropertyToggle.Minus ? "" : value,
             toggle,
         }),
     );
 }
 
 export function buildToggleOpenNode(source: SourceLocation, props: PropEntry[]) {
-    return buildToggleNode(source, props, "plus");
+    return buildToggleNode(source, props, AST.PropertyToggle.Plus);
 }
 
 export function buildToggleCloseNode(source: SourceLocation, props: PropEntry[]) {
-    return buildToggleNode(source, props, "minus");
+    return buildToggleNode(source, props, AST.PropertyToggle.Minus);
 }
 
 export function buildToggleNode(

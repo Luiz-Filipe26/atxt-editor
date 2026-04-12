@@ -1,7 +1,7 @@
 import { TokenType, type Token } from "../types/tokens";
 import { TokenStream } from "./tokenStream";
 import * as AST from "../types/ast";
-import type { CompilerError } from "../types/errors";
+import { CompilerErrorType, type CompilerError } from "../types/errors";
 import { SymbolDetector, type SymbolRegistrationResult } from "./symbolDetector";
 import { SymbolParser } from "./symbolParser";
 import {
@@ -29,9 +29,9 @@ export class Parser {
     private compilerErrors: CompilerError[] = [];
     private symbolDetector = new SymbolDetector();
     private static readonly BLOCK_BOUNDARY_TOKENS = new Set<TokenType>([
-        TokenType.NEWLINE,
-        TokenType.BLOCK_CLOSE,
-        TokenType.EOF,
+        TokenType.Newline,
+        TokenType.BlockClose,
+        TokenType.Eof,
     ]);
 
     private constructor(tokens: Token[]) {
@@ -44,7 +44,7 @@ export class Parser {
 
     private parse(): ParseResult {
         const root: AST.DocumentNode = {
-            type: AST.NodeType.DOCUMENT,
+            type: AST.NodeType.Document,
             line: 1,
             column: 1,
             children: [],
@@ -60,19 +60,19 @@ export class Parser {
     private parseNextNode(): AST.BlockContentNode[] {
         const token = this.stream.advance();
         switch (token.type) {
-            case TokenType.ANNOTATION_OPEN:
+            case TokenType.AnnotationOpen:
                 return this.handleAnnotationNewline(this.parseAnnotation(token));
-            case TokenType.BLOCK_OPEN:
+            case TokenType.BlockOpen:
                 return [this.parseBlock(token)];
-            case TokenType.NEWLINE:
+            case TokenType.Newline:
                 return [buildNewlineNode(token)];
-            case TokenType.TEXT:
+            case TokenType.Text:
                 return this.parseTextLine(token);
-            case TokenType.BLOCK_CLOSE:
+            case TokenType.BlockClose:
                 this.pushError("Unexpected block close.", token);
                 return [];
             /* v8 ignore start -- @preserve */
-            case TokenType.EOF:
+            case TokenType.Eof:
                 throw new Error("Invariant violation: parseNextNode() called at EOF.");
             default:
                 throw new Error(
@@ -85,7 +85,7 @@ export class Parser {
     private handleAnnotationNewline(node: AST.AnnotationNode | null): AST.BlockContentNode[] {
         if (!node) return [];
         if (!node.target) {
-            this.stream.match(TokenType.NEWLINE);
+            this.stream.match(TokenType.Newline);
             return [node];
         }
         return this.enforceBlockSeparation(node);
@@ -160,17 +160,17 @@ export class Parser {
     }
 
     private parseBlock(blockToken: Token): AST.BlockNode {
-        this.stream.match(TokenType.NEWLINE);
+        this.stream.match(TokenType.Newline);
 
         const children: AST.BlockContentNode[] = [];
-        while (!this.stream.isAtEnd() && this.stream.peek().type !== TokenType.BLOCK_CLOSE) {
+        while (!this.stream.isAtEnd() && this.stream.peek().type !== TokenType.BlockClose) {
             children.push(...this.parseNextNode());
         }
 
-        if (children.length > 0 && children[children.length - 1].type === AST.NodeType.NEWLINE)
+        if (children.length > 0 && children[children.length - 1].type === AST.NodeType.Newline)
             children.pop();
 
-        if (!this.stream.match(TokenType.BLOCK_CLOSE))
+        if (!this.stream.match(TokenType.BlockClose))
             this.pushError("Unclosed block. Expected '}'.");
 
         return buildBlockNode(blockToken, children);
@@ -178,13 +178,13 @@ export class Parser {
 
     private parseTextLine(startToken: Token): AST.BlockContentNode[] {
         /*! v8 ignore start -- @preserve */
-        if (this.stream.peek().type === TokenType.TEXT)
+        if (this.stream.peek().type === TokenType.Text)
             throw new Error(
                 `Invariant violation: adjacent TEXT tokens at ${this.stream.peek().line}:${this.stream.peek().column}.`,
             );
         /*! v8 ignore stop -- @preserve */
         const nodes = SymbolParser.expandLine(startToken, this.symbolDetector);
-        const newlineToken = this.stream.match(TokenType.NEWLINE);
+        const newlineToken = this.stream.match(TokenType.Newline);
         if (newlineToken) nodes.push(buildNewlineNode(newlineToken));
 
         return nodes;
@@ -193,7 +193,7 @@ export class Parser {
     private resolveAnnotationTarget(): AST.BlockNode | null {
         this.stream.skipWhitespaceTokens();
         if (this.stream.isAtEnd()) return null;
-        return this.stream.peek().type === TokenType.BLOCK_OPEN
+        return this.stream.peek().type === TokenType.BlockOpen
             ? this.parseBlock(this.stream.advance())
             : this.consumeTargetLine(this.stream.peek());
     }
@@ -201,9 +201,9 @@ export class Parser {
     private consumeTargetLine(startToken: Token): AST.BlockNode | null {
         const children: AST.BlockContentNode[] = [];
 
-        while (this.stream.match(TokenType.ANNOTATION_OPEN, TokenType.TEXT)) {
+        while (this.stream.match(TokenType.AnnotationOpen, TokenType.Text)) {
             const token = this.stream.previous();
-            if (token.type === TokenType.ANNOTATION_OPEN) {
+            if (token.type === TokenType.AnnotationOpen) {
                 const node = this.parseAnnotation(token);
                 if (node) children.push(node);
                 continue;
@@ -215,7 +215,7 @@ export class Parser {
     }
 
     private consumeDirective(token: Token): AST.AnnotationDirective {
-        return token.type === TokenType.IDENTIFIER &&
+        return token.type === TokenType.Identifier &&
             (AST.DIRECTIVE_KEYWORDS as readonly string[]).includes(token.literal)
             ? (this.stream.advance().literal as AST.AnnotationDirective)
             : "NORMAL";
@@ -225,8 +225,8 @@ export class Parser {
         const props: AST.PropertyNode[] = [];
         let hasNormalProps = false;
 
-        while (!this.stream.isAtEnd() && this.stream.peek().type !== TokenType.ANNOTATION_CLOSE) {
-            if (this.stream.match(TokenType.SEMICOLON)) continue;
+        while (!this.stream.isAtEnd() && this.stream.peek().type !== TokenType.AnnotationClose) {
+            if (this.stream.match(TokenType.Semicolon)) continue;
             const parsedKey = this.parsePropertyKey();
             if (!parsedKey) continue;
 
@@ -242,7 +242,7 @@ export class Parser {
     }
 
     private parsePropertyKey(): ParsedPropertyKey | null {
-        if (this.stream.peek().type !== TokenType.IDENTIFIER) {
+        if (this.stream.peek().type !== TokenType.Identifier) {
             this.pushError(`Expected property name, found '${this.stream.peek().literal}'.`);
             this.synchronizeToNextProperty();
             return null;
@@ -250,7 +250,11 @@ export class Parser {
         const token = this.stream.advance();
         const rawKey = token.literal;
         const toggle: AST.PropertyToggle =
-            rawKey[0] === "+" ? "plus" : rawKey[0] === "-" ? "minus" : undefined;
+            rawKey[0] === "+"
+                ? AST.PropertyToggle.Plus
+                : rawKey[0] === "-"
+                    ? AST.PropertyToggle.Minus
+                    : undefined;
         const key = toggle !== undefined ? rawKey.substring(1) : rawKey;
 
         return { source: token, key, toggle };
@@ -258,10 +262,10 @@ export class Parser {
 
     private parsePropertyValue(parsedKey: ParsedPropertyKey): string | null {
         const { toggle, key } = parsedKey;
-        if (toggle === "minus") return "";
+        if (toggle === AST.PropertyToggle.Minus) return "";
         if (!this.consumeColon(key)) return null;
 
-        if (!this.stream.match(TokenType.VALUE, TokenType.IDENTIFIER)) {
+        if (!this.stream.match(TokenType.Value, TokenType.Identifier)) {
             this.pushError(`Expected value for '${key}', found '${this.stream.peek().literal}'.`);
             this.synchronizeToNextProperty();
             return null;
@@ -270,7 +274,7 @@ export class Parser {
     }
 
     private consumeColon(propertyName: string): boolean {
-        if (this.stream.peek().type !== TokenType.COLON) {
+        if (this.stream.peek().type !== TokenType.Colon) {
             this.pushError(
                 `Expected ':' after property '${propertyName}', found '${this.stream.peek().literal}'.`,
             );
@@ -282,16 +286,16 @@ export class Parser {
     }
 
     private consumeAnnotationClosure(): void {
-        if (!this.stream.match(TokenType.ANNOTATION_CLOSE)) {
+        if (!this.stream.match(TokenType.AnnotationClose)) {
             this.pushError("Annotation was not closed with ']]'.");
         }
     }
 
     private requirePropertySeparator(propertyName: string): void {
         const afterValue = this.stream.peek().type;
-        if (afterValue === TokenType.SEMICOLON) {
+        if (afterValue === TokenType.Semicolon) {
             this.stream.advance();
-        } else if (afterValue !== TokenType.ANNOTATION_CLOSE) {
+        } else if (afterValue !== TokenType.AnnotationClose) {
             this.pushError(`Expected ';' after property value '${propertyName}'.`);
             this.synchronizeToNextProperty();
         }
@@ -299,8 +303,8 @@ export class Parser {
 
     private synchronizeToNextProperty() {
         while (!this.stream.isAtEnd()) {
-            if (this.stream.match(TokenType.SEMICOLON)) return;
-            if (this.stream.peek().type === TokenType.ANNOTATION_CLOSE) return;
+            if (this.stream.match(TokenType.Semicolon)) return;
+            if (this.stream.peek().type === TokenType.AnnotationClose) return;
             this.stream.advance();
         }
     }
@@ -308,7 +312,7 @@ export class Parser {
     private pushError(message: string, sourceLocation?: SourceLocation) {
         const currentLocation = sourceLocation ?? this.stream.peek();
         this.compilerErrors.push({
-            type: "PARSER",
+            type: CompilerErrorType.Parser,
             message,
             line: currentLocation.line,
             column: currentLocation.column,

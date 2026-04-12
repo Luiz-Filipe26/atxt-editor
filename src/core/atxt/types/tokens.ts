@@ -1,17 +1,17 @@
 import type { SourceLocation } from "./location";
 
 export const TokenType = {
-    TEXT: "TEXT",
-    NEWLINE: "NEWLINE",
-    ANNOTATION_OPEN: "ANNOTATION_OPEN",
-    ANNOTATION_CLOSE: "ANNOTATION_CLOSE",
-    BLOCK_OPEN: "BLOCK_OPEN",
-    BLOCK_CLOSE: "BLOCK_CLOSE",
-    IDENTIFIER: "IDENTIFIER",
-    COLON: "COLON",
-    SEMICOLON: "SEMICOLON",
-    VALUE: "VALUE",
-    EOF: "EOF",
+    Text: "TEXT",
+    Newline: "NEWLINE",
+    AnnotationOpen: "ANNOTATION_OPEN",
+    AnnotationClose: "ANNOTATION_CLOSE",
+    BlockOpen: "BLOCK_OPEN",
+    BlockClose: "BLOCK_CLOSE",
+    Identifier: "IDENTIFIER",
+    Colon: "COLON",
+    Semicolon: "SEMICOLON",
+    Value: "VALUE",
+    Eof: "EOF",
 } as const;
 
 export type TokenType = (typeof TokenType)[keyof typeof TokenType];

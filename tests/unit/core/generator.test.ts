@@ -19,7 +19,7 @@ function makeBlock(
 ): IR.Block {
     return {
         id: `b${idCounter++}`,
-        type: "BLOCK",
+        type: IR.NodeType.Block,
         props: makeProps(props),
         classes: [],
         ownProps: new Map(),
@@ -37,7 +37,7 @@ function makeText(
 ): IR.Text {
     return {
         id: `t${idCounter++}`,
-        type: "TEXT",
+        type: IR.NodeType.Text,
         props: makeProps(props),
         classes: [],
         ownProps: new Map(),
@@ -126,7 +126,7 @@ describe("Generator", () => {
         });
 
         it("a NEWLINE node inside a leaf context is rendered as a newline character", () => {
-            const newline: IR.Newline = { id: "n0", type: "NEWLINE" };
+            const newline: IR.Newline = { id: "n0", type: IR.NodeType.Newline };
             const leaf = makeBlock({ kind: "paragraph" }, [makeText("a"), newline, makeText("b")]);
             const root = makeBlock({}, [leaf]);
             const html = generate(root);
@@ -134,7 +134,7 @@ describe("Generator", () => {
         });
 
         it("a NEWLINE node outside a leaf context is not rendered", () => {
-            const newline: IR.Newline = { id: "n0", type: "NEWLINE" };
+            const newline: IR.Newline = { id: "n0", type: IR.NodeType.Newline };
             const inner = makeBlock({ kind: "paragraph" }, [makeText("text")]);
             const root = makeBlock({}, [inner, newline]);
             const html = generate(root);
@@ -269,7 +269,7 @@ describe("Generator", () => {
         });
 
         it("indent does not prepend spaces to non-line-start nodes", () => {
-            const newline: IR.Newline = { id: "nl", type: "NEWLINE" };
+            const newline: IR.Newline = { id: "nl", type: IR.NodeType.Newline };
             const root = makeBlock({}, [
                 makeBlock({ indent: "4", kind: "paragraph" }, [
                     makeText("A"),

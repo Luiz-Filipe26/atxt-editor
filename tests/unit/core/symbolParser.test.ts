@@ -2,19 +2,20 @@ import { describe, it, expect } from "vitest";
 import { Lexer, AST, TokenType } from "@atxt";
 import { SymbolDetector } from "@atxt/compiler/symbolDetector";
 import { SymbolParser } from "@atxt/compiler/symbolParser";
+import { PropertyToggle } from "@/core/atxt/types/ast";
 const { NodeType } = AST;
 
 function expand(text: string): AST.BlockContentNode[] {
-    const token = { literal: text, line: 1, column: 1, type: TokenType.TEXT };
+    const token = { literal: text, line: 1, column: 1, type: TokenType.Text };
     return SymbolParser.expandInlineAt(token, new SymbolDetector());
 }
 
 function texts(nodes: AST.BlockContentNode[]): string[] {
-    return nodes.filter((n): n is AST.TextNode => n.type === NodeType.TEXT).map((n) => n.content);
+    return nodes.filter((n): n is AST.TextNode => n.type === NodeType.Text).map((n) => n.content);
 }
 
 function annotations(nodes: AST.BlockContentNode[]): AST.AnnotationNode[] {
-    return nodes.filter((n): n is AST.AnnotationNode => n.type === NodeType.ANNOTATION);
+    return nodes.filter((n): n is AST.AnnotationNode => n.type === NodeType.Annotation);
 }
 
 describe("TextExpander", () => {
@@ -46,9 +47,9 @@ describe("TextExpander", () => {
             ];
             expect(open.properties[0].key).toBe("weight");
             expect(open.properties[0].value).toBe("bold");
-            expect(open.properties[0].toggle).toBe("plus");
+            expect(open.properties[0].toggle).toBe(PropertyToggle.Plus);
             expect(text.content).toBe("bold");
-            expect(close.properties[0].toggle).toBe("minus");
+            expect(close.properties[0].toggle).toBe(PropertyToggle.Minus);
             expect(close.properties[0].key).toBe("weight");
         });
 
@@ -80,8 +81,8 @@ describe("TextExpander", () => {
             expect(ann).toHaveLength(4);
             expect(ann[0].properties[0].value).toBe("bold");
             expect(ann[1].properties[0].value).toBe("italic");
-            expect(ann[2].properties[0].toggle).toBe("minus");
-            expect(ann[3].properties[0].toggle).toBe("minus");
+            expect(ann[2].properties[0].toggle).toBe(PropertyToggle.Minus);
+            expect(ann[3].properties[0].toggle).toBe(PropertyToggle.Minus);
         });
     });
 

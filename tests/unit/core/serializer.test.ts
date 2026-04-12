@@ -15,7 +15,7 @@ function makeBlock(
 ): IR.Block {
     return {
         id: `b${idCounter++}`,
-        type: "BLOCK",
+        type: IR.NodeType.Block,
         props: toMap(props),
         classes,
         ownProps: toMap(ownProps),
@@ -26,7 +26,7 @@ function makeBlock(
 function makeText(content: string, props: Record<string, string> = {}): IR.Text {
     return {
         id: `t${idCounter++}`,
-        type: "TEXT",
+        type: IR.NodeType.Text,
         props: toMap(props),
         classes: [],
         ownProps: new Map(),
@@ -35,7 +35,7 @@ function makeText(content: string, props: Record<string, string> = {}): IR.Text 
 }
 
 function makeNewline(): IR.Newline {
-    return { id: `n${idCounter++}`, type: "NEWLINE" };
+    return { id: `n${idCounter++}`, type: IR.NodeType.Newline };
 }
 
 function makeDoc(

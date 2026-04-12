@@ -12,18 +12,26 @@ interface StyledNode extends PositionalNode {
     ownProps: ResolvedProps;
 }
 
+export const NodeType = {
+    Block: "BLOCK",
+    Text: "TEXT",
+    Newline: "NEWLINE",
+} as const;
+
+export type NodeType = (typeof NodeType)[keyof typeof NodeType];
+
 export interface Block extends StyledNode {
-    type: "BLOCK";
+    type: typeof NodeType.Block;
     children: Node[];
 }
 
 export interface Text extends StyledNode {
-    type: "TEXT";
+    type: typeof NodeType.Text;
     content: string;
 }
 
 export interface Newline extends PositionalNode {
-    type: "NEWLINE";
+    type: typeof NodeType.Newline;
 }
 
 export type Node = Block | Text | Newline;

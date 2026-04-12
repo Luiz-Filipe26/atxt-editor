@@ -155,7 +155,7 @@ export class SymbolParser {
     private flushBufferToTextNode(): AST.BlockContentNode | null {
         if (!this.buffer.content) return null;
         const node = {
-            type: AST.NodeType.TEXT,
+            type: AST.NodeType.Text,
             line: this.source.line,
             column: this.buffer.docCol,
             content: this.buffer.content,

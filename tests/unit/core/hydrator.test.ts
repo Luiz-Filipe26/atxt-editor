@@ -4,14 +4,14 @@ import { IR, compileToIR, COMPILER_DEFAULTS } from "@atxt";
 function texts(ir: IR.Block): IR.Text[] {
     const result: IR.Text[] = [];
     for (const child of ir.children) {
-        if (child.type === "TEXT") result.push(child as IR.Text);
-        else if (child.type === "BLOCK") result.push(...texts(child as IR.Block));
+        if (child.type === IR.NodeType.Text) result.push(child as IR.Text);
+        else if (child.type === IR.NodeType.Block) result.push(...texts(child as IR.Block));
     }
     return result;
 }
 
 function blocks(ir: IR.Block): IR.Block[] {
-    return ir.children.filter((c) => c.type === "BLOCK") as IR.Block[];
+    return ir.children.filter((c) => c.type === IR.NodeType.Block) as IR.Block[];
 }
 
 function textWith(ir: IR.Block, substr: string): IR.Text | undefined {
@@ -23,7 +23,7 @@ describe("Hydrator", () => {
         it("produces an IR.Block root with empty props for an empty document", () => {
             const { ir, errors } = compileToIR("");
             expect(errors).toHaveLength(0);
-            expect(ir.root.type).toBe("BLOCK");
+            expect(ir.root.type).toBe(IR.NodeType.Block);
             expect(ir.root.props.size).toBe(0);
             expect(ir.root.children).toHaveLength(0);
         });
@@ -71,7 +71,7 @@ describe("Hydrator", () => {
             const { ir, errors } = compileToIR("Hello");
             expect(errors).toHaveLength(0);
             const text = texts(ir.root)[0];
-            expect(text.type).toBe("TEXT");
+            expect(text.type).toBe(IR.NodeType.Text);
             expect(text.content).toContain("Hello");
             expect(text.props).toEqual(COMPILER_DEFAULTS);
         });
@@ -96,7 +96,7 @@ describe("Hydrator", () => {
             const { ir, errors } = compileToIR("{}");
             expect(errors).toHaveLength(0);
             const block = blocks(ir.root)[0];
-            expect(block.type).toBe("BLOCK");
+            expect(block.type).toBe(IR.NodeType.Block);
             expect(block.props.size).toBe(0);
         });
 
@@ -404,7 +404,7 @@ describe("Hydrator", () => {
             const { ir } = compileToIR("[[indent: 4]]\n{\n{\nInnerBlock\n}\n}");
             const outerBlock = blocks(ir.root)[0];
             const innerBlock = blocks(outerBlock)[0];
-            expect(innerBlock.type).toBe("BLOCK");
+            expect(innerBlock.type).toBe(IR.NodeType.Block);
         });
     });
 

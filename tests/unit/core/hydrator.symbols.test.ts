@@ -4,14 +4,14 @@ import { IR, compileToIR } from "@atxt";
 function texts(ir: IR.Block): IR.Text[] {
     const result: IR.Text[] = [];
     for (const child of ir.children) {
-        if (child.type === "TEXT") result.push(child as IR.Text);
-        else if (child.type === "BLOCK") result.push(...texts(child as IR.Block));
+        if (child.type === IR.NodeType.Text) result.push(child as IR.Text);
+        else if (child.type === IR.NodeType.Block) result.push(...texts(child as IR.Block));
     }
     return result;
 }
 
 function blocks(ir: IR.Block): IR.Block[] {
-    return ir.children.filter((c) => c.type === "BLOCK") as IR.Block[];
+    return ir.children.filter((c) => c.type === IR.NodeType.Block) as IR.Block[];
 }
 
 function textWith(ir: IR.Block, substr: string): IR.Text | undefined {

@@ -1,5 +1,5 @@
 import { TokenType, type Token } from "../types/tokens";
-import type { CompilerError } from "../types/errors";
+import { CompilerErrorType, type CompilerError } from "../types/errors";
 import { Scanner } from "./scanner";
 
 export interface LexerResult {
@@ -60,7 +60,7 @@ export class Lexer {
         }
 
         this.scanner.mark();
-        this.addToken(TokenType.EOF, "");
+        this.addToken(TokenType.Eof, "");
 
         return { tokens: this.tokens, errors: this.compilerErrors };
     }
@@ -93,13 +93,13 @@ export class Lexer {
                 this.consumeText(char);
                 break;
             case "\n":
-                this.addToken(TokenType.NEWLINE);
+                this.addToken(TokenType.Newline);
                 break;
             case "{":
-                this.addToken(TokenType.BLOCK_OPEN);
+                this.addToken(TokenType.BlockOpen);
                 break;
             case "}":
-                this.addToken(TokenType.BLOCK_CLOSE);
+                this.addToken(TokenType.BlockClose);
                 break;
             case "[":
                 /* v8 ignore start -- @preserve */
@@ -107,7 +107,7 @@ export class Lexer {
                     throw new Error("Invariant violation: case '[' reached with a lone bracket.");
                 }
                 /* v8 ignore stop -- @preserve */
-                this.addToken(TokenType.ANNOTATION_OPEN, "[[");
+                this.addToken(TokenType.AnnotationOpen, "[[");
                 this.pushMode(LexerMode.ANNOTATION_KEY);
                 break;
             case "\\":
@@ -125,11 +125,11 @@ export class Lexer {
     private handleAnnotationKeyMode(char: string) {
         switch (char) {
             case ":":
-                this.addToken(TokenType.COLON);
+                this.addToken(TokenType.Colon);
                 this.replaceCurrentMode(LexerMode.ANNOTATION_VALUE);
                 break;
             case ";":
-                this.addToken(TokenType.SEMICOLON);
+                this.addToken(TokenType.Semicolon);
                 break;
             case "]":
                 this.tryCloseAnnotation();
@@ -151,7 +151,7 @@ export class Lexer {
     private handleAnnotationValueMode(char: string) {
         switch (char) {
             case ";":
-                this.addToken(TokenType.SEMICOLON);
+                this.addToken(TokenType.Semicolon);
                 this.replaceCurrentMode(LexerMode.ANNOTATION_KEY);
                 break;
             case "]":
@@ -173,7 +173,7 @@ export class Lexer {
 
     private tryCloseAnnotation(): void {
         if (this.scanner.match("]")) {
-            this.addToken(TokenType.ANNOTATION_CLOSE, "]]");
+            this.addToken(TokenType.AnnotationClose, "]]");
             this.popMode();
         } else {
             this.pushErrorAtMark("Expected ']' to close annotation.");
@@ -183,7 +183,7 @@ export class Lexer {
     private consumeText(firstChar: string) {
         let content = firstChar;
         content += this.consumeUntil(this.isPureTextDelimiter);
-        this.addToken(TokenType.TEXT, content);
+        this.addToken(TokenType.Text, content);
     }
 
     private consumeString(quoteChar: string) {
@@ -208,7 +208,7 @@ export class Lexer {
         }
 
         this.scanner.advance();
-        this.addToken(TokenType.VALUE, value);
+        this.addToken(TokenType.Value, value);
     }
 
     private consumeUntil(stopCondition: (char: string) => boolean): string {
@@ -233,7 +233,7 @@ export class Lexer {
         }
 
         const value = this.scanner.getMarkedSubstring();
-        this.addToken(TokenType.IDENTIFIER, value);
+        this.addToken(TokenType.Identifier, value);
     }
 
     private consumePropertyValue() {
@@ -242,7 +242,7 @@ export class Lexer {
         }
 
         const value = this.scanner.getMarkedSubstring().trimEnd();
-        this.addToken(TokenType.VALUE, value);
+        this.addToken(TokenType.Value, value);
     }
 
     // Used in TEXT tokens — emits SENTINEL + char so TextExpander can treat it as literal.
@@ -261,7 +261,7 @@ export class Lexer {
 
     private isAtLineStart(): boolean {
         if (this.tokens.length === 0) return true;
-        return this.tokens[this.tokens.length - 1].type === TokenType.NEWLINE;
+        return this.tokens[this.tokens.length - 1].type === TokenType.Newline;
     }
 
     private isPureTextDelimiter = (char: string): boolean => {
@@ -298,7 +298,7 @@ export class Lexer {
 
     private pushErrorAtMark(message: string) {
         this.compilerErrors.push({
-            type: "LEXER",
+            type: CompilerErrorType.Lexer,
             message,
             line: this.scanner.markLine,
             column: this.scanner.markColumn,
@@ -307,7 +307,7 @@ export class Lexer {
 
     private pushErrorAtCurrent(message: string) {
         this.compilerErrors.push({
-            type: "LEXER",
+            type: CompilerErrorType.Lexer,
             message,
             line: this.scanner.line,
             column: this.scanner.column,

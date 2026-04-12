@@ -140,7 +140,8 @@ export class PropertyResolver {
 
     private applyOwnProperties(props: IR.ResolvedProps, properties: AST.PropertyNode[]): void {
         for (const prop of properties) {
-            const isNotOwnProperty = prop.key === "class" || prop.toggle === "minus";
+            const isNotOwnProperty =
+                prop.key === "class" || prop.toggle === AST.PropertyToggle.Minus;
             if (isNotOwnProperty) continue;
 
             const propertyDef = getPropertyDefinition(prop.key);

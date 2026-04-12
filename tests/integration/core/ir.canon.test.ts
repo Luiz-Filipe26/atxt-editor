@@ -12,7 +12,7 @@ function normalizeMap(map: Map<string, string>): Map<string, string> {
 }
 
 function stripIds(node: IR.Node): IR.Node {
-    if (node.type === "BLOCK") {
+    if (node.type === IR.NodeType.Block) {
         return {
             ...node,
             id: "",
@@ -23,7 +23,7 @@ function stripIds(node: IR.Node): IR.Node {
             children: node.children.map(stripIds),
         };
     }
-    if (node.type === "TEXT") {
+    if (node.type === IR.NodeType.Text) {
         return {
             ...node,
             id: "",

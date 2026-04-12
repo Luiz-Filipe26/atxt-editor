@@ -39,7 +39,7 @@ export class Generator {
     }
 
     private renderNode(node: IR.Node): string {
-        if (node.type === "NEWLINE") return "<br>";
+        if (node.type === IR.NodeType.Newline) return "<br>";
 
         if (node.props.get("hidden")?.toLowerCase() === "true") return "";
 
@@ -47,7 +47,7 @@ export class Generator {
         const classAttribute = className ? ` class="${className}"` : "";
         const dataAttribute = ` data-id="${node.id}"`;
 
-        if (node.type === "BLOCK") return this.renderBlockNode(node, classAttribute, dataAttribute);
+        if (node.type === IR.NodeType.Block) return this.renderBlockNode(node, classAttribute, dataAttribute);
 
         return `<span${classAttribute}${dataAttribute}>${node.content}</span>`;
     }
@@ -71,7 +71,7 @@ export class Generator {
         let atLineStart = true;
 
         for (const child of children) {
-            if (child.type === "NEWLINE") {
+            if (child.type === IR.NodeType.Newline) {
                 result += this.renderNode(child);
                 atLineStart = true;
             } else {

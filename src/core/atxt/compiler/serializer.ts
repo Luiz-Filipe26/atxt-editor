@@ -36,12 +36,12 @@ function serializeChildren(nodes: IR.Node[], lines: string[], depth: number): vo
 
     for (let i = 0; i < nodes.length; i++) {
         const node = nodes[i];
-        if (node.type === "TEXT" || node.type === "NEWLINE") {
+        if (node.type === IR.NodeType.Text || node.type === IR.NodeType.Newline) {
             run.push(node);
         } else {
             flushRun();
             serializeBlock(node, lines, depth);
-            if (nodes[i + 1]?.type === "NEWLINE") i++;
+            if (nodes[i + 1]?.type === IR.NodeType.Newline) i++;
         }
     }
 
@@ -85,12 +85,12 @@ function serializeTextRun(nodes: IR.Node[], lines: string[], baseIndent: string)
     };
 
     for (const node of nodes) {
-        if (node.type === "NEWLINE") {
+        if (node.type === IR.NodeType.Newline) {
             flushLine();
             continue;
         }
         /* v8 ignore next -- @preserve */
-        if (node.type !== "TEXT") continue;
+        if (node.type !== IR.NodeType.Text) continue;
         const toggles = buildToggles(prevProps, node.props);
         if (toggles) lineBuffer += toggles;
         lineBuffer += node.content;

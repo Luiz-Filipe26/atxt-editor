@@ -13,7 +13,7 @@ export interface BuildBlockArgs {
 export function buildBlockNode(args: BuildBlockArgs): IR.Block {
     return {
         id: args.id,
-        type: "BLOCK",
+        type: IR.NodeType.Block,
         props: args.props,
         classes: args.classes ?? [],
         ownProps: args.ownProps ?? new Map(),
@@ -31,7 +31,7 @@ export function buildTextNode(
 ): IR.Text {
     return {
         id,
-        type: "TEXT",
+        type: IR.NodeType.Text,
         props,
         classes: [],
         ownProps: new Map(),
@@ -42,5 +42,5 @@ export function buildTextNode(
 }
 
 export function buildNewlineNode(source: SourceLocation, id: string): IR.Newline {
-    return { id, type: "NEWLINE", line: source.line, column: source.column };
+    return { id, type: IR.NodeType.Newline, line: source.line, column: source.column };
 }

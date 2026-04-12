@@ -7,8 +7,8 @@
         "dev": "vite",
         "build": "tsc && vite build",
         "preview": "vite preview",
-        "test": "vitest",
-        "coverage": "vitest run --coverage"
+        "test": "NO_COLOR=1 vitest run 2>&1",
+        "coverage": "NO_COLOR=1 vitest run --coverage 2>&1"
     },
     "devDependencies": {
         "@types/node": "25.5.0",

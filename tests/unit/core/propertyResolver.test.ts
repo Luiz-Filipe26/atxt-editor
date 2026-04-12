@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vitest";
 import { AST } from "@atxt";
 import { PropertyResolver } from "@atxt/compiler/propertyResolver";
+import { PropertyToggle } from "@/core/atxt/types/ast";
 
 function makeResolver() {
     const errors: string[] = [];
@@ -8,9 +9,9 @@ function makeResolver() {
     return { resolver, errors };
 }
 
-function prop(key: string, value: string, toggle?: "plus" | "minus"): AST.PropertyNode {
+function prop(key: string, value: string, toggle?: PropertyToggle): AST.PropertyNode {
     return {
-        type: AST.NodeType.PROPERTY,
+        type: AST.NodeType.Property,
         key,
         value,
         toggle,
@@ -30,7 +31,7 @@ function defineAnnotation(
         ...Object.entries(extraProps).map(([k, v]) => prop(k, v)),
     ];
     return {
-        type: AST.NodeType.ANNOTATION,
+        type: AST.NodeType.Annotation,
         directive: "DEFINE",
         properties,
         target: null,
@@ -119,13 +120,13 @@ describe("PropertyResolver", () => {
     describe("resolveProperties — toggle handling", () => {
         it("includes plus-toggle properties in the resolved result", () => {
             const { resolver } = makeResolver();
-            const result = resolver.resolveProperties([prop("color", "blue", "plus")]);
+            const result = resolver.resolveProperties([prop("color", "blue", PropertyToggle.Plus)]);
             expect(result.props).toEqual(toMap({ color: "blue" }));
         });
 
         it("excludes minus-toggle properties from the resolved result", () => {
             const { resolver, errors } = makeResolver();
-            const result = resolver.resolveProperties([prop("color", "", "minus")]);
+            const result = resolver.resolveProperties([prop("color", "", PropertyToggle.Minus)]);
             expect(result.props).toEqual(toMap({}));
             expect(errors).toHaveLength(0);
         });
@@ -207,7 +208,7 @@ describe("PropertyResolver", () => {
         it("emits an error when DEFINE is missing the class property", () => {
             const { resolver, errors } = makeResolver();
             resolver.defineClass({
-                type: AST.NodeType.ANNOTATION,
+                type: AST.NodeType.Annotation,
                 directive: "DEFINE",
                 properties: [prop("color", "red")],
                 target: null,

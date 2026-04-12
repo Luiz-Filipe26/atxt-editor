@@ -7,7 +7,7 @@ import {
 import { PropertyContext } from "./propertyContext";
 import * as AST from "../types/ast";
 import * as IR from "../types/ir";
-import type { CompilerError } from "../types/errors";
+import { CompilerErrorType, type CompilerError } from "../types/errors";
 import { buildBlockNode, buildTextNode, buildNewlineNode, type BuildBlockArgs } from "./irBuilders";
 import type { SourceLocation } from "../types/location";
 
@@ -75,12 +75,12 @@ export class Hydrator {
         for (let i = 0; i < nodes.length; i++) {
             const node = nodes[i];
 
-            if (node.type === AST.NodeType.NEWLINE) {
+            if (node.type === AST.NodeType.Newline) {
                 output.push(this.register(buildNewlineNode(node, this.nextId())));
                 continue;
             }
 
-            if (node.type !== AST.NodeType.ANNOTATION) {
+            if (node.type !== AST.NodeType.Annotation) {
                 output.push(this.transformBareNode(node, propertyContext));
                 continue;
             }
@@ -168,19 +168,19 @@ export class Hydrator {
                 this.applyClassToggle(prop, propertyContext);
                 continue;
             }
-            if (prop.toggle === "minus") {
+            if (prop.toggle === AST.PropertyToggle.Minus) {
                 propertyContext.pop(prop.key);
-            } else if (prop.toggle === "plus" && resolvedProps.has(prop.key)) {
+            } else if (prop.toggle === AST.PropertyToggle.Plus && resolvedProps.has(prop.key)) {
                 propertyContext.push(prop.key, resolvedProps.get(prop.key)!);
             }
         }
     }
 
     private applyClassToggle(prop: AST.PropertyNode, propertyContext: PropertyContext): void {
-        if (prop.toggle === "plus") {
+        if (prop.toggle === AST.PropertyToggle.Plus) {
             const classProps = this.propertyResolver.resolveClass(prop.value);
             if (classProps) propertyContext.pushClass(prop.value, classProps);
-        } else if (prop.toggle === "minus") {
+        } else if (prop.toggle === AST.PropertyToggle.Minus) {
             const className = propertyContext.peek("class");
             if (!className) {
                 this.pushError(
@@ -207,9 +207,9 @@ export class Hydrator {
         const { blockProps, inlineProps } = this.propertyResolver.partitionByScope(activeProps);
 
         switch (node.type) {
-            case AST.NodeType.BLOCK:
+            case AST.NodeType.Block:
                 return this.transformBlockNode({ node, blockProps, activeProps });
-            case AST.NodeType.TEXT:
+            case AST.NodeType.Text:
                 return this.register(buildTextNode(node, this.nextId(), inlineProps, node.content));
         }
     }
@@ -230,7 +230,9 @@ export class Hydrator {
     ): string | null {
         if (children.length === 0) return null;
 
-        const isLeaf = children.every((c) => c.type === "TEXT" || c.type === "NEWLINE");
+        const isLeaf = children.every(
+            (c) => c.type === IR.NodeType.Text || c.type === IR.NodeType.Newline,
+        );
         const explicitKind = blockProps.get("kind");
 
         if (!explicitKind) {
@@ -253,7 +255,7 @@ export class Hydrator {
 
     private pushError(message: string, source: { line: number; column: number }) {
         this.compilerErrors.push({
-            type: "HYDRATOR",
+            type: CompilerErrorType.Hydrator,
             message,
             line: source.line,
             column: source.column,

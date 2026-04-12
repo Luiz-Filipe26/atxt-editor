@@ -113,7 +113,7 @@ outputEl.addEventListener("dblclick", (e) => {
     if (!irNode || irNode.line === undefined || irNode.column === undefined) return;
 
     let column = irNode.column;
-    if (irNode.type === "TEXT") column += pendingOffset;
+    if (irNode.type === Atxt.IR.NodeType.Text) column += pendingOffset;
 
     jumpToEditorPosition(irNode.line, column);
 });
