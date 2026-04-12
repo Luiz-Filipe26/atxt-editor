@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vitest";
 import { Lexer, Parser, AST } from "@atxt";
 import { PropertyToggle } from "@/core/atxt/types/ast";
+import { PropKey } from "@atxt/domain/annotationProperties";
 const { NodeType } = AST;
 
 function parse(source: string) {
@@ -184,7 +185,7 @@ describe("Parser", () => {
             expect(node.directive).toBe("DEFINE");
             expect(node.target).toBeNull();
             const keys = node.properties.map((p) => p.key);
-            expect(keys).toContain("class");
+            expect(keys).toContain(PropKey.Class);
             expect(keys).toContain("size");
             expect(keys).toContain("weight");
         });
@@ -192,7 +193,7 @@ describe("Parser", () => {
         it("DEFINE with merge property includes merge in the property list", () => {
             const node = annotation("[[DEFINE class: child; merge: parent; size: 18]]");
             const keys = node.properties.map((p) => p.key);
-            expect(keys).toContain("merge");
+            expect(keys).toContain(PropKey.Merge);
         });
     });
 

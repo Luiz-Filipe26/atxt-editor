@@ -5,6 +5,7 @@ import {
     getPropertyDefinition,
 } from "../domain/propertyDefinitions";
 import { PropertyContext } from "./propertyContext";
+import { isLeafBlock, KindValue, PropKey } from "../domain/annotationProperties";
 import * as AST from "../types/ast";
 import * as IR from "../types/ir";
 import { CompilerErrorType, type CompilerError } from "../types/errors";
@@ -131,7 +132,7 @@ export class Hydrator {
 
     private finalizeBlock(args: Omit<BuildBlockArgs, "id">): IR.Block {
         const kind = this.resolveKind(args.props, args.children, args.source);
-        if (kind) args.props.set("kind", kind);
+        if (kind) args.props.set(PropKey.Kind, kind);
         return this.register(buildBlockNode({ ...args, id: this.nextId() }));
     }
 
@@ -164,7 +165,7 @@ export class Hydrator {
         propertyContext: PropertyContext,
     ): void {
         for (const prop of properties) {
-            if (prop.key === "class") {
+            if (prop.key === PropKey.Class) {
                 this.applyClassToggle(prop, propertyContext);
                 continue;
             }
@@ -181,7 +182,7 @@ export class Hydrator {
             const classProps = this.propertyResolver.resolveClass(prop.value);
             if (classProps) propertyContext.pushClass(prop.value, classProps);
         } else if (prop.toggle === AST.PropertyToggle.Minus) {
-            const className = propertyContext.peek("class");
+            const className = propertyContext.peek(PropKey.Class);
             if (!className) {
                 this.pushError(
                     "'-class' toggle has no matching '+class' in the current scope.",
@@ -230,16 +231,14 @@ export class Hydrator {
     ): string | null {
         if (children.length === 0) return null;
 
-        const isLeaf = children.every(
-            (c) => c.type === IR.NodeType.Text || c.type === IR.NodeType.Newline,
-        );
-        const explicitKind = blockProps.get("kind");
+        const isLeaf = isLeafBlock(children);
+        const explicitKind = blockProps.get(PropKey.Kind);
 
         if (!explicitKind) {
             const isContainer = [...blockProps.keys()].some(
                 (key) => getPropertyDefinition(key)?.container === true,
             );
-            if (isLeaf && !isContainer) return "paragraph";
+            if (isLeaf && !isContainer) return KindValue.Paragraph;
         }
 
         const kindDef = explicitKind ? getKindDefinition(explicitKind) : null;

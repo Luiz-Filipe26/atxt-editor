@@ -3,6 +3,7 @@ import { Lexer } from "@atxt";
 import { SymbolDetector, SymbolEntryType } from "@atxt/compiler/symbolDetector";
 import type { PropEntry } from "@atxt/compiler/astBuilders";
 import { BUILT_IN_SYMBOLS } from "@atxt/domain/builtInSymbols";
+import { PropKey } from "@atxt/domain/annotationProperties";
 
 function props(record: Record<string, string>): PropEntry[] {
     return Object.entries(record).map(([name, value]) => ({ name, value }));
@@ -136,7 +137,7 @@ describe("SymbolDetector", () => {
         });
 
         it("##### wins over # (maximal munch in block symbols)", () => {
-            expect(getProp(detector.detectBlockSymbol("##### deep")?.props, "kind")).toBe(
+            expect(getProp(detector.detectBlockSymbol("##### deep")?.props, PropKey.Kind)).toBe(
                 "heading5",
             );
         });

@@ -61,7 +61,7 @@ export class SymbolParser {
         return [
             buildAnnotationNode(
                 token,
-                "NORMAL",
+                AST.AnnotationDirective.Normal,
                 buildPropertyNodesFromPairs(token, blockSymbol.props),
                 target,
             ),

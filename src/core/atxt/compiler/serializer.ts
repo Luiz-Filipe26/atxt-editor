@@ -1,5 +1,7 @@
 import * as IR from "../types/ir";
+import { PropKey } from "../domain/annotationProperties";
 import { sortedMapEntries } from "../utils/mapUtils";
+import { AnnotationDirective } from "../types/ast.ts";
 
 const INDENT_SIZE = 4;
 const INDENT_UNIT = " ".repeat(INDENT_SIZE);
@@ -20,7 +22,7 @@ function serializeClassDefinitions(classDefinitions: Map<string, IR.ResolvedProp
         const propList = sortedMapEntries(props)
             .map(([key, value]) => `${key}: ${value}`)
             .join("; ");
-        return `[[DEFINE class: ${name}; ${propList}]]`;
+        return `[[${AnnotationDirective.Define} ${PropKey.Class}: ${name}; ${propList}]]`;
     });
 }
 
@@ -63,7 +65,7 @@ function buildBlockAnnotation(block: IR.Block): string | null {
     const parts: string[] = [];
 
     if (block.classes.length > 0) {
-        parts.push(`class: ${block.classes.join(" ")}`);
+        parts.push(`${PropKey.Class}: ${block.classes.join(" ")}`);
     }
 
     for (const [key, value] of sortedMapEntries(block.ownProps)) {

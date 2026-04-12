@@ -1,4 +1,5 @@
-import { getPropertyDefinition } from "../domain/propertyDefinitions";
+import { getPropertyDefinition, PropertyScope } from "../domain/propertyDefinitions";
+import { isMetaProperty, PropKey } from "../domain/annotationProperties";
 import * as IR from "../types/ir";
 import * as AST from "../types/ast";
 import type { SourceLocation } from "../types/location";
@@ -33,7 +34,7 @@ export class PropertyResolver {
     }
 
     public defineClass(annotation: AST.AnnotationNode): void {
-        const classProp = annotation.properties.find((p) => p.key === "class");
+        const classProp = annotation.properties.find((p) => p.key === PropKey.Class);
 
         if (!classProp) {
             this.pushError("DEFINE directive requires a 'class' property.", annotation);
@@ -41,7 +42,7 @@ export class PropertyResolver {
         }
 
         const className = classProp.value;
-        const mergeProp = annotation.properties.find((p) => p.key === "merge");
+        const mergeProp = annotation.properties.find((p) => p.key === PropKey.Merge);
         const props: IR.ResolvedProps = new Map();
 
         this.applyMerge(props, mergeProp);
@@ -74,7 +75,7 @@ export class PropertyResolver {
         for (const [key, value] of props) {
             const propDef = getPropertyDefinition(key);
             if (!propDef) continue;
-            if (propDef.scope === "block") {
+            if (propDef.scope === PropertyScope.Block) {
                 blockProps.set(key, value);
             } else {
                 inlineProps.set(key, value);
@@ -102,7 +103,7 @@ export class PropertyResolver {
 
     private applyDefinedProperties(props: IR.ResolvedProps, properties: AST.PropertyNode[]): void {
         for (const prop of properties) {
-            if (prop.key === "class" || prop.key === "merge") continue;
+            if (isMetaProperty(prop.key)) continue;
 
             const propertyDef = getPropertyDefinition(prop.key);
             if (!propertyDef || !propertyDef.validate(prop.value)) {
@@ -121,7 +122,7 @@ export class PropertyResolver {
         properties: AST.PropertyNode[],
         classes: string[],
     ): void {
-        const classProp = properties.find((p) => p.key === "class" && !p.toggle);
+        const classProp = properties.find((p) => p.key === PropKey.Class && !p.toggle);
         if (!classProp) return;
 
         const classNames = classProp.value.split(/\s+/).filter(Boolean);
@@ -141,7 +142,7 @@ export class PropertyResolver {
     private applyOwnProperties(props: IR.ResolvedProps, properties: AST.PropertyNode[]): void {
         for (const prop of properties) {
             const isNotOwnProperty =
-                prop.key === "class" || prop.toggle === AST.PropertyToggle.Minus;
+                prop.key === PropKey.Class || prop.toggle === AST.PropertyToggle.Minus;
             if (isNotOwnProperty) continue;
 
             const propertyDef = getPropertyDefinition(prop.key);

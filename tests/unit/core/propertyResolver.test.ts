@@ -2,6 +2,7 @@ import { describe, it, expect } from "vitest";
 import { AST } from "@atxt";
 import { PropertyResolver } from "@atxt/compiler/propertyResolver";
 import { PropertyToggle } from "@/core/atxt/types/ast";
+import { PropKey } from "@atxt/domain/annotationProperties";
 
 function makeResolver() {
     const errors: string[] = [];
@@ -26,8 +27,8 @@ function defineAnnotation(
     merge?: string,
 ): AST.AnnotationNode {
     const properties: AST.PropertyNode[] = [
-        prop("class", className),
-        ...(merge ? [prop("merge", merge)] : []),
+        prop(PropKey.Class, className),
+        ...(merge ? [prop(PropKey.Merge, merge)] : []),
         ...Object.entries(extraProps).map(([k, v]) => prop(k, v)),
     ];
     return {
@@ -143,14 +144,14 @@ describe("PropertyResolver", () => {
         it("classes contains the applied class name", () => {
             const { resolver } = makeResolver();
             resolver.defineClass(defineAnnotation("big", { size: "24" }));
-            const result = resolver.resolveProperties([prop("class", "big")]);
+            const result = resolver.resolveProperties([prop(PropKey.Class, "big")]);
             expect(result.classes).toEqual(["big"]);
         });
 
         it("ownProps contains only properties written directly on the annotation — not class-inherited ones", () => {
             const { resolver } = makeResolver();
             resolver.defineClass(defineAnnotation("big", { size: "24" }));
-            const result = resolver.resolveProperties([prop("class", "big"), prop("color", "red")]);
+            const result = resolver.resolveProperties([prop(PropKey.Class, "big"), prop("color", "red")]);
 
             expect(result.ownProps).toEqual(toMap({ color: "red" }));
             expect(result.ownProps.has("size")).toBe(false);
@@ -159,14 +160,14 @@ describe("PropertyResolver", () => {
         it("props contains both class-inherited and direct properties merged", () => {
             const { resolver } = makeResolver();
             resolver.defineClass(defineAnnotation("big", { size: "24" }));
-            const result = resolver.resolveProperties([prop("class", "big"), prop("color", "red")]);
+            const result = resolver.resolveProperties([prop(PropKey.Class, "big"), prop("color", "red")]);
             expect(result.props).toEqual(toMap({ size: "24", color: "red" }));
         });
 
         it("direct props override class props in the merged result", () => {
             const { resolver } = makeResolver();
             resolver.defineClass(defineAnnotation("big", { size: "24" }));
-            const result = resolver.resolveProperties([prop("class", "big"), prop("size", "32")]);
+            const result = resolver.resolveProperties([prop(PropKey.Class, "big"), prop("size", "32")]);
             expect(result.props.get("size")).toBe("32");
             expect(result.ownProps.get("size")).toBe("32");
         });
@@ -176,7 +177,7 @@ describe("PropertyResolver", () => {
         it("a defined class is resolved when applied by name", () => {
             const { resolver } = makeResolver();
             resolver.defineClass(defineAnnotation("bold-red", { color: "red", weight: "bold" }));
-            const result = resolver.resolveProperties([prop("class", "bold-red")]);
+            const result = resolver.resolveProperties([prop(PropKey.Class, "bold-red")]);
             expect(result.props).toEqual(toMap({ color: "red", weight: "bold" }));
         });
 
@@ -184,7 +185,7 @@ describe("PropertyResolver", () => {
             const { resolver } = makeResolver();
             resolver.defineClass(defineAnnotation("fancy", { color: "red", size: "20" }));
             const result = resolver.resolveProperties([
-                prop("class", "fancy"),
+                prop(PropKey.Class, "fancy"),
                 prop("color", "blue"),
             ]);
             expect(result.props.get("color")).toBe("blue");
@@ -194,13 +195,13 @@ describe("PropertyResolver", () => {
         it("class properties do not override inline properties when class is declared first", () => {
             const { resolver } = makeResolver();
             resolver.defineClass(defineAnnotation("base", { size: "14" }));
-            const result = resolver.resolveProperties([prop("size", "20"), prop("class", "base")]);
+            const result = resolver.resolveProperties([prop("size", "20"), prop(PropKey.Class, "base")]);
             expect(result.props.get("size")).toBe("20");
         });
 
         it("emits a warning when applying an undefined class", () => {
             const { resolver, errors } = makeResolver();
-            resolver.resolveProperties([prop("class", "nonexistent")]);
+            resolver.resolveProperties([prop(PropKey.Class, "nonexistent")]);
             expect(errors).toHaveLength(1);
             expect(errors[0]).toContain("nonexistent");
         });
@@ -223,7 +224,7 @@ describe("PropertyResolver", () => {
             const { resolver, errors } = makeResolver();
             resolver.defineClass(defineAnnotation("bad", { align: "diagonal" }));
             expect(errors).toHaveLength(1);
-            const result = resolver.resolveProperties([prop("class", "bad")]);
+            const result = resolver.resolveProperties([prop(PropKey.Class, "bad")]);
             expect(result.props.has("align")).toBe(false);
         });
 
@@ -263,7 +264,7 @@ describe("PropertyResolver", () => {
             resolver.defineClass(defineAnnotation("base", { color: "red", size: "14" }));
             resolver.defineClass(defineAnnotation("child", { size: "18" }, "base"));
 
-            const result = resolver.resolveProperties([prop("class", "child")]);
+            const result = resolver.resolveProperties([prop(PropKey.Class, "child")]);
             expect(result.props.get("color")).toBe("red");
             expect(result.props.get("size")).toBe("18");
         });
@@ -273,7 +274,7 @@ describe("PropertyResolver", () => {
             resolver.defineClass(defineAnnotation("base", { color: "red" }));
             resolver.defineClass(defineAnnotation("child", { color: "blue" }, "base"));
 
-            const result = resolver.resolveProperties([prop("class", "child")]);
+            const result = resolver.resolveProperties([prop(PropKey.Class, "child")]);
             expect(result.props.get("color")).toBe("blue");
         });
 
@@ -357,7 +358,7 @@ describe("PropertyResolver", () => {
             const { resolver, errors } = makeResolver();
             resolver.defineClass(defineAnnotation("myclass", { color: "red" }));
             resolver.reset();
-            resolver.resolveProperties([prop("class", "myclass")]);
+            resolver.resolveProperties([prop(PropKey.Class, "myclass")]);
             expect(errors).toHaveLength(1);
             expect(errors[0]).toContain("myclass");
         });
@@ -367,7 +368,7 @@ describe("PropertyResolver", () => {
             resolver.defineClass(defineAnnotation("cls", { color: "red" }));
             resolver.reset();
             resolver.defineClass(defineAnnotation("cls", { color: "blue" }));
-            const result = resolver.resolveProperties([prop("class", "cls")]);
+            const result = resolver.resolveProperties([prop(PropKey.Class, "cls")]);
             expect(result.props.get("color")).toBe("blue");
             expect(errors).toHaveLength(0);
         });

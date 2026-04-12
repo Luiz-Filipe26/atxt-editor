@@ -1,7 +1,14 @@
 type ValidatorFn = (value: string) => boolean;
 
+export const PropertyScope = {
+    Block: "block",
+    Inline: "inline",
+} as const;
+
+export type PropertyScope = typeof PropertyScope[keyof typeof PropertyScope];
+
 export interface PropertyDefinition {
-    scope: "block" | "inline";
+    scope: PropertyScope;
     container: boolean;
     validate: ValidatorFn;
 }

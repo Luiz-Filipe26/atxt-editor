@@ -4,6 +4,7 @@ import { formatCssUnit, getCssMapping } from "../domain/cssPropertyMapping";
 import { getHtmlTag } from "../domain/htmlTagMapping";
 import { sortedMapEntries } from "../utils/mapUtils";
 import { HTML_SANITIZE_POLICY } from "../domain/htmlSanitizePolicy";
+import { getIndent, isHidden, PropKey } from "../domain/annotationProperties";
 
 export class Generator {
     private classCache = new Map<string, string>();
@@ -38,10 +39,16 @@ export class Generator {
         return DOMPurify.sanitize(raw, HTML_SANITIZE_POLICY);
     }
 
+    private generateClassName(): string {
+        const name = `atxt-cls-${this.classCounter.toString(36)}`;
+        this.classCounter++;
+        return name;
+    }
+
     private renderNode(node: IR.Node): string {
         if (node.type === IR.NodeType.Newline) return "<br>";
 
-        if (node.props.get("hidden")?.toLowerCase() === "true") return "";
+        if (isHidden(node.props)) return "";
 
         const className = node.props.size > 0 ? this.resolveClass(node.props) : "";
         const classAttribute = className ? ` class="${className}"` : "";
@@ -55,8 +62,8 @@ export class Generator {
     private renderBlockNode(node: IR.Block, classAttribute: string, dataAttribute: string): string {
         if (node.children.length === 0) return "";
 
-        const tag = getHtmlTag(node.props.get("kind"));
-        const indent = parseInt(node.props.get("indent") ?? "0", 10);
+        const tag = getHtmlTag(node.props.get(PropKey.Kind));
+        const indent = getIndent(node.props);
         const childrenHtml =
             indent > 0
                 ? this.renderChildrenWithIndent(node.children, indent)
@@ -93,8 +100,7 @@ export class Generator {
         const cached = this.classCache.get(signature);
         if (cached) return cached;
 
-        const newClassName = `atxt-cls-${this.classCounter.toString(36)}`;
-        this.classCounter++;
+        const newClassName = this.generateClassName();
         this.classCache.set(signature, newClassName);
         this.cssRules.push(this.buildCssRule(newClassName, cssProps));
 

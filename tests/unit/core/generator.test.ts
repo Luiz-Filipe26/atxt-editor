@@ -1,5 +1,6 @@
 import { describe, it, expect, beforeEach } from "vitest";
 import { Generator, IR } from "@atxt";
+import { KindValue, PropKey } from "@atxt/domain/annotationProperties";
 
 let idCounter = 0;
 
@@ -101,7 +102,7 @@ describe("Generator", () => {
         });
 
         it("hidden check is case-insensitive — TRUE is also hidden", () => {
-            const root = makeBlock({}, [makeBlock({ hidden: "TRUE" }, [makeText("Secret")])]);
+            const root = makeBlock({}, [makeBlock({ [PropKey.Hidden]: "TRUE" }, [makeText("Secret")])]);
             expect(generate(root)).not.toContain("Secret");
         });
 
@@ -118,7 +119,7 @@ describe("Generator", () => {
             });
 
             it("a block with kind renders with the corresponding HTML tag", () => {
-                const root = makeBlock({}, [makeBlock({ kind: "paragraph" }, [makeText("Hello")])]);
+                const root = makeBlock({}, [makeBlock({ [PropKey.Kind]: KindValue.Paragraph }, [makeText("Hello")])]);
                 expect(generate(root)).toContain("<p ");
                 expect(generate(root)).toContain("Hello");
                 expect(generate(root)).toContain("</p>");
@@ -127,7 +128,7 @@ describe("Generator", () => {
 
         it("a NEWLINE node inside a leaf context is rendered as a newline character", () => {
             const newline: IR.Newline = { id: "n0", type: IR.NodeType.Newline };
-            const leaf = makeBlock({ kind: "paragraph" }, [makeText("a"), newline, makeText("b")]);
+            const leaf = makeBlock({ [PropKey.Kind]: KindValue.Paragraph }, [makeText("a"), newline, makeText("b")]);
             const root = makeBlock({}, [leaf]);
             const html = generate(root);
             expect(html).toMatch(/>a<\/span><br>/);
@@ -135,7 +136,7 @@ describe("Generator", () => {
 
         it("a NEWLINE node outside a leaf context is not rendered", () => {
             const newline: IR.Newline = { id: "n0", type: IR.NodeType.Newline };
-            const inner = makeBlock({ kind: "paragraph" }, [makeText("text")]);
+            const inner = makeBlock({ [PropKey.Kind]: KindValue.Paragraph }, [makeText("text")]);
             const root = makeBlock({}, [inner, newline]);
             const html = generate(root);
             expect(html).not.toContain('data-id="n0"');
@@ -263,7 +264,7 @@ describe("Generator", () => {
     describe("indentation", () => {
         it("indent: 4 prepends four spaces to each line in the block HTML", () => {
             const root = makeBlock({}, [
-                makeBlock({ indent: "4", kind: "paragraph" }, [makeText("Hello")]),
+                makeBlock({ [PropKey.Indent]: "4", [PropKey.Kind]: KindValue.Paragraph }, [makeText("Hello")]),
             ]);
             expect(generate(root)).toContain("    <span");
         });
@@ -271,7 +272,7 @@ describe("Generator", () => {
         it("indent does not prepend spaces to non-line-start nodes", () => {
             const newline: IR.Newline = { id: "nl", type: IR.NodeType.Newline };
             const root = makeBlock({}, [
-                makeBlock({ indent: "4", kind: "paragraph" }, [
+                makeBlock({ [PropKey.Indent]: "4", [PropKey.Kind]: KindValue.Paragraph }, [
                     makeText("A"),
                     makeText("B"),
                     newline,

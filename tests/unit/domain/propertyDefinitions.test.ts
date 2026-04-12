@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { getPropertyDefinition } from "@atxt";
+import { KindValue, PropKey } from "@atxt/domain/annotationProperties";
 
 describe("getPropertyDefinition", () => {
     describe("unknown properties", () => {
@@ -20,10 +21,10 @@ describe("getPropertyDefinition", () => {
 
     describe("scope assignments", () => {
         it.each([
-            "hidden",
+            PropKey.Hidden,
             "fill",
             "radius",
-            "indent",
+            PropKey.Indent,
             "padding",
             "margin",
             "border",
@@ -43,7 +44,7 @@ describe("getPropertyDefinition", () => {
     });
 
     describe("hidden", () => {
-        const { validate } = getPropertyDefinition("hidden")!;
+        const { validate } = getPropertyDefinition(PropKey.Hidden)!;
 
         it.each(["true", "false", "TRUE", "FALSE", "True", "False"])(
             'accepts case-insensitive boolean "%s"',
@@ -90,7 +91,7 @@ describe("getPropertyDefinition", () => {
     });
 
     describe("indent — non-negative integer", () => {
-        const { validate } = getPropertyDefinition("indent")!;
+        const { validate } = getPropertyDefinition(PropKey.Indent)!;
 
         it.each(["0", "1", "4", "100"])('accepts "%s"', (val) => expect(validate(val)).toBe(true));
 
@@ -255,15 +256,15 @@ describe("getPropertyDefinition", () => {
 
     describe("kind property", () => {
         it("kind is block-scoped and not a container", () => {
-            const def = getPropertyDefinition("kind")!;
+            const def = getPropertyDefinition(PropKey.Kind)!;
             expect(def.scope).toBe("block");
             expect(def.container).toBe(false);
         });
 
         it("kind accepts all valid values from the spec", () => {
-            const { validate } = getPropertyDefinition("kind")!;
+            const { validate } = getPropertyDefinition(PropKey.Kind)!;
             for (const v of [
-                "paragraph",
+                KindValue.Paragraph,
                 "heading1",
                 "heading2",
                 "heading3",
@@ -285,7 +286,7 @@ describe("getPropertyDefinition", () => {
         });
 
         it("kind rejects unknown values", () => {
-            const { validate } = getPropertyDefinition("kind")!;
+            const { validate } = getPropertyDefinition(PropKey.Kind)!;
             expect(validate("div")).toBe(false);
             expect(validate("")).toBe(false);
         });
@@ -307,7 +308,7 @@ describe("getPropertyDefinition", () => {
         });
 
         it("control props have container: false", () => {
-            for (const key of ["kind", "hidden", "indent", "align"]) {
+            for (const key of [PropKey.Kind, PropKey.Hidden, PropKey.Indent, "align"]) {
                 expect(getPropertyDefinition(key)?.container).toBe(false);
             }
         });

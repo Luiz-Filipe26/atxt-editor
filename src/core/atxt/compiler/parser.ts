@@ -12,6 +12,7 @@ import {
     type PropEntry,
 } from "./astBuilders";
 import type { SourceLocation } from "../types/location";
+import { PropKey } from "../domain/annotationProperties.ts";
 
 export interface ParseResult {
     document: AST.DocumentNode;
@@ -103,18 +104,20 @@ export class Parser {
         const { props, hasNormalProps } = this.parseProperties();
         this.consumeAnnotationClosure();
 
-        if (directive === "HIDE") {
+        if (directive === AST.AnnotationDirective.Hide) {
             this.resolveAnnotationTarget();
             return null;
         }
 
-        if (directive === "SYMBOL") {
+        if (directive === AST.AnnotationDirective.Symbol) {
             this.handleSymbolDefinition(props);
             return null;
         }
 
         const target =
-            directive === "NORMAL" && hasNormalProps ? this.resolveAnnotationTarget() : null;
+            directive === AST.AnnotationDirective.Normal && hasNormalProps
+                ? this.resolveAnnotationTarget()
+                : null;
 
         return buildAnnotationNode(openingToken, directive, props, target);
     }
@@ -125,11 +128,11 @@ export class Parser {
         const symbolProps: PropEntry[] = [];
 
         for (const prop of props) {
-            if (prop.key === "symbol") {
+            if (prop.key === PropKey.Symbol) {
                 symbolProp = prop;
                 continue;
             }
-            if (prop.key === "type") {
+            if (prop.key === PropKey.Type) {
                 type = prop.value;
                 continue;
             }

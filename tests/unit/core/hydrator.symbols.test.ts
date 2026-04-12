@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { IR, compileToIR } from "@atxt";
+import { PropKey } from "@atxt/domain/annotationProperties";
 
 function texts(ir: IR.Block): IR.Text[] {
     const result: IR.Text[] = [];
@@ -62,7 +63,7 @@ describe("Hydrator — symbol integration", () => {
         it("# heading produces a block with kind:heading1", () => {
             const { ir, errors } = compileToIR("# Hello");
             expect(errors).toHaveLength(0);
-            expect(blocks(ir.root)[0].props.get("kind")).toBe("heading1");
+            expect(blocks(ir.root)[0].props.get(PropKey.Kind)).toBe("heading1");
         });
 
         it("# heading applies h1 default class properties", () => {
@@ -74,19 +75,19 @@ describe("Hydrator — symbol integration", () => {
         it("> quote produces a block with kind:quote", () => {
             const { ir, errors } = compileToIR("> A quote");
             expect(errors).toHaveLength(0);
-            expect(blocks(ir.root)[0].props.get("kind")).toBe("quote");
+            expect(blocks(ir.root)[0].props.get(PropKey.Kind)).toBe("quote");
         });
 
         it("- item produces a block with kind:item", () => {
             const { ir, errors } = compileToIR("- An item");
             expect(errors).toHaveLength(0);
-            expect(blocks(ir.root)[0].props.get("kind")).toBe("item");
+            expect(blocks(ir.root)[0].props.get(PropKey.Kind)).toBe("item");
         });
 
         it("+ item produces a block with kind:item", () => {
             const { ir, errors } = compileToIR("+ An item");
             expect(errors).toHaveLength(0);
-            expect(blocks(ir.root)[0].props.get("kind")).toBe("item");
+            expect(blocks(ir.root)[0].props.get(PropKey.Kind)).toBe("item");
         });
     });
 

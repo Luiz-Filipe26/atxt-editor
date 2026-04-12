@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { getCssMapping } from "@atxt";
+import { PropKey } from "@atxt/domain/annotationProperties";
 
 describe("getCssMapping", () => {
     describe("unknown keys", () => {
@@ -19,11 +20,11 @@ describe("getCssMapping", () => {
 
     describe("compiler-only properties have no CSS mapping", () => {
         it("hidden has no CSS mapping — it is a generator directive", () => {
-            expect(getCssMapping("hidden")).toBeNull();
+            expect(getCssMapping(PropKey.Hidden)).toBeNull();
         });
 
         it("indent has no CSS mapping — handled by the generator separately", () => {
-            expect(getCssMapping("indent")).toBeNull();
+            expect(getCssMapping(PropKey.Indent)).toBeNull();
         });
     });
 

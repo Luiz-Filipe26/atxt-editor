@@ -50,8 +50,19 @@ export interface PropertyNode extends BaseNode {
     toggle: PropertyToggle;
 }
 
-export const DIRECTIVE_KEYWORDS = ["SET", "DEFINE", "HIDE", "SYMBOL"] as const;
-export type AnnotationDirective = (typeof DIRECTIVE_KEYWORDS)[number] | "NORMAL";
+export const AnnotationDirective = {
+    Normal: "NORMAL",
+    Set: "SET",
+    Define: "DEFINE",
+    Hide: "HIDE",
+    Symbol: "SYMBOL",
+} as const;
+
+export type AnnotationDirective = (typeof AnnotationDirective)[keyof typeof AnnotationDirective];
+
+export const DIRECTIVE_KEYWORDS = Object.values(AnnotationDirective).filter(
+    (d) => d !== AnnotationDirective.Normal,
+);
 
 export interface AnnotationNode extends BaseNode {
     type: typeof NodeType.Annotation;

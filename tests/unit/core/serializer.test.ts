@@ -1,5 +1,6 @@
 import { describe, it, expect, beforeEach } from "vitest";
 import { serialize, IR } from "@atxt";
+import { KindValue, PropKey } from "@atxt/domain/annotationProperties";
 
 let idCounter = 0;
 
@@ -89,7 +90,7 @@ describe("Serializer", () => {
 
     describe("annotated blocks", () => {
         it("emits annotation and braces for a block with a class", () => {
-            const block = makeBlock({ kind: "paragraph" }, [makeText("Hello")], ["my-class"]);
+            const block = makeBlock({ [PropKey.Kind]: KindValue.Paragraph }, [makeText("Hello")], ["my-class"]);
             const result = serialize(makeDoc([block]));
             expect(result).toBe("[[class: my-class]] {\n    Hello\n}");
         });

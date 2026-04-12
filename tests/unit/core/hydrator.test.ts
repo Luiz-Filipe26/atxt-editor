@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { IR, compileToIR, COMPILER_DEFAULTS } from "@atxt";
+import { KindValue, PropKey } from "@atxt/domain/annotationProperties";
 
 function texts(ir: IR.Block): IR.Text[] {
     const result: IR.Text[] = [];
@@ -379,12 +380,12 @@ describe("Hydrator", () => {
         it("hidden: true on a block target arrives in the IR as a block prop", () => {
             const { ir, errors } = compileToIR("[[hidden: true]]\n{\nContent\n}");
             expect(errors).toHaveLength(0);
-            expect(blocks(ir.root)[0].props.get("hidden")).toBe("true");
+            expect(blocks(ir.root)[0].props.get(PropKey.Hidden)).toBe("true");
         });
 
         it("hidden: false also arrives in the IR", () => {
             const { ir } = compileToIR("[[hidden: false]]\n{\nContent\n}");
-            expect(blocks(ir.root)[0].props.get("hidden")).toBe("false");
+            expect(blocks(ir.root)[0].props.get(PropKey.Hidden)).toBe("false");
         });
     });
 
@@ -446,12 +447,12 @@ describe("Hydrator", () => {
     describe("kind and leaf promotion", () => {
         it("a leaf block without container props is promoted to kind: paragraph", () => {
             const { ir } = compileToIR("{\nHello\n}");
-            expect(blocks(ir.root)[0].props.get("kind")).toBe("paragraph");
+            expect(blocks(ir.root)[0].props.get(PropKey.Kind)).toBe(KindValue.Paragraph);
         });
 
         it("a leaf block with container props is not promoted to paragraph", () => {
             const { ir } = compileToIR("[[fill: #ccc]]\n{\nHello\n}");
-            expect(blocks(ir.root)[0].props.has("kind")).toBe(false);
+            expect(blocks(ir.root)[0].props.has(PropKey.Kind)).toBe(false);
         });
 
         it("a leaf-incompatible kind on a non-leaf block emits a HYDRATOR error", () => {
