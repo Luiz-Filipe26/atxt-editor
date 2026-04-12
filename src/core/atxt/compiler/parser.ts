@@ -2,7 +2,7 @@ import { TokenType, type Token } from "../types/tokens";
 import { TokenStream } from "./tokenStream";
 import * as AST from "../types/ast";
 import { CompilerErrorType, type CompilerError } from "../types/errors";
-import { SymbolDetector, type SymbolRegistrationResult } from "./symbolDetector";
+import { SymbolDetector, SymbolEntryType, SymbolRegistrationResult } from "./symbolDetector";
 import { SymbolParser } from "./symbolParser";
 import {
     buildAnnotationNode,
@@ -137,23 +137,28 @@ export class Parser {
         }
 
         if (!symbolProp || symbolProps.length === 0) return;
-        const symbolType = type === "block" ? "block" : "inline";
+        const symbolType =
+            type === SymbolEntryType.Block ? SymbolEntryType.Block : SymbolEntryType.Inline;
         const result = this.symbolDetector.registerSymbol(
             symbolProp.value,
             symbolType,
             symbolProps,
         );
-        if (result !== "ok") this.reportSymbolRegistrationError(result, symbolProp);
+        if (result !== SymbolRegistrationResult.Ok)
+            this.reportSymbolRegistrationError(result, symbolProp);
     }
 
     private reportSymbolRegistrationError(
-        result: Exclude<SymbolRegistrationResult, "ok">,
+        result: Exclude<SymbolRegistrationResult, typeof SymbolRegistrationResult.Ok>,
         symbolProp: AST.PropertyNode,
     ): void {
-        const messages = {
-            duplicate: `Symbol '${symbolProp.value}' is already registered.`,
-            "closing-conflict": `The closing sequence of '${symbolProp.value}' conflicts with an existing symbol.`,
-            "invalid-sequence": `'${symbolProp.value}' contains invalid characters for a symbol sequence.`,
+        const messages: Record<
+            Exclude<SymbolRegistrationResult, typeof SymbolRegistrationResult.Ok>,
+            string
+        > = {
+            [SymbolRegistrationResult.Duplicate]: `Symbol '${symbolProp.value}' is already registered.`,
+            [SymbolRegistrationResult.ClosingConflict]: `The closing sequence of '${symbolProp.value}' conflicts with an existing symbol.`,
+            [SymbolRegistrationResult.InvalidSequence]: `'${symbolProp.value}' contains invalid characters for a symbol sequence.`,
         };
         const message = messages[result];
         this.pushError(message, symbolProp);

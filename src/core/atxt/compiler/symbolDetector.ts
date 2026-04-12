@@ -4,18 +4,25 @@ import type { PropEntry } from "./astBuilders";
 import { Lexer } from "./lexer";
 import { Trie } from "./trie";
 
+export const SymbolEntryType = {
+    Inline: "inline",
+    Block: "block",
+} as const;
+
+export type SymbolEntryType = (typeof SymbolEntryType)[keyof typeof SymbolEntryType];
+
 interface BaseEntry {
-    type: string;
+    type: SymbolEntryType;
     props: PropEntry[];
 }
 
 interface InlineEntry extends BaseEntry {
-    type: "inline";
+    type: typeof SymbolEntryType.Inline;
     closing: string;
 }
 
 interface BlockEntry extends BaseEntry {
-    type: "block";
+    type: typeof SymbolEntryType.Block;
 }
 
 export type SymbolEntry = InlineEntry | BlockEntry;
@@ -31,7 +38,15 @@ export interface InlineSymbolMatch extends BaseSymbolMatch {
     closingPos: number;
 }
 
-export type SymbolRegistrationResult = "ok" | "duplicate" | "closing-conflict" | "invalid-sequence";
+export const SymbolRegistrationResult = {
+    Ok: "ok",
+    Duplicate: "duplicate",
+    ClosingConflict: "closing-conflict",
+    InvalidSequence: "invalid-sequence",
+} as const;
+
+export type SymbolRegistrationResult =
+    (typeof SymbolRegistrationResult)[keyof typeof SymbolRegistrationResult];
 
 export class SymbolDetector {
     private trie = new Trie<SymbolEntry>();
@@ -60,23 +75,26 @@ export class SymbolDetector {
     ): SymbolRegistrationResult {
         const closing = this.reverse(sequence);
         if (!this.builtInSymbols.has(sequence)) {
-            if (this.registeredSymbols.has(sequence)) return "duplicate";
-            if (this.registeredSymbols.has(closing)) return "closing-conflict";
+            if (this.registeredSymbols.has(sequence)) return SymbolRegistrationResult.Duplicate;
+            if (this.registeredSymbols.has(closing))
+                return SymbolRegistrationResult.ClosingConflict;
         }
-        if (SymbolDetector.INVALID_SYMBOL_PATTERN.test(sequence)) return "invalid-sequence";
-        if (!SymbolDetector.VALID_SYMBOL_PATTERN.test(sequence)) return "invalid-sequence";
-        if (type === "inline") {
+        if (SymbolDetector.INVALID_SYMBOL_PATTERN.test(sequence))
+            return SymbolRegistrationResult.InvalidSequence;
+        if (!SymbolDetector.VALID_SYMBOL_PATTERN.test(sequence))
+            return SymbolRegistrationResult.InvalidSequence;
+        if (type === SymbolEntryType.Inline) {
             this.trie.insert(sequence, { type, props, closing });
         } else {
             this.trie.insert(sequence, { type, props });
         }
         this.registeredSymbols.add(sequence);
-        return "ok";
+        return SymbolRegistrationResult.Ok;
     }
 
     public detectAt(text: string, pos: number): InlineSymbolMatch | null {
         const entry = this.trie.match(text, pos);
-        if (entry?.value.type !== "inline") return null;
+        if (entry?.value.type !== SymbolEntryType.Inline) return null;
 
         const contentStart = pos + entry.literal.length;
         const closePos = this.findClosingPos(text, contentStart, entry.value.closing);
@@ -92,7 +110,7 @@ export class SymbolDetector {
 
     public detectBlockSymbol(text: string): BlockSymbolMatch | null {
         const entry = this.trie.match(text, 0);
-        if (entry?.value.type !== "block") return null;
+        if (entry?.value.type !== SymbolEntryType.Block) return null;
         return { props: entry.value.props, symbolLength: entry.literal.length };
     }
 

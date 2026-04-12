@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach } from "vitest";
 import { Lexer } from "@atxt";
-import { SymbolDetector } from "@atxt/compiler/symbolDetector";
+import { SymbolDetector, SymbolEntryType } from "@atxt/compiler/symbolDetector";
 import type { PropEntry } from "@atxt/compiler/astBuilders";
 import { BUILT_IN_SYMBOLS } from "@atxt/domain/builtInSymbols";
 
@@ -80,7 +80,7 @@ describe("SymbolDetector", () => {
 
     describe("detectAt — maximal munch", () => {
         it("prefers ** over a hypothetical single * when both are registered", () => {
-            detector.registerSymbol("*", "inline", props({ weight: "normal" }));
+            detector.registerSymbol("*", SymbolEntryType.Inline, props({ weight: "normal" }));
             const match = detector.detectAt("**bold**", 0);
             expect(toRecord(match!.props)).toEqual({ weight: "bold" });
             expect(match!.symbolLength).toBe(2);
@@ -89,7 +89,7 @@ describe("SymbolDetector", () => {
 
     describe("detectAt — closing is reverse of opening", () => {
         it("asymmetric symbol closes with its reverse", () => {
-            detector.registerSymbol("*-", "inline", props({ color: "red" }));
+            detector.registerSymbol("*-", SymbolEntryType.Inline, props({ color: "red" }));
             const match = detector.detectAt("*-text-*", 0);
             expect(match).not.toBeNull();
             expect(match!.closing).toBe("-*");
@@ -99,14 +99,18 @@ describe("SymbolDetector", () => {
 
     describe("registerInline — custom symbols", () => {
         it("registers a custom inline symbol that is then detectable", () => {
-            detector.registerSymbol("++", "inline", props({ color: "yellow" }));
+            detector.registerSymbol("++", SymbolEntryType.Inline, props({ color: "yellow" }));
             const match = detector.detectAt("++text++", 0);
             expect(match).not.toBeNull();
             expect(toRecord(match!.props)).toEqual({ color: "yellow" });
         });
 
         it("overrides a built-in symbol when re-registered", () => {
-            detector.registerSymbol("**", "inline", props({ decoration: "underline" }));
+            detector.registerSymbol(
+                "**",
+                SymbolEntryType.Inline,
+                props({ decoration: "underline" }),
+            );
             const match = detector.detectAt("**text**", 0);
             expect(toRecord(match!.props)).toEqual({ decoration: "underline" });
         });
@@ -140,7 +144,7 @@ describe("SymbolDetector", () => {
 
     describe("registerBlock — custom block symbols", () => {
         it("registers a custom block symbol that is then detectable", () => {
-            detector.registerSymbol("§ ", "block", props({ kind: "section" }));
+            detector.registerSymbol("§ ", SymbolEntryType.Block, props({ kind: "section" }));
             const match = detector.detectBlockSymbol("§ My section");
             expect(match).not.toBeNull();
             expect(toRecord(match!.props)).toEqual({ kind: "section" });
