@@ -1,16 +1,9 @@
 import * as AST from "../types/ast";
 import type { SourceLocation } from "../types/location";
 
-export interface BuildPropertyArgs {
+export interface BuildPropertyArgs extends AST.PropEntry {
     source: SourceLocation;
-    key: string;
-    value: string;
     toggle: AST.PropertyToggle;
-}
-
-export interface PropEntry {
-    name: string;
-    value: string;
 }
 
 export function buildBlockNode(
@@ -58,10 +51,10 @@ export function buildPropertyNode(args: BuildPropertyArgs): AST.PropertyNode {
 
 export function buildPropertyNodesFromPairs(
     source: SourceLocation,
-    props: PropEntry[],
+    props: AST.PropEntry[],
     toggle: AST.PropertyToggle = undefined,
 ): AST.PropertyNode[] {
-    return props.map(({ name, value }) =>
+    return props.map(({ key: name, value }) =>
         buildPropertyNode({
             source,
             key: name,
@@ -71,19 +64,19 @@ export function buildPropertyNodesFromPairs(
     );
 }
 
-export function buildToggleOpenNode(source: SourceLocation, props: PropEntry[]) {
+export function buildToggleOpenNode(source: SourceLocation, props: AST.PropEntry[]) {
     return buildToggleNode(source, props, AST.PropertyToggle.Plus);
 }
 
-export function buildToggleCloseNode(source: SourceLocation, props: PropEntry[]) {
+export function buildToggleCloseNode(source: SourceLocation, props: AST.PropEntry[]) {
     return buildToggleNode(source, props, AST.PropertyToggle.Minus);
 }
 
 export function buildToggleNode(
     source: SourceLocation,
-    props: PropEntry[],
+    props: AST.PropEntry[],
     toggle: AST.PropertyToggle,
 ): AST.AnnotationNode {
     const propertyNodes = buildPropertyNodesFromPairs(source, props, toggle);
-    return buildAnnotationNode(source, "NORMAL", propertyNodes, null);
+    return buildAnnotationNode(source, AST.AnnotationDirective.Normal, propertyNodes, null);
 }

@@ -1,7 +1,7 @@
-export interface BuiltInSymbol {
+import type { BaseEntry } from "../types/symbols";
+
+export interface BuiltInSymbol extends BaseEntry {
     sequence: string;
-    type: "inline" | "block";
-    props: { name: string; value: string }[];
 }
 
 export const BUILT_IN_SYMBOLS: BuiltInSymbol[] = [
@@ -19,5 +19,5 @@ export const BUILT_IN_SYMBOLS: BuiltInSymbol[] = [
 ];
 
 function props(record: Record<string, string>) {
-    return Object.entries(record).map(([name, value]) => ({ name, value }));
+    return Object.entries(record).map(([key, value]) => ({ key, value }));
 }

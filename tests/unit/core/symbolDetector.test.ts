@@ -1,20 +1,21 @@
 import { describe, it, expect, beforeEach } from "vitest";
 import { Lexer } from "@atxt";
-import { SymbolDetector, SymbolEntryType } from "@atxt/compiler/symbolDetector";
-import type { PropEntry } from "@atxt/compiler/astBuilders";
+import { SymbolDetector } from "@atxt/compiler/symbolDetector";
 import { BUILT_IN_SYMBOLS } from "@atxt/domain/builtInSymbols";
 import { PropKey } from "@atxt/domain/annotationProperties";
+import type { PropEntry } from "@atxt/types/ast";
+import { SymbolEntryType } from "@atxt/types/symbols";
 
 function props(record: Record<string, string>): PropEntry[] {
-    return Object.entries(record).map(([name, value]) => ({ name, value }));
+    return Object.entries(record).map(([key, value]) => ({ key, value }));
 }
 
 function toRecord(entries: PropEntry[] | undefined): Record<string, string> {
-    return Object.fromEntries((entries ?? []).map(({ name, value }) => [name, value]));
+    return Object.fromEntries((entries ?? []).map(({ key: name, value }) => [name, value]));
 }
 
 function getProp(entries: PropEntry[] | undefined, name: string): string | undefined {
-    return entries?.find((e) => e.name === name)?.value;
+    return entries?.find((e) => e.key === name)?.value;
 }
 
 describe("SymbolDetector", () => {

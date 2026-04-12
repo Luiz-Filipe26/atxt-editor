@@ -50,6 +50,8 @@ export interface PropertyNode extends BaseNode {
     toggle: PropertyToggle;
 }
 
+export interface PropEntry extends Pick<PropertyNode, "key" | "value"> { }
+
 export const AnnotationDirective = {
     Normal: "NORMAL",
     Set: "SET",

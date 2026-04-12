@@ -2,17 +2,17 @@ import { TokenType, type Token } from "../types/tokens";
 import { TokenStream } from "./tokenStream";
 import * as AST from "../types/ast";
 import { CompilerErrorType, type CompilerError } from "../types/errors";
-import { SymbolDetector, SymbolEntryType, SymbolRegistrationResult } from "./symbolDetector";
+import { SymbolDetector, SymbolRegistrationResult } from "./symbolDetector";
 import { SymbolParser } from "./symbolParser";
 import {
     buildAnnotationNode,
     buildBlockNode,
     buildNewlineNode,
     buildPropertyNode,
-    type PropEntry,
 } from "./astBuilders";
 import type { SourceLocation } from "../types/location";
 import { PropKey } from "../domain/annotationProperties.ts";
+import { SymbolEntryType } from "../types/symbols.ts";
 
 export interface ParseResult {
     document: AST.DocumentNode;
@@ -125,7 +125,7 @@ export class Parser {
     private handleSymbolDefinition(props: AST.PropertyNode[]): void {
         let symbolProp: AST.PropertyNode | undefined;
         let type: string | undefined;
-        const symbolProps: PropEntry[] = [];
+        const symbolProps: AST.PropEntry[] = [];
 
         for (const prop of props) {
             if (prop.key === PropKey.Symbol) {
@@ -136,7 +136,7 @@ export class Parser {
                 type = prop.value;
                 continue;
             }
-            symbolProps.push({ name: prop.key, value: prop.value });
+            symbolProps.push({ key: prop.key, value: prop.value });
         }
 
         if (!symbolProp || symbolProps.length === 0) return;

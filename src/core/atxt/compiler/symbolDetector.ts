@@ -1,31 +1,9 @@
 import { BUILT_IN_SYMBOLS } from "../domain/builtInSymbols";
 import { CLOSING_CHARS } from "../domain/closingChars";
-import type { PropEntry } from "./astBuilders";
+import type { PropEntry } from "../types/ast";
+import { SymbolEntryType, type SymbolEntry } from "../types/symbols";
 import { Lexer } from "./lexer";
 import { Trie } from "./trie";
-
-export const SymbolEntryType = {
-    Inline: "inline",
-    Block: "block",
-} as const;
-
-export type SymbolEntryType = (typeof SymbolEntryType)[keyof typeof SymbolEntryType];
-
-interface BaseEntry {
-    type: SymbolEntryType;
-    props: PropEntry[];
-}
-
-interface InlineEntry extends BaseEntry {
-    type: typeof SymbolEntryType.Inline;
-    closing: string;
-}
-
-interface BlockEntry extends BaseEntry {
-    type: typeof SymbolEntryType.Block;
-}
-
-export type SymbolEntry = InlineEntry | BlockEntry;
 
 interface BaseSymbolMatch {
     props: PropEntry[];
@@ -70,7 +48,7 @@ export class SymbolDetector {
 
     public registerSymbol(
         sequence: string,
-        type: SymbolEntry["type"],
+        type: SymbolEntryType,
         props: PropEntry[],
     ): SymbolRegistrationResult {
         const closing = this.reverse(sequence);

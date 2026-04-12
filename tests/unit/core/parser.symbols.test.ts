@@ -23,7 +23,7 @@ describe("Parser — symbol expansion", () => {
                     expect(errors).toHaveLength(0);
                     const ann = annotations(document.children)[0];
                     expect(ann).toBeDefined();
-                    for (const { name, value } of props) {
+                    for (const { key: name, value } of props) {
                         expect(ann.properties.find((p) => p.key === name)?.value).toBe(value);
                     }
                 },
