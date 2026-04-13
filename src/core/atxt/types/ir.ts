@@ -1,9 +1,9 @@
+import type { SourceLocation } from "./location";
+
 export type ResolvedProps = Map<string, string>;
 
 interface PositionalNode {
     id: string;
-    line?: number;
-    column?: number;
 }
 
 interface StyledNode extends PositionalNode {
@@ -36,8 +36,12 @@ export interface Newline extends PositionalNode {
 
 export type Node = Block | Text | Newline;
 
+export interface IRNodeEntry extends SourceLocation {
+    node: Node;
+}
+
 export interface IRDocument {
     root: Block;
-    nodeMap: Map<string, Node>;
+    nodeMap: Map<string, IRNodeEntry>;
     classDefinitions: Map<string, ResolvedProps>;
 }

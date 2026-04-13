@@ -8,7 +8,7 @@ const COMPILE_DEBOUNCE_TIME = 100;
 const inputEl = document.getElementById("input") as HTMLTextAreaElement;
 const outputEl = document.getElementById("output") as HTMLDivElement;
 
-let currentNodeMap: Map<string, Atxt.IR.Node> = new Map();
+let currentNodeMap: Map<string, Atxt.IR.IRNodeEntry> = new Map();
 
 function runCompiler(source: string) {
     console.clear();
@@ -107,15 +107,12 @@ outputEl.addEventListener("dblclick", (e) => {
     if (!(e.target instanceof Element)) return;
     const mappedEl = e.target.closest("[data-id]");
     if (!(mappedEl instanceof HTMLElement)) return;
-
     const id = mappedEl.dataset.id!;
-    const irNode = currentNodeMap.get(id);
-    if (!irNode || irNode.line === undefined || irNode.column === undefined) return;
-
-    let column = irNode.column;
-    if (irNode.type === Atxt.IR.NodeType.Text) column += pendingOffset;
-
-    jumpToEditorPosition(irNode.line, column);
+    const entry = currentNodeMap.get(id);
+    if (!entry) return;
+    let column = entry.column;
+    if (entry.node.type === Atxt.IR.NodeType.Text) column += pendingOffset;
+    jumpToEditorPosition(entry.line, column);
 });
 
 function jumpToEditorPosition(targetLine: number, targetColumn: number) {

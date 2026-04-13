@@ -28,7 +28,7 @@ interface TransformBlockArgs {
 export class Lowerer {
     private compilerErrors: CompilerError[] = [];
     private propertyResolver: PropertyResolver;
-    private nodeMap: Map<string, IR.Node> = new Map();
+    private nodeMap: Map<string, IR.IRNodeEntry> = new Map();
 
     private constructor() {
         this.propertyResolver = new PropertyResolver(this.pushError.bind(this));
@@ -39,14 +39,13 @@ export class Lowerer {
     }
 
     private lower(document: AST.DocumentNode): LoweringResult {
-        const rootBlock = this.register(
-            buildBlockNode({
-                source: document,
-                id: this.nextId(),
-                props: new Map(),
-                children: this.transformNodeList(document.children, COMPILER_DEFAULTS),
-            }),
-        );
+        const rootBlock = buildBlockNode({
+            source: document,
+            id: this.nextId(),
+            props: new Map(),
+            children: this.transformNodeList(document.children, COMPILER_DEFAULTS),
+        });
+        this.register(rootBlock, document);
         return {
             document: {
                 root: rootBlock,
@@ -61,8 +60,8 @@ export class Lowerer {
         return crypto.randomUUID();
     }
 
-    private register<T extends IR.Node>(node: T): T {
-        this.nodeMap.set(node.id, node);
+    private register<T extends IR.Node>(node: T, source: SourceLocation): T {
+        this.nodeMap.set(node.id, { line: source.line, column: source.column, node });
         return node;
     }
 
@@ -77,7 +76,8 @@ export class Lowerer {
             const node = nodes[i];
 
             if (node.type === AST.NodeType.Newline) {
-                output.push(this.register(buildNewlineNode(node, this.nextId())));
+                const newline = buildNewlineNode(this.nextId());
+                output.push(this.register(newline, node));
                 continue;
             }
 
@@ -133,7 +133,8 @@ export class Lowerer {
     private finalizeBlock(args: Omit<BuildBlockArgs, "id">): IR.Block {
         const kind = this.resolveKind(args.props, args.children, args.source);
         if (kind) args.props.set(PropKey.Kind, kind);
-        return this.register(buildBlockNode({ ...args, id: this.nextId() }));
+        const block = buildBlockNode({ ...args, id: this.nextId() });
+        return this.register(block, args.source);
     }
 
     private processNormalDirective(
@@ -210,8 +211,10 @@ export class Lowerer {
         switch (node.type) {
             case AST.NodeType.Block:
                 return this.transformBlockNode({ node, blockProps, activeProps });
-            case AST.NodeType.Text:
-                return this.register(buildTextNode(node, this.nextId(), inlineProps, node.content));
+            case AST.NodeType.Text: {
+                const text = buildTextNode(this.nextId(), inlineProps, node.content);
+                return this.register(text, node);
+            }
         }
     }
 

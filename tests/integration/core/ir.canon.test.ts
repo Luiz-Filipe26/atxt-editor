@@ -16,8 +16,6 @@ function stripIds(node: IR.Node): IR.Node {
         return {
             ...node,
             id: "",
-            line: 0,
-            column: 0,
             props: normalizeMap(node.props),
             ownProps: normalizeMap(node.ownProps),
             children: node.children.map(stripIds),
@@ -27,13 +25,11 @@ function stripIds(node: IR.Node): IR.Node {
         return {
             ...node,
             id: "",
-            line: 0,
-            column: 0,
             props: normalizeMap(node.props),
             ownProps: normalizeMap(node.ownProps),
         };
     }
-    return { ...node, id: "", line: 0, column: 0 };
+    return { ...node, id: "" };
 }
 
 function compToIr(source: string) {

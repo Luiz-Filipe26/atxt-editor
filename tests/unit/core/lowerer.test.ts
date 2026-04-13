@@ -32,8 +32,9 @@ describe("Lowerer", () => {
 
         it("the root block has the source position of the document", () => {
             const { ir } = compileToIR("Hello");
-            expect(ir.root.line).toBe(1);
-            expect(ir.root.column).toBe(1);
+            const entry = ir.nodeMap.get(ir.root.id);
+            expect(entry?.line).toBe(1);
+            expect(entry?.column).toBe(1);
         });
 
         it("the root block has empty classes and ownProps", () => {
@@ -81,8 +82,9 @@ describe("Lowerer", () => {
         it("preserves the source position on IR.Text nodes", () => {
             const { ir } = compileToIR("Hello");
             const text = texts(ir.root)[0];
-            expect(text.line).toBe(1);
-            expect(text.column).toBe(1);
+            const entry = ir.nodeMap.get(text.id);
+            expect(entry?.line).toBe(1);
+            expect(entry?.column).toBe(1);
         });
 
         it("a plain text node has empty classes and ownProps", () => {
@@ -111,8 +113,9 @@ describe("Lowerer", () => {
         it("preserves source position on IR.Block nodes", () => {
             const { ir } = compileToIR("{\nHello\n}");
             const block = blocks(ir.root)[0];
-            expect(block.line).toBeDefined();
-            expect(block.column).toBeDefined();
+            const entry = ir.nodeMap.get(block.id);
+            expect(entry?.line).toBeDefined();
+            expect(entry?.column).toBeDefined();
         });
     });
 

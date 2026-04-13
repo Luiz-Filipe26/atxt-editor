@@ -17,30 +17,21 @@ export function buildBlockNode(args: BuildBlockArgs): IR.Block {
         props: args.props,
         classes: args.classes ?? [],
         ownProps: args.ownProps ?? new Map(),
-        line: args.source.line,
-        column: args.source.column,
         children: args.children,
     };
 }
 
-export function buildTextNode(
-    source: SourceLocation,
-    id: string,
-    props: IR.ResolvedProps,
-    content: string,
-): IR.Text {
+export function buildTextNode(id: string, props: IR.ResolvedProps, content: string): IR.Text {
     return {
         id,
         type: IR.NodeType.Text,
         props,
         classes: [],
         ownProps: new Map(),
-        line: source.line,
-        column: source.column,
         content,
     };
 }
 
-export function buildNewlineNode(source: SourceLocation, id: string): IR.Newline {
-    return { id, type: IR.NodeType.Newline, line: source.line, column: source.column };
+export function buildNewlineNode(id: string): IR.Newline {
+    return { id, type: IR.NodeType.Newline };
 }

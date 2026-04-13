@@ -12,12 +12,7 @@ function makeProps(props: Record<string, string>): Map<string, string> {
     return new Map(Object.entries(props));
 }
 
-function makeBlock(
-    props: Record<string, string> = {},
-    children: IR.Node[] = [],
-    line?: number,
-    column?: number,
-): IR.Block {
+function makeBlock(props: Record<string, string> = {}, children: IR.Node[] = []): IR.Block {
     return {
         id: `b${idCounter++}`,
         type: IR.NodeType.Block,
@@ -25,17 +20,10 @@ function makeBlock(
         classes: [],
         ownProps: new Map(),
         children,
-        line,
-        column,
     };
 }
 
-function makeText(
-    content: string,
-    props: Record<string, string> = {},
-    line?: number,
-    column?: number,
-): IR.Text {
+function makeText(content: string, props: Record<string, string> = {}): IR.Text {
     return {
         id: `t${idCounter++}`,
         type: IR.NodeType.Text,
@@ -43,8 +31,6 @@ function makeText(
         classes: [],
         ownProps: new Map(),
         content,
-        line,
-        column,
     };
 }
 
@@ -102,7 +88,9 @@ describe("Generator", () => {
         });
 
         it("hidden check is case-insensitive — TRUE is also hidden", () => {
-            const root = makeBlock({}, [makeBlock({ [PropKey.Hidden]: "TRUE" }, [makeText("Secret")])]);
+            const root = makeBlock({}, [
+                makeBlock({ [PropKey.Hidden]: "TRUE" }, [makeText("Secret")]),
+            ]);
             expect(generate(root)).not.toContain("Secret");
         });
 
@@ -119,7 +107,9 @@ describe("Generator", () => {
             });
 
             it("a block with kind renders with the corresponding HTML tag", () => {
-                const root = makeBlock({}, [makeBlock({ [PropKey.Kind]: KindValue.Paragraph }, [makeText("Hello")])]);
+                const root = makeBlock({}, [
+                    makeBlock({ [PropKey.Kind]: KindValue.Paragraph }, [makeText("Hello")]),
+                ]);
                 expect(generate(root)).toContain("<p ");
                 expect(generate(root)).toContain("Hello");
                 expect(generate(root)).toContain("</p>");
@@ -128,7 +118,11 @@ describe("Generator", () => {
 
         it("a NEWLINE node inside a leaf context is rendered as a newline character", () => {
             const newline: IR.Newline = { id: "n0", type: IR.NodeType.Newline };
-            const leaf = makeBlock({ [PropKey.Kind]: KindValue.Paragraph }, [makeText("a"), newline, makeText("b")]);
+            const leaf = makeBlock({ [PropKey.Kind]: KindValue.Paragraph }, [
+                makeText("a"),
+                newline,
+                makeText("b"),
+            ]);
             const root = makeBlock({}, [leaf]);
             const html = generate(root);
             expect(html).toMatch(/>a<\/span><br>/);
@@ -162,12 +156,12 @@ describe("Generator", () => {
 
     describe("data-id attributes", () => {
         it("every node gets a data-id attribute", () => {
-            const root = makeBlock({}, [makeText("Hello", {}, 3, 5)]);
+            const root = makeBlock({}, [makeText("Hello", {})]);
             expect(generate(root)).toContain('data-id="t0"');
         });
 
         it("data-line and data-column are not emitted — source position lives in the nodeMap", () => {
-            const root = makeBlock({}, [makeText("Hello", {}, 3, 5)]);
+            const root = makeBlock({}, [makeText("Hello", {})]);
             const html = generate(root);
             expect(html).not.toContain("data-line");
             expect(html).not.toContain("data-column");
@@ -264,7 +258,9 @@ describe("Generator", () => {
     describe("indentation", () => {
         it("indent: 4 prepends four spaces to each line in the block HTML", () => {
             const root = makeBlock({}, [
-                makeBlock({ [PropKey.Indent]: "4", [PropKey.Kind]: KindValue.Paragraph }, [makeText("Hello")]),
+                makeBlock({ [PropKey.Indent]: "4", [PropKey.Kind]: KindValue.Paragraph }, [
+                    makeText("Hello"),
+                ]),
             ]);
             expect(generate(root)).toContain("    <span");
         });
