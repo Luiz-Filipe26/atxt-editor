@@ -250,22 +250,22 @@ export class Parser {
     }
 
     private parsePropertyKey(): ParsedPropertyKey | null {
+        let toggle: AST.PropertyToggle = undefined;
+
+        if (this.stream.match(TokenType.TogglePlus)) {
+            toggle = AST.PropertyToggle.Plus;
+        } else if (this.stream.match(TokenType.ToggleMinus)) {
+            toggle = AST.PropertyToggle.Minus;
+        }
+
         if (this.stream.peek().type !== TokenType.Identifier) {
             this.pushError(`Expected property name, found '${this.stream.peek().literal}'.`);
             this.synchronizeToNextProperty();
             return null;
         }
-        const token = this.stream.advance();
-        const rawKey = token.literal;
-        const toggle: AST.PropertyToggle =
-            rawKey[0] === "+"
-                ? AST.PropertyToggle.Plus
-                : rawKey[0] === "-"
-                    ? AST.PropertyToggle.Minus
-                    : undefined;
-        const key = toggle !== undefined ? rawKey.substring(1) : rawKey;
 
-        return { source: token, key, toggle };
+        const token = this.stream.advance();
+        return { source: token, key: token.literal, toggle };
     }
 
     private parsePropertyValue(parsedKey: ParsedPropertyKey): string | null {

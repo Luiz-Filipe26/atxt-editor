@@ -8,6 +8,8 @@ export const TokenType = {
     BlockOpen: "BLOCK_OPEN",
     BlockClose: "BLOCK_CLOSE",
     Identifier: "IDENTIFIER",
+    TogglePlus: "TOGGLE_PLUS",
+    ToggleMinus: "TOGGLE_MINUS",
     Colon: "COLON",
     Semicolon: "SEMICOLON",
     Value: "VALUE",

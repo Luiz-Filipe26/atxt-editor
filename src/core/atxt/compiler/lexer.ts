@@ -138,8 +138,14 @@ export class Lexer {
             case "\t":
             case "\n":
                 break;
+            case "+":
+                this.addToken(TokenType.TogglePlus);
+                break;
+            case "-":
+                this.addToken(TokenType.ToggleMinus);
+                break;
             default:
-                if (char === "+" || char === "-" || this.isKeyChar(char)) {
+                if (this.isKeyChar(char)) {
                     this.consumePropertyKey();
                 } else {
                     this.pushErrorAtMark(`Invalid character in property name: '${char}'`);

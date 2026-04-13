@@ -130,18 +130,20 @@ describe("Lexer", () => {
             }
         });
 
-        it("includes the + prefix in the IDENTIFIER literal for toggle-add", () => {
+        it("emits a TogglePlus token for toggle-add", () => {
             const { tokens, errors } = tokenize("[[+color: red]]");
             expect(errors).toHaveLength(0);
-            const id = tokens.find((t) => t.type === TokenType.Identifier);
-            expect(id?.literal).toBe("+color");
+            expect(tokens[1].type).toBe(TokenType.TogglePlus);
+            expect(tokens[2].type).toBe(TokenType.Identifier);
+            expect(tokens[2].literal).toBe("color");
         });
 
-        it("includes the - prefix in the IDENTIFIER literal for toggle-remove", () => {
+        it("emits a ToggleMinus token for toggle-remove", () => {
             const { tokens, errors } = tokenize("[[-color]]");
             expect(errors).toHaveLength(0);
-            const id = tokens.find((t) => t.type === TokenType.Identifier);
-            expect(id?.literal).toBe("-color");
+            expect(tokens[1].type).toBe(TokenType.ToggleMinus);
+            expect(tokens[2].type).toBe(TokenType.Identifier);
+            expect(tokens[2].literal).toBe("color");
         });
 
         it("tokenizes an annotation followed by text on the same line", () => {
@@ -313,11 +315,13 @@ describe("Lexer", () => {
         it("semicolon after a value-less toggle key stays in ANNOTATION_KEY mode correctly", () => {
             const { tokens, errors } = tokenize("[[-color; +size: 16]]");
             expect(errors).toHaveLength(0);
+            const types = tokens.map((t) => t.type);
+            expect(types).toContain(TokenType.ToggleMinus);
+            expect(types).toContain(TokenType.TogglePlus);
             const ids = tokens.filter((t) => t.type === TokenType.Identifier).map((t) => t.literal);
-            expect(ids).toContain("-color");
-            expect(ids).toContain("+size");
-            const semis = tokens.filter((t) => t.type === TokenType.Semicolon);
-            expect(semis).toHaveLength(1);
+            expect(ids).toContain("color");
+            expect(ids).toContain("size");
+            expect(tokens.filter((t) => t.type === TokenType.Semicolon)).toHaveLength(1);
         });
     });
 
