@@ -1,9 +1,9 @@
 import { Lexer } from "./lexer";
 import { Parser } from "./parser";
-import { Hydrator } from "./hydrator";
+import { Lowerer } from "./lowerer";
 import type * as IR from "../types/ir";
 import type { CompilerError } from "../types/errors";
-import { Generator } from "./generator";
+import { HtmlGenerator } from "./htmlGenerator";
 
 export interface compileResult {
     ir: IR.IRDocument;
@@ -13,14 +13,14 @@ export interface compileResult {
 export function compileToIR(source: string): compileResult {
     const { tokens, errors: lexerErrors } = Lexer.tokenize(source);
     const { document: ast, errors: parserErrors } = Parser.parse(tokens);
-    const { document: irDocument, errors: hydratorErrors } = Hydrator.hydrate(ast);
+    const { document: irDocument, errors: loweringErrors } = Lowerer.lower(ast);
 
     return {
         ir: irDocument,
-        errors: [...lexerErrors, ...parserErrors, ...hydratorErrors],
+        errors: [...lexerErrors, ...parserErrors, ...loweringErrors],
     };
 }
 
 export function compileToHTML(source: string) {
-    return Generator.generate(compileToIR(source).ir.root);
+    return HtmlGenerator.generate(compileToIR(source).ir.root);
 }

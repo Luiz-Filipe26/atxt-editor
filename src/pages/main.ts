@@ -27,18 +27,18 @@ function runCompiler(source: string) {
         if (parserErrors.length) console.error("Parser Errors:", parserErrors);
         console.groupEnd();
 
-        const { document: irDocument, errors: hydratorErrors } = Atxt.Hydrator.hydrate(ast);
-        console.groupCollapsed("3. Hydrator Output (IR)");
+        const { document: irDocument, errors: loweringErrors } = Atxt.Lowerer.lower(ast);
+        console.groupCollapsed("3. Lowerer Output (IR)");
         console.log("IR Document:", irDocument);
-        if (hydratorErrors.length) console.error("Hydrator Errors:", hydratorErrors);
+        if (loweringErrors.length) console.error("Lowerer Errors:", loweringErrors);
         console.groupEnd();
 
-        const finalHtml = Atxt.Generator.generate(irDocument.root);
-        console.groupCollapsed("4. Generator Output");
+        const finalHtml = Atxt.HtmlGenerator.generate(irDocument.root);
+        console.groupCollapsed("4. HtmlGenerator Output");
         console.log(finalHtml);
         console.groupEnd();
 
-        const allErrors = [...lexerErrors, ...parserErrors, ...hydratorErrors];
+        const allErrors = [...lexerErrors, ...parserErrors, ...loweringErrors];
         if (allErrors.length > 0) {
             console.warn(`⚠️ Total errors found: ${allErrors.length}`, allErrors);
         } else {

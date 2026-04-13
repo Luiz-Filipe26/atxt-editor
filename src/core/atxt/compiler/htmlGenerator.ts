@@ -6,7 +6,7 @@ import { sortedMapEntries } from "../utils/mapUtils";
 import { HTML_SANITIZE_POLICY } from "../domain/htmlSanitizePolicy";
 import { getIndent, isHidden, PropKey } from "../domain/annotationProperties";
 
-export class Generator {
+export class HtmlGenerator {
     private classCache = new Map<string, string>();
     private cssRules: string[] = [];
     private classCounter = 0;
@@ -14,7 +14,7 @@ export class Generator {
     private constructor() { }
 
     public static generate(root: IR.Block): string {
-        return new Generator().generate(root);
+        return new HtmlGenerator().generate(root);
     }
 
     private generate(root: IR.Block): string {

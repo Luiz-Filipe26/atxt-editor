@@ -19,7 +19,7 @@ function textWith(ir: IR.Block, substr: string): IR.Text | undefined {
     return texts(ir).find((t) => t.content.includes(substr));
 }
 
-describe("Hydrator — symbol integration", () => {
+describe("Lowerer — symbol integration", () => {
     describe("inline symbols via default classes", () => {
         it("**text** applies weight:bold to the enclosed text", () => {
             const { ir, errors } = compileToIR("**bold**");

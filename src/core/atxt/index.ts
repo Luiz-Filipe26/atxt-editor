@@ -3,8 +3,8 @@ export { serialize } from "./compiler/serializer";
 
 export { Lexer } from "./compiler/lexer";
 export { Parser } from "./compiler/parser";
-export { Hydrator } from "./compiler/hydrator";
-export { Generator } from "./compiler/generator";
+export { Lowerer } from "./compiler/lowerer";
+export { HtmlGenerator } from "./compiler/htmlGenerator";
 
 export * as AST from "./types/ast";
 export * as IR from "./types/ir";

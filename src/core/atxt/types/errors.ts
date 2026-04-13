@@ -1,7 +1,7 @@
 export const CompilerErrorType = {
     Lexer: "LEXER",
     Parser: "PARSER",
-    Hydrator: "HYDRATOR",
+    Lowerer: "LOWERER",
 } as const;
 
 export type CompilerErrorType = (typeof CompilerErrorType)[keyof typeof CompilerErrorType];

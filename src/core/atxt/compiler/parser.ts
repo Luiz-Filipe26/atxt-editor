@@ -14,7 +14,7 @@ import type { SourceLocation } from "../types/location";
 import { PropKey } from "../domain/annotationProperties.ts";
 import { SymbolEntryType } from "../types/symbols.ts";
 
-export interface ParseResult {
+export interface ParsingResult {
     document: AST.DocumentNode;
     errors: CompilerError[];
 }
@@ -39,11 +39,11 @@ export class Parser {
         this.stream = new TokenStream(tokens);
     }
 
-    public static parse(tokens: Token[]): ParseResult {
+    public static parse(tokens: Token[]): ParsingResult {
         return new Parser(tokens).parse();
     }
 
-    private parse(): ParseResult {
+    private parse(): ParsingResult {
         const root: AST.DocumentNode = {
             type: AST.NodeType.Document,
             line: 1,

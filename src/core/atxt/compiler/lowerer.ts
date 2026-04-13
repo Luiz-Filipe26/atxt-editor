@@ -12,7 +12,7 @@ import { CompilerErrorType, type CompilerError } from "../types/errors";
 import { buildBlockNode, buildTextNode, buildNewlineNode, type BuildBlockArgs } from "./irBuilders";
 import type { SourceLocation } from "../types/location";
 
-export interface HydrateResult {
+export interface LoweringResult {
     document: IR.IRDocument;
     errors: CompilerError[];
 }
@@ -25,7 +25,7 @@ interface TransformBlockArgs {
     ownProps?: IR.ResolvedProps;
 }
 
-export class Hydrator {
+export class Lowerer {
     private compilerErrors: CompilerError[] = [];
     private propertyResolver: PropertyResolver;
     private nodeMap: Map<string, IR.Node> = new Map();
@@ -34,11 +34,11 @@ export class Hydrator {
         this.propertyResolver = new PropertyResolver(this.pushError.bind(this));
     }
 
-    public static hydrate(document: AST.DocumentNode): HydrateResult {
-        return new Hydrator().hydrate(document);
+    public static lower(document: AST.DocumentNode): LoweringResult {
+        return new Lowerer().lower(document);
     }
 
-    private hydrate(document: AST.DocumentNode): HydrateResult {
+    private lower(document: AST.DocumentNode): LoweringResult {
         const rootBlock = this.register(
             buildBlockNode({
                 source: document,
@@ -254,7 +254,7 @@ export class Hydrator {
 
     private pushError(message: string, source: { line: number; column: number }) {
         this.compilerErrors.push({
-            type: CompilerErrorType.Hydrator,
+            type: CompilerErrorType.Lowerer,
             message,
             line: source.line,
             column: source.column,

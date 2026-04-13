@@ -58,14 +58,14 @@ Shorthand sugar for common cases:
 ## Compiler pipeline
 
 ```
-Source .atxt → Lexer → Parser → Hydrator → IR → Generator
+Source .atxt → Lexer → Parser → Lowerer → IR → Generator
 ```
 
 | Stage         | Responsibility                                                |
 | ------------- | ------------------------------------------------------------- |
 | **Lexer**     | Tokenizes raw text. Manages annotation mode stack.            |
 | **Parser**    | Builds the AST. Resolves annotation targets. Expands symbols. |
-| **Hydrator**  | Resolves classes and properties. Produces the IR.             |
+| **Lowerer**  | Resolves classes and properties. Produces the IR.             |
 | **Generator** | Consumes the IR. Produces the target format.                  |
 
 Generators are pluggable. The same IR produces HTML today; DOCX and PDF generators are planned.

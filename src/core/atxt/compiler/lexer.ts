@@ -2,7 +2,7 @@ import { TokenType, type Token } from "../types/tokens";
 import { CompilerErrorType, type CompilerError } from "../types/errors";
 import { Scanner } from "./scanner";
 
-export interface LexerResult {
+export interface LexingResult {
     tokens: Token[];
     errors: CompilerError[];
 }
@@ -49,11 +49,11 @@ export class Lexer {
         this.modeStack = [LexerMode.NORMAL];
     }
 
-    public static tokenize(source: string): LexerResult {
+    public static tokenize(source: string): LexingResult {
         return new Lexer(source).tokenize();
     }
 
-    private tokenize(): LexerResult {
+    private tokenize(): LexingResult {
         while (!this.scanner.isAtEnd()) {
             this.scanner.mark();
             this.scanToken();

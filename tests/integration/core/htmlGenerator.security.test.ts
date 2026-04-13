@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { compileToHTML, compileToIR } from "@atxt";
+import { CompilerErrorType } from "@atxt/types/errors";
 
 describe("Generator — security", () => {
     describe("XSS via text content", () => {
@@ -34,25 +35,25 @@ describe("Generator — security", () => {
         });
     });
 
-    describe("XSS via property values — rejected by Hydrator before reaching Generator", () => {
+    describe("XSS via property values — rejected by Lowerer before reaching Generator", () => {
         it("javascript: url in fill property is rejected as invalid color", () => {
             const { errors } = compileToIR("[[fill: javascript:alert(1)]] {Hello}");
-            expect(errors.some((e) => e.type === "HYDRATOR")).toBe(true);
+            expect(errors.some((e) => e.type === CompilerErrorType.Lowerer)).toBe(true);
         });
 
         it("expression() in color property is rejected as invalid color", () => {
             const { errors } = compileToIR("[[color: expression(alert(1))]] Hello");
-            expect(errors.some((e) => e.type === "HYDRATOR")).toBe(true);
+            expect(errors.some((e) => e.type === CompilerErrorType.Lowerer)).toBe(true);
         });
 
         it("javascript: url in border property is rejected", () => {
             const { errors } = compileToIR("[[border: javascript:alert(1)]] {Hello}");
-            expect(errors.some((e) => e.type === "HYDRATOR")).toBe(true);
+            expect(errors.some((e) => e.type === CompilerErrorType.Lowerer)).toBe(true);
         });
 
         it("expression() in font property is rejected", () => {
             const { errors } = compileToIR("[[font: expression(alert(1))]] Hello");
-            expect(errors.some((e) => e.type === "HYDRATOR")).toBe(true);
+            expect(errors.some((e) => e.type === CompilerErrorType.Lowerer)).toBe(true);
         });
     });
 

@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vitest";
 import { IR, compileToIR, COMPILER_DEFAULTS } from "@atxt";
 import { KindValue, PropKey } from "@atxt/domain/annotationProperties";
+import { CompilerErrorType } from "@atxt/types/errors";
 
 function texts(ir: IR.Block): IR.Text[] {
     const result: IR.Text[] = [];
@@ -19,7 +20,7 @@ function textWith(ir: IR.Block, substr: string): IR.Text | undefined {
     return texts(ir).find((t) => t.content.includes(substr));
 }
 
-describe("Hydrator", () => {
+describe("Lowerer", () => {
     describe("root IR structure", () => {
         it("produces an IR.Block root with empty props for an empty document", () => {
             const { ir, errors } = compileToIR("");
@@ -358,7 +359,7 @@ describe("Hydrator", () => {
             expect(blocks(ir.root)[0].props.get("fill")).toBe("#eee");
         });
 
-        it("merge: child inherits parent properties at hydration time", () => {
+        it("merge: child inherits parent properties at lowering time", () => {
             const { ir, errors } = compileToIR(
                 "[[DEFINE class: base; color: red]]\n" +
                 "[[DEFINE class: child; merge: base; size: 16]]\n" +
@@ -370,9 +371,9 @@ describe("Hydrator", () => {
             expect(text?.props.get("size")).toBe("16");
         });
 
-        it("emits a HYDRATOR error when applying an undefined class", () => {
+        it("emits a LOWERER error when applying an undefined class", () => {
             const { errors } = compileToIR("[[class: undefined-class]] Hello");
-            expect(errors.some((e) => e.type === "HYDRATOR")).toBe(true);
+            expect(errors.some((e) => e.type === CompilerErrorType.Lowerer)).toBe(true);
         });
     });
 
@@ -423,17 +424,17 @@ describe("Hydrator", () => {
     });
 
     describe("error collection", () => {
-        it("collects a HYDRATOR error for an unknown property", () => {
+        it("collects a LOWERER error for an unknown property", () => {
             const { errors } = compileToIR("[[totally-unknown: value]] Hello");
-            expect(errors.some((e) => e.type === "HYDRATOR")).toBe(true);
+            expect(errors.some((e) => e.type === CompilerErrorType.Lowerer)).toBe(true);
         });
 
-        it("collects a HYDRATOR error for a property with an invalid value", () => {
+        it("collects a LOWERER error for a property with an invalid value", () => {
             const { errors } = compileToIR("[[align: diagonal]] Hello");
-            expect(errors.some((e) => e.type === "HYDRATOR")).toBe(true);
+            expect(errors.some((e) => e.type === CompilerErrorType.Lowerer)).toBe(true);
         });
 
-        it("produces partial IR even when there are hydrator errors", () => {
+        it("produces partial IR even when there are lowering errors", () => {
             const { ir } = compileToIR("[[unknown-prop: x]] Hello");
             expect(textWith(ir.root, "Hello")).toBeDefined();
         });
@@ -455,9 +456,9 @@ describe("Hydrator", () => {
             expect(blocks(ir.root)[0].props.has(PropKey.Kind)).toBe(false);
         });
 
-        it("a leaf-incompatible kind on a non-leaf block emits a HYDRATOR error", () => {
+        it("a leaf-incompatible kind on a non-leaf block emits a LOWERER error", () => {
             const { errors } = compileToIR("[[kind: paragraph]]\n{\n{\nNested\n}\n}");
-            expect(errors.some((e) => e.type === "HYDRATOR")).toBe(true);
+            expect(errors.some((e) => e.type === CompilerErrorType.Lowerer)).toBe(true);
         });
     });
 });

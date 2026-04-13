@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach } from "vitest";
-import { Generator, IR } from "@atxt";
+import { HtmlGenerator, IR } from "@atxt";
 import { KindValue, PropKey } from "@atxt/domain/annotationProperties";
 
 let idCounter = 0;
@@ -49,7 +49,7 @@ function makeText(
 }
 
 function generate(root: IR.Block): string {
-    return Generator.generate(root);
+    return HtmlGenerator.generate(root);
 }
 
 describe("Generator", () => {
