@@ -1017,7 +1017,7 @@ These constraints are enforced by the architecture, not by runtime checks. A con
 
 ## 16. Serializer
 
-The Serializer is the inverse of the compiler pipeline. It traverses the IR and reconstructs a canonical `.atxt` source file. The round-trip guarantee is: compiling a document and then serializing the resulting IR produces a `.atxt` source that, when compiled again, yields an IR with equivalent visual and semantic properties.
+The Serializer is the inverse of the compiler pipeline. It traverses the IR and reconstructs a canonical `.atxt` source file. The round-trip guarantee is: compiling a document and then serializing the resulting IR produces a `.atxt` source that, when compiled again, yields an IR with equivalent visual and semantic properties, with only difference on id, line and column values, and the order of properties inside an annotation.
 
 ### 16.1 Purpose
 
