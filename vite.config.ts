@@ -38,7 +38,7 @@ export default defineConfig({
                 "src/core/atxt/types/**/*.ts",
                 "src/core/atxt/index.ts",
                 "src/pages/main.ts",
-                "src/components/atxtDocument.ts",
+                "src/core/atxt/components/*.ts",
             ],
             thresholds: {
                 statements: 90,
