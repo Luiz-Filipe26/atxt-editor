@@ -643,11 +643,17 @@ Symbols may be declared with any combination of valid content properties:
 
 The `type` property is optional and defaults to `inline`. A `SYMBOL` directive that lacks a `symbol` property, or that provides no content properties beyond `symbol` and `type`, is silently ignored.
 
-Custom symbol definitions register a new sequence in the `SymbolDetector`'s Trie. They must appear before first use in the document. A document may redefine a built-in symbol — the new definition takes effect from that point forward.
+Custom symbol definitions register a new sequence in the `SymbolDetector`'s Trie. They must appear before first use in the document. Entirely new custom symbols (e.g., `++`) may be registered anywhere in the document and take effect from that point forward.
+
+**The Document Preamble:** The preamble is the structural region at the absolute beginning of a document. It remains active through blank lines and blocks, and **terminates irreversibly the moment the first character of raw text content is parsed**.
+
+**Redefining Built-in Symbols:** A document may redefine a built-in symbol (e.g., `**`, `# `), but **strictly within the document preamble**. Once the preamble is closed by text content, attempting to redefine a built-in symbol produces a parser error. This structural invariant guarantees that a document's core semantic markers cannot be maliciously hijacked or accidentally corrupted mid-document.
 
 **Closing sequence:** For inline symbols, the closing delimiter is derived by reversing the character sequence of the opening, replacing bracket-like characters with their semantic counterparts as defined in §9.4. For example, the closing of `*-` is `-*`.
 
-**Conflict rules:** Registering a sequence that is already registered (and is not a built-in) is an error. Registering a sequence whose closing would conflict with an already-registered opening sequence is also an error.
+**Conflict rules:** - Registering a sequence that is already registered (whether a custom symbol, or a built-in symbol *outside* the preamble) is an error. 
+- Registering a sequence whose closing sequence would conflict with an already-registered opening sequence is also an error.
+- Sequences containing bracket-like characters (e.g., `[+`) or letters/numbers are structurally invalid and produce an error.
 
 **Escape rule:** The Lexer processes the universal escape character `\` before the Parser sees token content. To emit a symbol sequence as literal text, escape the first character: `\**` produces the literal text `**` and does not open a symbol.
 
