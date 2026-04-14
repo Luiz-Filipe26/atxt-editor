@@ -23,6 +23,13 @@ export const SymbolRegistrationResult = {
     InvalidSequence: "invalid-sequence",
 } as const;
 
+export interface RegisterSymbolArgs {
+    sequence: string;
+    type: SymbolEntryType;
+    props: PropEntry[];
+    isInsidePreamble: boolean;
+}
+
 export type SymbolRegistrationResult =
     (typeof SymbolRegistrationResult)[keyof typeof SymbolRegistrationResult];
 
@@ -41,18 +48,17 @@ export class SymbolDetector {
 
     constructor() {
         for (const { sequence, type, props } of BUILT_IN_SYMBOLS) {
-            this.registerSymbol(sequence, type, props);
+            this.registerSymbol({ sequence, type, props, isInsidePreamble: true });
             this.builtInSymbols.add(sequence);
         }
     }
 
-    public registerSymbol(
-        sequence: string,
-        type: SymbolEntryType,
-        props: PropEntry[],
-    ): SymbolRegistrationResult {
+    public registerSymbol(args: RegisterSymbolArgs): SymbolRegistrationResult {
+        const { sequence, type, props, isInsidePreamble } = args;
         const closing = this.reverse(sequence);
-        if (!this.builtInSymbols.has(sequence)) {
+        if (this.builtInSymbols.has(sequence)) {
+            if (!isInsidePreamble) return SymbolRegistrationResult.Duplicate;
+        } else {
             if (this.registeredSymbols.has(sequence)) return SymbolRegistrationResult.Duplicate;
             if (this.registeredSymbols.has(closing))
                 return SymbolRegistrationResult.ClosingConflict;

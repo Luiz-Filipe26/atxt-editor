@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach } from "vitest";
 import { Lexer } from "@atxt";
-import { SymbolDetector } from "@atxt/compiler/symbolDetector";
+import { SymbolDetector, SymbolRegistrationResult } from "@atxt/compiler/symbolDetector";
 import { BUILT_IN_SYMBOLS } from "@atxt/domain/builtInSymbols";
 import { PropKey } from "@atxt/domain/annotationProperties";
 import type { PropEntry } from "@atxt/types/ast";
@@ -82,7 +82,12 @@ describe("SymbolDetector", () => {
 
     describe("detectAt — maximal munch", () => {
         it("prefers ** over a hypothetical single * when both are registered", () => {
-            detector.registerSymbol("*", SymbolEntryType.Inline, props({ weight: "normal" }));
+            detector.registerSymbol({
+                sequence: "*",
+                type: SymbolEntryType.Inline,
+                props: props({ weight: "normal" }),
+                isInsidePreamble: true,
+            });
             const match = detector.detectAt("**bold**", 0);
             expect(toRecord(match!.props)).toEqual({ weight: "bold" });
             expect(match!.symbolLength).toBe(2);
@@ -91,7 +96,12 @@ describe("SymbolDetector", () => {
 
     describe("detectAt — closing is reverse of opening", () => {
         it("asymmetric symbol closes with its reverse", () => {
-            detector.registerSymbol("*-", SymbolEntryType.Inline, props({ color: "red" }));
+            detector.registerSymbol({
+                sequence: "*-",
+                type: SymbolEntryType.Inline,
+                props: props({ color: "red" }),
+                isInsidePreamble: true,
+            });
             const match = detector.detectAt("*-text-*", 0);
             expect(match).not.toBeNull();
             expect(match!.closing).toBe("-*");
@@ -99,22 +109,94 @@ describe("SymbolDetector", () => {
         });
     });
 
-    describe("registerInline — custom symbols", () => {
-        it("registers a custom inline symbol that is then detectable", () => {
-            detector.registerSymbol("++", SymbolEntryType.Inline, props({ color: "yellow" }));
-            const match = detector.detectAt("++text++", 0);
-            expect(match).not.toBeNull();
-            expect(toRecord(match!.props)).toEqual({ color: "yellow" });
+    describe("registerSymbol — rules and results", () => {
+        it("returns Ok for a valid new symbol", () => {
+            const res = detector.registerSymbol({
+                sequence: "++",
+                type: SymbolEntryType.Inline,
+                props: props({ color: "blue" }),
+                isInsidePreamble: true,
+            });
+            expect(res).toBe(SymbolRegistrationResult.Ok);
         });
 
-        it("overrides a built-in symbol when re-registered", () => {
-            detector.registerSymbol(
-                "**",
-                SymbolEntryType.Inline,
-                props({ decoration: "underline" }),
-            );
+        it("returns Duplicate when trying to redefine a built-in OUTSIDE the preamble", () => {
+            const res = detector.registerSymbol({
+                sequence: "**",
+                type: SymbolEntryType.Inline,
+                props: props({ decoration: "underline" }),
+                isInsidePreamble: false,
+            });
+            expect(res).toBe(SymbolRegistrationResult.Duplicate);
+        });
+
+        it("allows redefining a built-in INSIDE the preamble", () => {
+            const res = detector.registerSymbol({
+                sequence: "**",
+                type: SymbolEntryType.Inline,
+                props: props({ decoration: "underline" }),
+                isInsidePreamble: true,
+            });
+            expect(res).toBe(SymbolRegistrationResult.Ok);
+
             const match = detector.detectAt("**text**", 0);
             expect(toRecord(match!.props)).toEqual({ decoration: "underline" });
+        });
+
+        it("returns Duplicate for existing custom symbol", () => {
+            detector.registerSymbol({
+                sequence: "++",
+                type: SymbolEntryType.Inline,
+                props: props({ color: "blue" }),
+                isInsidePreamble: true,
+            });
+
+            const res = detector.registerSymbol({
+                sequence: "++",
+                type: SymbolEntryType.Inline,
+                props: props({ color: "red" }),
+                isInsidePreamble: false,
+            });
+
+            expect(res).toBe(SymbolRegistrationResult.Duplicate);
+        });
+
+        it("returns ClosingConflict if closing sequence conflicts with an existing opening", () => {
+            detector.registerSymbol({
+                sequence: "-*",
+                type: SymbolEntryType.Inline,
+                props: props({ color: "blue" }),
+                isInsidePreamble: true,
+            });
+
+            const res = detector.registerSymbol({
+                sequence: "*-",
+                type: SymbolEntryType.Inline,
+                props: props({ color: "red" }),
+                isInsidePreamble: true,
+            });
+
+            expect(res).toBe(SymbolRegistrationResult.ClosingConflict);
+        });
+
+        it("returns InvalidSequence for symbols containing brackets", () => {
+            const res = detector.registerSymbol({
+                sequence: "[+",
+                type: SymbolEntryType.Inline,
+                props: props({ color: "blue" }),
+                isInsidePreamble: true,
+            });
+            expect(res).toBe(SymbolRegistrationResult.InvalidSequence);
+        });
+
+        it("returns InvalidSequence for symbols containing letters (non-symbol unicode)", () => {
+            const res = detector.registerSymbol({
+                sequence: "a+",
+                type: SymbolEntryType.Inline,
+                props: props({ color: "blue" }),
+                isInsidePreamble: true,
+            });
+            expect(res).toBe(SymbolRegistrationResult.InvalidSequence);
         });
     });
 
@@ -146,7 +228,12 @@ describe("SymbolDetector", () => {
 
     describe("registerBlock — custom block symbols", () => {
         it("registers a custom block symbol that is then detectable", () => {
-            detector.registerSymbol("§ ", SymbolEntryType.Block, props({ kind: "section" }));
+            detector.registerSymbol({
+                sequence: "§ ",
+                type: SymbolEntryType.Block,
+                props: props({ kind: "section" }),
+                isInsidePreamble: true,
+            });
             const match = detector.detectBlockSymbol("§ My section");
             expect(match).not.toBeNull();
             expect(toRecord(match!.props)).toEqual({ kind: "section" });

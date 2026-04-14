@@ -29,6 +29,7 @@ export class Parser {
     private stream: TokenStream;
     private compilerErrors: CompilerError[] = [];
     private symbolDetector = new SymbolDetector();
+    private isInsidePreamble = true;
     private static readonly BLOCK_BOUNDARY_TOKENS = new Set<TokenType>([
         TokenType.Newline,
         TokenType.BlockClose,
@@ -142,11 +143,12 @@ export class Parser {
         if (!symbolProp || symbolProps.length === 0) return;
         const symbolType =
             type === SymbolEntryType.Block ? SymbolEntryType.Block : SymbolEntryType.Inline;
-        const result = this.symbolDetector.registerSymbol(
-            symbolProp.value,
-            symbolType,
-            symbolProps,
-        );
+        const result = this.symbolDetector.registerSymbol({
+            sequence: symbolProp.value,
+            type: symbolType,
+            props: symbolProps,
+            isInsidePreamble: this.isInsidePreamble,
+        });
         if (result !== SymbolRegistrationResult.Ok)
             this.reportSymbolRegistrationError(result, symbolProp);
     }
@@ -191,7 +193,7 @@ export class Parser {
                 `Invariant violation: adjacent TEXT tokens at ${this.stream.peek().line}:${this.stream.peek().column}.`,
             );
         /*! v8 ignore stop -- @preserve */
-        const nodes = SymbolParser.expandLine(startToken, this.symbolDetector);
+        const nodes = this.expandSymbolsLine(startToken);
         const newlineToken = this.stream.match(TokenType.Newline);
         if (newlineToken) nodes.push(buildNewlineNode(newlineToken));
 
@@ -216,7 +218,7 @@ export class Parser {
                 if (node) children.push(node);
                 continue;
             }
-            children.push(...SymbolParser.expandInlineAt(token, this.symbolDetector));
+            children.push(...this.expandSymbolsInline(token));
         }
 
         return children.length > 0 ? buildBlockNode(startToken, children) : null;
@@ -315,6 +317,16 @@ export class Parser {
             if (this.stream.peek().type === TokenType.AnnotationClose) return;
             this.stream.advance();
         }
+    }
+
+    private expandSymbolsLine(token: Token): AST.BlockContentNode[] {
+        this.isInsidePreamble = false;
+        return SymbolParser.expandLine(token, this.symbolDetector);
+    }
+
+    private expandSymbolsInline(token: Token): AST.BlockContentNode[] {
+        this.isInsidePreamble = false;
+        return SymbolParser.expandInlineAt(token, this.symbolDetector);
     }
 
     private pushError(message: string, sourceLocation?: SourceLocation) {

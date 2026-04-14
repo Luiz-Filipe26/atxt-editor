@@ -169,6 +169,57 @@ describe("Parser — symbol expansion", () => {
             const newlines = document.children.filter((c) => c.type === NodeType.Newline);
             expect(newlines.length).toBeGreaterThanOrEqual(1);
         });
+
+        describe("preamble rules (isInsidePreamble)", () => {
+            it("allows redefining a built-in symbol inside the preamble", () => {
+                const { document, errors } = parse(
+                    "[[SYMBOL symbol: **; class: highlight]]\n**text**",
+                );
+                expect(errors).toHaveLength(0);
+
+                const ann = annotations(document.children).filter((a) => a.directive === "NORMAL");
+                expect(ann[0].properties[0].key).toBe("class");
+                expect(ann[0].properties[0].value).toBe("highlight");
+            });
+
+            it("emits Duplicate error when redefining a built-in symbol outside the preamble", () => {
+                const { errors, document } = parse(
+                    "Hello\n[[SYMBOL symbol: **; class: highlight]]\n**text**",
+                );
+
+                expect(errors).toHaveLength(1);
+                expect(errors[0].message).toContain("**");
+                expect(errors[0].message).toContain("already registered");
+
+                const ann = annotations(document.children).filter((a) => a.directive === "NORMAL");
+                expect(ann[0].properties[0].key).toBe("weight");
+                expect(ann[0].properties[0].value).toBe("bold");
+            });
+
+            it("preamble is NOT closed by blank lines or anonymous blocks", () => {
+                const { errors, document } = parse(
+                    "\n\n{}\n[[SYMBOL symbol: **; class: highlight]]\n**text**",
+                );
+
+                expect(errors).toHaveLength(0);
+
+                const ann = annotations(document.children).filter((a) => a.directive === "NORMAL");
+                expect(ann[0].properties[0].key).toBe("class");
+                expect(ann[0].properties[0].value).toBe("highlight");
+            });
+
+            it("allows creating entirely NEW custom symbols outside the preamble", () => {
+                const { errors, document } = parse(
+                    "Hello\n[[SYMBOL symbol: ++; class: highlight]]\n++text++",
+                );
+
+                expect(errors).toHaveLength(0);
+
+                const ann = annotations(document.children).filter((a) => a.directive === "NORMAL");
+                expect(ann[0].properties[0].key).toBe("class");
+                expect(ann[0].properties[0].value).toBe("highlight");
+            });
+        });
     });
 
     describe("custom symbol registration errors", () => {
