@@ -67,11 +67,13 @@ This specification uses a subset of EBNF:
 
 ### 3.1 Character Set
 
-ATXT source files are UTF-8 encoded. All Unicode scalar values are valid in text content. The following ASCII characters have structural significance:
+ATXT source files are UTF-8 encoded. All Unicode scalar values are valid in text content. The following ASCII characters have structural significance at the lexer level:
 
 ```
-[  ]  {  }  \  "  +  -  :  ;  #  *  _  ~  >  newline  space  tab
+[  ]  {  }  \  "  '  +  -  :  ;  newline  space  tab
 ```
+
+Symbol sequences such as `**`, `_`, `~~`, `#`, `>`, `-`, and `+` carry no structural significance to the Lexer. They are emitted as plain `TEXT` tokens and expanded into AST nodes by the `SymbolParser` after lexing (see §9).
 
 ### 3.2 Tokens
 
@@ -81,9 +83,12 @@ token
   | ANNOTATION_CLOSE
   | BLOCK_OPEN
   | BLOCK_CLOSE
-  | PROP_KEY
-  | PROP_VALUE
-  | PROP_SEPARATOR
+  | IDENTIFIER
+  | TOGGLE_PLUS
+  | TOGGLE_MINUS
+  | COLON
+  | SEMICOLON
+  | VALUE
   | TEXT
   | NEWLINE
   | EOF
@@ -93,13 +98,18 @@ ANNOTATION_OPEN  = "[[" ;
 ANNOTATION_CLOSE = "]]" ;
 BLOCK_OPEN       = "{" ;
 BLOCK_CLOSE      = "}" ;
-PROP_SEPARATOR   = ";" ;
+TOGGLE_PLUS      = "+" ;
+TOGGLE_MINUS     = "-" ;
+COLON            = ":" ;
+SEMICOLON        = ";" ;
 NEWLINE          = "\n" ;
 ```
 
+`IDENTIFIER` carries a property key name. `VALUE` carries a property value string. `TEXT` carries raw document text (including any symbol sequences, which are handled post-lexing).
+
 ### 3.3 Lexer Modes
 
-The lexer operates in three exclusive modes managed via a mode stack:
+The Lexer operates in three exclusive modes managed via a mode stack:
 
 | Mode | Transitions |
 |---|---|
@@ -111,21 +121,20 @@ A single `]` inside an annotation that is not followed by a second `]` is a lexe
 
 ### 3.4 Property Key
 
-```ebnf
-prop_key
-  = [ toggle_prefix ] key_name ;
+Inside an annotation, a property key is lexed as a sequence of tokens. The optional toggle prefix is emitted as a distinct `TOGGLE_PLUS` or `TOGGLE_MINUS` token before the `IDENTIFIER` token carrying the key name:
 
-toggle_prefix
-  = "+" | "-" ;
+```ebnf
+prop_key_tokens
+  = [ TOGGLE_PLUS | TOGGLE_MINUS ] IDENTIFIER ;
 
 key_name
-  = letter { letter | digit | "-" } ;
+  = key_char { key_char } ;
 
-letter  = ? Unicode letter ? ;
-digit   = "0" | "1" | ... | "9" ;
+key_char
+  = ? ASCII letter (a–z, A–Z) ? | ? ASCII digit (0–9) ? | "-" | "_" ;
 ```
 
-A key prefixed with `+` is a toggle-add. A key prefixed with `-` is a toggle-remove. An unprefixed key is a direct assignment.
+Property key names are restricted to ASCII. A key prefixed with `+` is a toggle-add; a key prefixed with `-` is a toggle-remove; an unprefixed key is a direct assignment.
 
 ### 3.5 Property Value
 
@@ -134,13 +143,14 @@ prop_value
   = quoted_string | unquoted_value ;
 
 quoted_string
-  = '"' { ? any character except '"' and unescaped newline ? } '"' ;
+  = ( '"' { ? any character except '"' and unescaped newline ? } '"' )
+  | ( "'" { ? any character except "'" and unescaped newline ? } "'" ) ;
 
 unquoted_value
-  = { ? any character except ']', ';', and newline ? } ;
+  = { ? any character except ']', ';', '"', "'", and newline ? } ;
 ```
 
-Leading and trailing whitespace is stripped from unquoted values.
+Leading and trailing whitespace is stripped from unquoted values. Both single and double quotes are accepted for quoted strings.
 
 ### 3.6 Whitespace at Line Start
 
@@ -174,10 +184,10 @@ annotation
   = ANNOTATION_OPEN property_list ANNOTATION_CLOSE ;
 
 property_list
-  = property { PROP_SEPARATOR property } [ PROP_SEPARATOR ] ;
+  = property { SEMICOLON property } [ SEMICOLON ] ;
 
 property
-  = PROP_KEY [ ":" prop_value ] ;
+  = [ TOGGLE_PLUS | TOGGLE_MINUS ] IDENTIFIER [ COLON VALUE ] ;
 
 annotation_target
   = block_statement
@@ -187,16 +197,16 @@ annotation_target
 
 **Target resolution rule:** If tokens of non-whitespace text follow the annotation on the same line, those tokens form the target (inline target). If no such tokens exist, the parser skips whitespace and newlines and captures the next non-empty line or block as the target.
 
-Annotations whose property list contains only toggle properties (all keys prefixed with `+` or `-`) have no target. They apply to the propertyContext of the enclosing context.
+Annotations whose property list contains only toggle properties (all keys prefixed with `+` or `-`) have no target. They apply to the propertyContext of the enclosing scope.
 
 ### 4.3 Block Statement
 
 ```ebnf
 block_statement
-  = BLOCK_OPEN { statement } BLOCK_CLOSE ;
+  = BLOCK_OPEN [ NEWLINE ] { statement } BLOCK_CLOSE ;
 ```
 
-Blocks may be nested arbitrarily. A block opened with `{` must be closed with `}`. An unclosed block is a parser error.
+Blocks may be nested arbitrarily. A block opened with `{` must be closed with `}`. An unclosed block is a parser error. The single optional `NEWLINE` immediately after `{` is consumed by the parser and does not produce a `NewlineNode` in the AST.
 
 #### Anonymous scope blocks
 
@@ -210,7 +220,7 @@ A `{ }` that is not the target of an annotation is an **anonymous scope block**.
 This text is unaffected — the SET did not escape the block.
 ```
 
-An anonymous scope block carries no semantic information beyond scope delimitation. It produces an `IR.Block` in the IR with no properties, no classes, and no inlineProps. The Serializer preserves it as a bare `{ }` — it is never flattened or discarded, because it may be structurally significant to selectors and to the WYSIWYG editor.
+An anonymous scope block carries no semantic information beyond scope delimitation. It produces an `IR.Block` in the IR with no properties, no classes, and no ownProps. The Serializer preserves it as a bare `{ }` — it is never flattened or discarded, because it may be structurally significant to selectors and to the WYSIWYG editor.
 
 ### 4.4 Text Line
 
@@ -227,16 +237,18 @@ raw_text
   = { ? any token except NEWLINE, BLOCK_OPEN, BLOCK_CLOSE, ANNOTATION_OPEN ? } ;
 ```
 
+Symbol expansion within `text_segment` is performed by the `SymbolParser` after the Parser has handed off the `TEXT` token (see §9).
+
 #### NEWLINE invariant
 
-The Parser enforces a strict invariant: **a NEWLINE token reaches the AST as a `NewlineNode` only when it is content** — that is, when it terminates a line of text or separates paragraphs within a block. Structural newlines — those that terminate an annotation line, a target line, or a block closing brace — are consumed by the Parser and never reach the AST.
+The Parser enforces a strict invariant: **a NEWLINE token reaches the AST as a `NewlineNode` only when it is content** — that is, when it terminates a line of text or separates paragraphs within a block. Structural newlines — those that terminate an annotation line, a target line, or a block opening brace — are consumed by the Parser and never reach the AST.
 
 Specifically:
-- The NEWLINE after an annotation with no target is consumed by `parseAnnotation`.
-- The NEWLINE after a `HIDE` or `SYMBOL` directive is consumed by `parseAnnotation`.
-- The NEWLINE terminating a target line is consumed by `consumeTargetLine`.
-- The NEWLINE after the closing `}` of a block target is consumed by `resolveAnnotationTarget`.
+- The NEWLINE after an annotation with no target is consumed by `handleAnnotationNewline`.
+- The NEWLINE after a `HIDE` directive's target is consumed by `resolveAnnotationTarget`.
+- The single optional NEWLINE immediately after `{` is consumed by `parseBlock`.
 - The trailing NEWLINE at the end of a block's content is removed by `parseBlock` before returning.
+- The NEWLINE terminating a target line is consumed by `consumeTargetLine`.
 
 This invariant ensures that every `NewlineNode` in the AST represents authorial intent — a line break the author explicitly wrote between content lines.
 
@@ -244,7 +256,7 @@ This invariant ensures that every `NewlineNode` in the AST represents authorial 
 
 ## 5. Directives
 
-A directive is a special annotation whose first property key is an uppercase word. The five built-in directives are `SET`, `DEFINE`, `HIDE`, `SYMBOL`, and `NORMAL` (the absence of a directive keyword is the `NORMAL` case).
+A directive is a special annotation whose first token is an uppercase keyword. The five built-in directives are `SET`, `DEFINE`, `HIDE`, `SYMBOL`, and `NORMAL` (the absence of a directive keyword is the `NORMAL` case).
 
 ```ebnf
 directive
@@ -296,7 +308,7 @@ Both produce the same IR. `SET` is therefore a convenience directive — it appl
 
 ### 5.2 DEFINE
 
-`[[DEFINE class: name; prop: val; ...]]` registers a named class in the StyleResolver. A `merge: other-class` property may be included to copy all properties from one or more previously defined classes before applying the class's own properties.
+`[[DEFINE class: name; prop: val; ...]]` registers a named class in the `PropertyResolver`. A `merge: other-class` property may be included to copy all properties from one or more previously defined classes before applying the class's own properties.
 
 ### 5.3 NORMAL
 
@@ -323,11 +335,11 @@ This line is suppressed and will emerge styled as draft when reactivated.
 
 ### 5.5 SYMBOL
 
-`[[SYMBOL symbol: seq; class: name; type: inline|block]]` registers a custom symbol in the Parser's symbol registry. See §9.3.
+`[[SYMBOL symbol: seq; prop: val; ...; type: inline|block]]` registers a custom symbol in the Parser's symbol registry. See §9.3.
 
-The `SYMBOL` directive is consumed entirely by the Parser and never reaches the AST or the IR. The Hydrator is unaware of symbol definitions.
+The `SYMBOL` directive is consumed entirely by the Parser and never reaches the AST or the IR. The Lowerer is unaware of symbol definitions.
 
-The `type` property is optional and defaults to `inline` when omitted. A `SYMBOL` directive without a `class` property is silently ignored.
+The `type` property is optional and defaults to `inline` when omitted. A `SYMBOL` directive that lacks either a `symbol` property or any content properties (beyond `symbol` and `type`) is silently ignored.
 
 ---
 
@@ -338,9 +350,10 @@ The `type` property is optional and defaults to `inline` when omitted. A `SYMBOL
 Every valid property is declared in the property registry. A property declaration specifies:
 
 - `scope`: `"block"` or `"inline"`
+- `container`: a boolean flag indicating whether this property establishes a visual container. Block-scope properties marked `container: true` suppress leaf-block promotion to `paragraph` (see §6.5).
 - `validate`: a predicate on the string value
 
-Properties not in the registry are rejected at hydration time with a `HYDRATOR` error.
+Properties not in the registry are rejected at lowering time with a `LOWERER` warning.
 
 Boolean properties are validated case-insensitively. `True`, `TRUE`, and `true` are all accepted.
 
@@ -348,19 +361,19 @@ Boolean properties are validated case-insensitively. `True`, `TRUE`, and `true` 
 
 #### Block-scope properties
 
-| Property | Expected value |
-|---|---|
-| `fill` | CSS color string |
-| `radius` | Number (px) |
-| `indent` | Non-negative integer (spaces) |
-| `padding` | One to four whitespace-separated numbers |
-| `margin` | One to four whitespace-separated numbers |
-| `border` | Non-empty string (CSS border shorthand) |
-| `width` | Number |
-| `height` | Number |
-| `align` | `left` \| `center` \| `right` \| `justify` |
-| `kind` | See §6.5 |
-| `hidden` | `true` \| `false` (case-insensitive) |
+| Property | `container` | Expected value |
+|---|---|---|
+| `fill` | yes | CSS color string |
+| `radius` | yes | Positive integer (px) |
+| `indent` | no | Non-negative integer (spaces) |
+| `padding` | yes | 1–4 space-separated non-negative integers |
+| `margin` | yes | 1–4 space-separated non-negative integers |
+| `border` | yes | Non-empty string matching `/^[a-zA-Z0-9#%.\-\s]+$/` |
+| `width` | yes | Positive integer (px) |
+| `height` | yes | Positive integer (px) |
+| `align` | no | `left` \| `center` \| `right` \| `justify` |
+| `kind` | no | See §6.5 |
+| `hidden` | no | `true` \| `false` (case-insensitive) |
 
 A node with `hidden: true` arrives in the IR and is skipped by the Generator in standard rendering mode. Because the node is present in the IR, WYSIWYG tools may implement a revision mode that renders hidden nodes with a distinct visual treatment, allowing the author to reactivate them by removing the property.
 
@@ -369,16 +382,16 @@ A node with `hidden: true` arrives in the IR and is skipped by the Generator in 
 | Property | Expected value |
 |---|---|
 | `color` | CSS color string |
-| `font` | Font family name |
-| `size` | Positive number (px) |
+| `font` | Font family name (non-empty string, max 255 chars) |
+| `size` | Positive number, decimals accepted (px) |
 | `weight` | `normal` \| `bold` \| `bolder` \| `lighter` \| integer 1–1000 |
 | `style` | `normal` \| `italic` \| `oblique` |
-| `line-height` | Positive number |
-| `decoration` | CSS text-decoration value |
+| `line-height` | Positive number OR the literal string `normal` |
+| `decoration` | `none` \| `underline` \| `line-through` \| `overline` |
 
 ### 6.3 Scope Enforcement
 
-Block-scope properties are applied exclusively to `BLOCK` IR nodes. Inline-scope properties are applied exclusively to `TEXT` IR nodes. The Hydrator routes properties by scope before constructing the IR. A Generator never receives a node containing properties outside its scope.
+Block-scope properties are applied exclusively to `BLOCK` IR nodes. Inline-scope properties are applied exclusively to `TEXT` IR nodes. The Lowerer routes properties by scope before constructing the IR. A Generator never receives a node containing properties outside its scope.
 
 This prevents CSS inheritance from leaking typographic styles from parent blocks into child text nodes.
 
@@ -399,45 +412,50 @@ Higher-priority values overwrite lower-priority values for the same key.
 
 #### Valid values and their HTML equivalents
 
-| `kind` value | HTML tag | Notes |
+| `kind` value | HTML tag | Leaf-compatible |
 |---|---|---|
-| `paragraph` | `<p>` | Inline text container. Valid only on leaf blocks (see below). |
-| `heading1` | `<h1>` | |
-| `heading2` | `<h2>` | |
-| `heading3` | `<h3>` | |
-| `heading4` | `<h4>` | |
-| `heading5` | `<h5>` | |
-| `quote` | `<blockquote>` | |
-| `code` | `<pre>` | |
-| `list` | `<ul>` | |
-| `ordered-list` | `<ol>` | |
-| `item` | `<li>` | |
-| `aside` | `<aside>` | |
-| `section` | `<section>` | |
-| `article` | `<article>` | |
-| `header` | `<header>` | |
-| `footer` | `<footer>` | |
+| `paragraph` | `<p>` | yes |
+| `heading1` | `<h1>` | yes |
+| `heading2` | `<h2>` | yes |
+| `heading3` | `<h3>` | yes |
+| `heading4` | `<h4>` | yes |
+| `heading5` | `<h5>` | yes |
+| `code` | `<pre>` | yes |
+| `item` | `<li>` | yes |
+| `quote` | `<blockquote>` | yes |
+| `list` | `<ul>` | no |
+| `ordered-list` | `<ol>` | no |
+| `aside` | `<aside>` | no |
+| `section` | `<section>` | no |
+| `article` | `<article>` | no |
+| `header` | `<header>` | no |
+| `footer` | `<footer>` | no |
 
-A block with no `kind` property renders as `<div>` in the HTML Generator. A text node with no `kind` renders as `<span>`.
+A block with no `kind` property renders as `<div>` in the HTML Generator unless leaf-node promotion applies (see below). A text node renders as `<span>`.
 
 #### Leaf-node promotion
 
 A **leaf block** is an `IR.Block` whose `children` array contains only `IR.Text` and `IR.Newline` nodes — no nested `IR.Block`. This is a structural property of the IR, not a property declared in the source.
 
-The HTML Generator applies the following rule: if a leaf block carries no explicit `kind`, it is promoted to `paragraph` automatically. This means plain text lines produce `<p>` elements without any annotation from the author.
+The Lowerer applies the following promotion rule: if a leaf block carries no explicit `kind` **and none of its block-scope properties are marked `container: true`**, the block is assigned `kind: paragraph` before the IR is produced. This means plain text lines produce `<p>` elements without any annotation from the author.
 
 ```atxt
-This line produces a <p> element automatically.
+This line is promoted to paragraph automatically.
 
 [[fill: #f0f0f0]]
-This annotated line also produces a <p> because it is still a leaf block.
+This annotated line is NOT promoted — 'fill' is a container property.
+It renders as <div> with a background color.
+
+[[align: center]]
+This annotated line IS promoted — 'align' is not a container property.
+It renders as <p> with centered text.
 ```
 
 A non-leaf block (containing at least one child `IR.Block`) is never promoted. It renders as `<div>` unless an explicit `kind` is declared.
 
 #### Structural compatibility
 
-Certain `kind` values imply inline containment in the HTML model (notably `paragraph`). When a block declared with such a `kind` contains child blocks, the resulting HTML would be structurally invalid. The HTML Generator treats this as an error rather than silently demoting the tag.
+The `leaf-compatible` column in the kind table above indicates whether a `kind` value is valid on leaf blocks only. When a block is declared with a leaf-compatible `kind` but contains child blocks, the Lowerer emits an error.
 
 ```atxt
 [[kind: paragraph]] {
@@ -448,7 +466,7 @@ Certain `kind` values imply inline containment in the HTML model (notably `parag
 }
 ```
 
-This produces a Generator error. The document author must either remove the `kind: paragraph` declaration or restructure the content.
+This produces a Lowerer error. The document author must either remove the `kind: paragraph` declaration or restructure the content.
 
 #### `kind` in classes
 
@@ -466,9 +484,9 @@ This is a meaningful advantage over CSS: a class in ATXT can change the semantic
 
 #### The `indent` property
 
-`indent` declares character-level indentation: the number of literal space characters prepended to the beginning of each line of content within the block. It is a block-scope property, but its effect is applied by the **Generator**, not the Hydrator.
+`indent` declares character-level indentation: the number of literal space characters prepended to the beginning of each line of content within the block. It is a block-scope property, but its effect is applied by the **Generator**, not the Lowerer.
 
-The Hydrator preserves `indent` in the block's `props` unchanged. Each Generator is responsible for interpreting `indent` appropriately for its output format. The HTML Generator prepends literal space characters before the first node of each line. The DOCX Generator may translate `indent` to native paragraph indentation.
+The Lowerer preserves `indent` in the block's `props` unchanged. Each Generator is responsible for interpreting `indent` appropriately for its output format. The HTML Generator prepends literal space characters before the first node of each line. The DOCX Generator may translate `indent` to native paragraph indentation.
 
 This separation ensures that `indent` in the IR always reflects the author's intent, not a rendered artifact — making the IR portable across output formats and serializable without data loss.
 
@@ -482,7 +500,7 @@ This separation ensures that `indent` in the IR always reflects the author's int
 [[DEFINE class: name; prop: val; prop2: val2]]
 ```
 
-A class definition registers a named bag of properties in the StyleResolver. The name must be a valid `key_name`. Redefinition of an existing class within the same scope is a hydrator error.
+A class definition registers a named bag of properties in the `PropertyResolver`. The name must be a valid `key_name`. If a class name is redefined, the new definition silently replaces the previous one.
 
 ### 7.2 Applying a Class
 
@@ -554,14 +572,12 @@ This means `[[-prop]]` never destroys state that was set by an outer toggle — 
 
 ### 8.5 Class Expansion in Toggles
 
-When `[[+class: name]]` is used as a toggle, the class is **expanded into its concrete properties** at the moment of application. Each property is pushed onto its respective stack in the propertyContext. The class name itself never enters the propertyContext.
-
-`[[-class: name]]` pops exactly the properties that `[[+class: name]]` pushed — no more, no less.
+When `[[+class: name]]` is used as a toggle, the class name is pushed onto the `class` key of the propertyContext, and each of the class's concrete properties is individually pushed onto its respective stack. `[[-class]]` pops the top entry from the `class` stack and pops exactly the properties that the corresponding `[[+class]]` pushed — no more, no less.
 
 ```atxt
 [[DEFINE class: legal-term; color: #1a3a6e; weight: bold]]
 
-[[+class: legal-term]]Service Provider[[-class: legal-term]]
+[[+class: legal-term]]Service Provider[[-class]]
 ```
 
 This is internally equivalent to:
@@ -570,11 +586,11 @@ This is internally equivalent to:
 [[+color: #1a3a6e; +weight: bold]]Service Provider[[-color; -weight]]
 ```
 
-The class name is a convenience for the author. It has no presence in the IR propertyContext or in `IR.Text` props.
+The class name is a convenience for the author. In the produced `IR.Text` nodes, only the concrete resolved properties appear — not the class name.
 
 ### 8.6 Text Slicing
 
-Because inline styles may overlap arbitrarily via toggles, the Hydrator produces flat runs of `TEXT` nodes with complete, explicit property sets per node. Each `TEXT` node carries the full snapshot of the propertyContext at the moment of its creation. No two adjacent `TEXT` nodes share a reference to the same property set.
+Because inline styles may overlap arbitrarily via toggles, the Lowerer produces flat runs of `TEXT` nodes with complete, explicit property sets per node. Each `TEXT` node carries the full snapshot of the propertyContext at the moment of its creation. No two adjacent `TEXT` nodes share a reference to the same property set.
 
 This model enables overlapping styles that cannot be represented as a strict tree hierarchy.
 
@@ -582,79 +598,64 @@ This model enables overlapping styles that cannot be represented as a strict tre
 
 ## 9. Symbol System
 
-Symbols are syntactic sugar that the Parser expands into annotations. The Hydrator is unaware of their origin.
+Symbols are syntactic sugar that the Parser expands into AST nodes via the `SymbolParser`. The Lowerer is unaware of their origin.
 
 ### 9.1 Built-in Inline Symbols
 
-| Symbol | Expands to |
+| Symbol | Properties applied |
 |---|---|
-| `**text**` | `[[+weight: bold]]` ... `[[-weight]]` |
-| `_text_` | `[[+style: italic]]` ... `[[-style]]` |
-| `~~text~~` | `[[+decoration: line-through]]` ... `[[-decoration]]` |
+| `**text**` | `weight: bold` |
+| `_text_` | `style: italic` |
+| `~~text~~` | `decoration: line-through` |
 
-The concrete properties behind each built-in inline symbol are:
+Inline symbols expand to toggle-open and toggle-close annotation pairs around the enclosed content. An inline symbol with empty content between its delimiters is treated as literal text.
 
-| Symbol | Properties |
-|---|---|
-| `**` | `weight: bold` |
-| `_` | `style: italic` |
-| `~~` | `decoration: line-through` |
-
-Inline symbols are only recognized within text content. They expand to property toggle pairs around the enclosed content. An inline symbol with empty content between its delimiters is treated as literal text.
-
-The closing delimiter of an inline symbol is always the reverse of the opening sequence. For symmetric symbols (`**`, `_`, `~~`) this is identical to the opening. For asymmetric custom symbols (e.g. `*-`) the closing is the mirror sequence (`-*`).
+The closing delimiter of an inline symbol is always the reverse of the opening sequence, with paired bracket-like characters mirrored appropriately (see §9.4). For symmetric symbols (`**`, `_`, `~~`) the closing is identical to the opening.
 
 ### 9.2 Built-in Block Symbols
 
-Block symbols are recognized exclusively when they appear as the first non-whitespace token on a line, followed by at least one space character.
+Block symbols are recognized exclusively when they appear at the start of a `TEXT` token (i.e. the first non-whitespace content of a line). The space character is part of the registered symbol sequence.
 
-| Symbol | Expands to |
+| Symbol sequence | Properties applied |
 |---|---|
-| `# text` | `[[kind: heading1; size: 32; weight: bold]] text` |
-| `## text` | `[[kind: heading2; size: 24; weight: bold]] text` |
-| `### text` | `[[kind: heading3; size: 18; weight: bold]] text` |
-| `#### text` | `[[kind: heading4; size: 16; weight: bold]] text` |
-| `##### text` | `[[kind: heading5; size: 14; weight: bold]] text` |
-| `> text` | `[[kind: quote; color: gray; indent: 4]] text` |
-| `- text` | `[[kind: item; indent: 2]] text` |
-| `+ text` | `[[kind: item; indent: 2]] text` |
+| `"# "` | `kind: heading1; size: 32; weight: bold` |
+| `"## "` | `kind: heading2; size: 24; weight: bold` |
+| `"### "` | `kind: heading3; size: 18; weight: bold` |
+| `"#### "` | `kind: heading4; size: 16; weight: bold` |
+| `"##### "` | `kind: heading5; size: 14; weight: bold` |
+| `"> "` | `kind: quote; color: gray; indent: 4` |
+| `"- "` | `kind: item; indent: 2` |
+| `"+ "` | `kind: item; indent: 2` |
 
-The concrete properties behind each built-in block symbol are:
+The space is consumed as part of the match: for `"# Heading"`, the `SymbolParser` consumes `"# "` (two characters) and the target text starts at `"Heading"`. A block symbol sequence that appears anywhere other than position 0 of the text token is treated as literal text.
 
-| Symbol | Properties |
-|---|---|
-| `#` | `kind: heading1; size: 32; weight: bold` |
-| `##` | `kind: heading2; size: 24; weight: bold` |
-| `###` | `kind: heading3; size: 18; weight: bold` |
-| `####` | `kind: heading4; size: 16; weight: bold` |
-| `#####` | `kind: heading5; size: 14; weight: bold` |
-| `>` | `kind: quote; color: gray; indent: 4` |
-| `-` | `kind: item; indent: 2` |
-| `+` | `kind: item; indent: 2` |
-
-A block symbol in any position other than the start of a line is treated as literal text.
+When two registered sequences share a prefix (e.g. `"# "` and `"## "`), the longest matching sequence takes precedence (maximal munch via the Trie).
 
 ### 9.3 Custom Symbols
 
-Symbols may be declared with a `class` reference or with concrete properties directly:
+Symbols may be declared with any combination of valid content properties:
 
 ```atxt
 [[SYMBOL symbol: ++; class: highlight; type: inline]]
 [[SYMBOL symbol: ^^; color: #1a3a6e; weight: bold; type: inline]]
-[[SYMBOL symbol: §; class: section-header; type: block]]
+[[SYMBOL symbol: §; kind: section; type: block]]
 ```
 
-When declared with `class`, the class is expanded into its concrete properties at the moment the symbol is applied — following the same expansion rules as toggle class (§8.5). When declared with direct properties, those properties are used directly. In both cases, the class name never enters the propertyContext.
+The `type` property is optional and defaults to `inline`. A `SYMBOL` directive that lacks a `symbol` property, or that provides no content properties beyond `symbol` and `type`, is silently ignored.
 
-Custom symbol definitions register a new symbol in the Parser's symbol registry. The `type` property is optional and defaults to `inline`. A `SYMBOL` directive with neither a `class` nor any property is silently ignored.
+Custom symbol definitions register a new sequence in the `SymbolDetector`'s Trie. They must appear before first use in the document. A document may redefine a built-in symbol — the new definition takes effect from that point forward.
 
-Custom symbol definitions must appear before first use. The symbol sequence must not be empty. A document may redefine a built-in symbol — the new definition takes effect from that point forward.
+**Closing sequence:** For inline symbols, the closing delimiter is derived by reversing the character sequence of the opening, replacing bracket-like characters with their semantic counterparts as defined in §9.4. For example, the closing of `*-` is `-*`.
 
-**Precedence rule:** When two registered symbols share a prefix (e.g. `+` and `++`), the longest matching symbol takes precedence (maximal munch).
-
-Custom inline symbols with empty content between delimiters are treated as literal text.
+**Conflict rules:** Registering a sequence that is already registered (and is not a built-in) is an error. Registering a sequence whose closing would conflict with an already-registered opening sequence is also an error.
 
 **Escape rule:** The Lexer processes the universal escape character `\` before the Parser sees token content. To emit a symbol sequence as literal text, escape the first character: `\**` produces the literal text `**` and does not open a symbol.
+
+### 9.4 Closing Character Map
+
+The `SymbolParser` derives the closing sequence of any symbol by reversing the character order and substituting matched pairs. The supported pairs include standard ASCII brackets `( )`, `[ ]`, `< >`, and an extensive set of Unicode bracket and quotation pairs — including CJK brackets (`「」`, `【】`, `〔〕`, etc.), mathematical brackets (`⟨⟩`, `⟦⟧`, `⌈⌉`, etc.), ornamental brackets (`❨❩`, `❬❭`, `❰❱`, etc.), and Unicode curly quotes (`""`, `''`).
+
+A character that does not appear in any pair is mapped to itself (symmetric sequences).
 
 ---
 
@@ -671,24 +672,24 @@ Source ATXT
      │
      ▼
 ┌──────────────┐
-│  TokenStream │  Provides positional access to the token sequence.
+│ TokenStream  │  Provides positional access to the token sequence.
 └──────┬───────┘  Tracks current index. Exposes peek, advance, match.
        │
        ▼
-┌──────────────────────┐
-│ Parser + SymbolDetector │  Consumes tokens to build the AST.
-└──────────┬───────────┘  Resolves annotation targets.
-           │              Expands block and inline symbols via SymbolDetector.
-           │              Processes SYMBOL directives at parse time.
-           │              Enforces the NEWLINE invariant (§4.4).
+┌────────────────────────────┐
+│ Parser + SymbolParser +    │  Consumes tokens to build the AST.
+│ SymbolDetector             │  Resolves annotation targets.
+└──────────┬─────────────────┘  Expands block and inline symbols via SymbolDetector + SymbolParser.
+           │                    Processes SYMBOL directives at parse time.
+           │                    Enforces the NEWLINE invariant (§4.4).
            │
            ▼
-┌──────────────────────────┐
-│  Hydrator + PropertyResolver│  Traverses AST. Resolves classes and properties.
-└──────────┬───────────────┘  Manages propertyContext per block scope.
-           │                  Routes properties by scope.
-           │                  Resolves placeholders against data context (§15).
-           │                  Produces the IR.
+┌────────────────────────────┐
+│ Lowerer + PropertyResolver │  Traverses AST. Resolves classes and properties.
+└──────────┬─────────────────┘  Manages propertyContext per block scope.
+           │                    Routes properties by scope.
+           │                    Applies leaf-block promotion.
+           │                    Produces the IR.
            ▼
 ┌─────────────────────────────────────┐
 │  IR (Intermediate Representation)  │
@@ -707,13 +708,13 @@ Each stage has exclusive responsibility:
 |---|---|---|---|
 | Lexer | Raw string | Token stream | Know about AST structure |
 | Parser | Token stream | AST | Know about style resolution |
-| Hydrator | AST + data context | IR | Know about rendering targets |
+| Lowerer | AST | IR | Know about rendering targets |
 | Generator | IR | Target format | Know about source syntax |
 | Serializer | IR | Canonical `.atxt` source | Know about rendering targets |
 
 The Generator skips any IR node carrying `hidden: true` in standard rendering mode. WYSIWYG tools may override this behavior to implement revision mode.
 
-The HTML Generator selects the output HTML tag for each `IR.Block` based on the `kind` property. If no `kind` is present, leaf blocks are promoted to `<p>` and non-leaf blocks render as `<div>`. If a `kind` is present but structurally incompatible with the block's children, the Generator emits an error.
+The HTML Generator selects the output HTML tag for each `IR.Block` based on the `kind` property. If no `kind` is present, leaf blocks that passed promotion carry `kind: paragraph` and render as `<p>`; non-promoted blocks render as `<div>`. If a `kind` is present but structurally incompatible with the block's children, the Lowerer emits an error before the Generator is invoked.
 
 ---
 
@@ -724,66 +725,70 @@ The HTML Generator selects the output HTML tag for each `IR.Block` based on the 
 The IR consists of three node types organized into an `IRDocument`:
 
 ```typescript
-interface IR.Document {
+interface IRDocument {
   root: IR.Block;
-  nodeMap: Map<string, IR.Node>;        // O(1) lookup by node id
-  classDefinitions: Record<string, ResolvedProps>;
+  nodeMap: Map<string, IRNodeEntry>;     // O(1) lookup by node id
+  classDefinitions: Map<string, ResolvedProps>;
 }
+
+interface IRNodeEntry extends SourceLocation {
+  node: IR.Node;
+}
+
+interface SourceLocation {
+  line: number;
+  column: number;
+}
+
+type ResolvedProps = Map<string, string>;
 
 type IR.Node = IR.Block | IR.Text | IR.Newline ;
 
 interface IR.Block {
-  id: string;                          // base-36 integer, unique per compilation
+  id: string;                          // UUID v4, unique per compilation
   type: "BLOCK";
-  props: Record<string, string>;       // block-scope properties only (merged)
+  props: ResolvedProps;                // block-scope properties only (merged)
   classes: string[];                   // original class names applied to this node
-  ownProps: Record<string, string>;    // properties declared directly on the annotation (snapshot for serialization and selectors)
+  ownProps: ResolvedProps;             // properties declared directly on the annotation (snapshot for serialization)
   children: IR.Node[];
-  line?: number;
-  column?: number;
 }
 
 interface IR.Text {
-  id: string;
+  id: string;                          // UUID v4, unique per compilation
   type: "TEXT";
-  props: Record<string, string>;       // inline-scope properties only (full snapshot)
-  classes: string[];
-  ownProps: Record<string, string>;    // properties declared directly on the annotation
+  props: ResolvedProps;                // inline-scope properties only (full snapshot)
+  classes: string[];                   // always empty; present for interface uniformity
+  ownProps: ResolvedProps;             // always empty; present for interface uniformity
   content: string;
-  line?: number;
-  column?: number;
-  // Note: the IR will include a mechanism to mark certain text nodes as computed
-  // (e.g. resolved from a placeholder or trigger) and non-editable by the author.
-  // The exact representation — whether as flags on IR.Text or as a distinct node type
-  // such as IR.ComputedText — is not yet decided and will be specified in §15.
 }
 
 interface IR.Newline {
-  id: string;
+  id: string;                          // UUID v4, unique per compilation
   type: "NEWLINE";
-  line?: number;
-  column?: number;
 }
 ```
+
+Source position (`line`, `column`) is not stored on IR nodes directly. It lives in `IRNodeEntry`, accessible via `nodeMap` using the node's `id` as key. This enables O(1) jump-to-source from any DOM `data-id` attribute without bloating the node structure.
 
 `IR.Newline` represents a content line break — a newline the author explicitly wrote between lines of text. It carries no properties. It is distinct from structural newlines, which are consumed by the Parser and never reach the IR (see §4.4).
 
 ### 11.2 Invariants
 
-The following invariants hold on any valid IR produced by the Hydrator:
+The following invariants hold on any valid IR produced by the Lowerer:
 
 1. An `IR.Block` node contains only block-scope properties in `props`.
 2. An `IR.Text` node contains only inline-scope properties in `props`.
 3. No property in any node fails the validation predicate of its registry entry.
 4. Every `IR.Text` node carries a complete, standalone property snapshot — it does not inherit from its parent `IR.Block`.
-5. Source position (`line`, `column`) is preserved on all nodes to enable WYSIWYG jump-to-source.
-6. Every node has a unique `id`, expressed as a base-36 integer generated per compilation. Ids do not persist across compilations.
+5. Source position (`line`, `column`) is preserved for all nodes in `nodeMap` to enable WYSIWYG jump-to-source.
+6. Every node has a unique `id` expressed as a UUID v4 generated per compilation. IDs do not persist across compilations.
 7. `nodeMap` contains every node in the tree, enabling O(1) lookup by `data-id` from the DOM.
 8. Certain text nodes may be marked as computed — produced by the template system rather than authored directly. The exact representation is not yet decided (see §15). The Serializer must never write the resolved content of a computed node back to the source; it must always reconstruct the original placeholder or trigger expression.
 9. A **leaf block** is an `IR.Block` whose `children` array contains only `IR.Text` and `IR.Newline` nodes — no nested `IR.Block`. This is the criterion used for leaf-node promotion (§6.5) and for Serializer output decisions (§16).
 10. `IR.Newline` nodes appear only as children of `IR.Block` nodes. They are never children of `IR.Text` nodes.
 11. The `indent` property in an `IR.Block`'s `props` is never pre-applied to child `IR.Text` content. The raw content of every `IR.Text` node reflects exactly what the author wrote — without leading spaces injected by the `indent` mechanism. Generators are responsible for applying `indent` at render time.
-12. `ownProps` contains only the properties explicitly declared on the annotation itself — never properties inherited from classes or the propertyContext. It is a snapshot of authorial intent, used by the Serializer and future selectors.
+12. `ownProps` on `IR.Block` contains only the properties explicitly declared on the annotation itself — never properties inherited from classes or the propertyContext. It is a snapshot of authorial intent, used by the Serializer. `ownProps` on `IR.Text` is always empty.
+13. Adjacent TEXT Tokens are never produced by the Lexer.
 
 ### 11.3 IR as Serialization Target
 
@@ -816,11 +821,11 @@ The backslash `\` is the universal escape character, processed by the Lexer. `\x
 | `\\` | literal `\` |
 | `\ ` at line start | literal space, suppresses strip |
 
-The Lexer processes `\x` for any character `x`, emitting an internal escape sentinel (`U+E000`, Unicode Private Use Area) followed by `x` in the TEXT token content. The sentinel is stripped from the source before tokenization begins and never appears in any output. The TextExpander consumes sentinel-prefixed characters as unconditional literals, ensuring they are never interpreted as symbol delimiters.
+The Lexer processes `\x` for any character `x`, emitting an internal escape sentinel (`U+E000`, Unicode Private Use Area) followed by `x` in the `TEXT` token content. The sentinel is stripped from the source before tokenization begins and never appears in any output. The `SymbolParser` consumes sentinel-prefixed characters as unconditional literals, ensuring they are never interpreted as symbol delimiters.
 
 ### 12.4 Block Content Trimming
 
-The leading blank lines within a block `{ ... }` are discarded by `parseBlock` via `skipWhitespaceTokens` before content parsing begins. The trailing NEWLINE at the end of a block's content is removed by `parseBlock` before returning. Interior blank lines between paragraphs are significant and produce `IR.Newline` nodes in the IR.
+The optional single `NEWLINE` immediately after a block's opening `{` is consumed by `parseBlock` and does not produce a `NewlineNode`. The trailing `NEWLINE` at the end of a block's content is removed by `parseBlock` before returning. Interior blank lines between paragraphs are significant and produce `IR.Newline` nodes in the IR.
 
 ---
 
@@ -829,10 +834,10 @@ The leading blank lines within a block `{ ... }` are discarded by `parseBlock` v
 All compiler errors carry a type, a human-readable message, and a source position.
 
 ```typescript
-type ErrorType = "LEXER" | "PARSER" | "HYDRATOR" ;
+type CompilerErrorType = "LEXER" | "PARSER" | "LOWERER" | "HTML_GENERATOR" ;
 
 interface CompilerError {
-  type: ErrorType;
+  type: CompilerErrorType;
   message: string;
   line: number;
   column: number;
@@ -843,37 +848,48 @@ interface CompilerError {
 
 | Condition | Message |
 |---|---|
-| `]` not followed by `]` inside annotation | `Expected ']' to close annotation` |
-| EOF inside open annotation | `Unexpected end of file inside annotation` |
+| `]` not followed by `]` inside annotation | `Expected ']' to close annotation.` |
+| Line break inside a quoted annotation value | `Line break not allowed inside quoted values.` |
+| Unterminated quoted string | `Unterminated string. Missing closing '<quote>'.` |
+| Invalid character in property name | `Invalid character in property name: '<char>'` |
 
 ### 13.2 Parser Errors
 
 | Condition | Message |
 |---|---|
-| `}` with no matching `{` | `Unexpected block close` |
-| EOF with unclosed block | `Unexpected end of file: unclosed block` |
-| Toggle-only annotation with explicit target | `Toggle annotations cannot have a target` |
-| `HIDE` with no resolvable target | `HIDE directive has no target` |
+| `}` with no matching `{` | `Unexpected block close.` |
+| EOF with unclosed block | `Unclosed block. Expected '}'.` |
+| Annotation not closed with `]]` | `Annotation was not closed with ']]'.` |
+| Missing property name | `Expected property name, found '<token>'.` |
+| Missing `:` after property name | `Expected ':' after property '<name>', found '<token>'.` |
+| Missing value after `:` | `Expected value for '<name>', found '<token>'.` |
+| Missing `;` between properties | `Expected ';' after property value '<name>'.` |
+| Duplicate symbol registration | `Symbol '<seq>' is already registered.` |
+| Symbol closing sequence conflict | `The closing sequence of '<seq>' conflicts with an existing symbol.` |
+| Invalid symbol sequence characters | `'<seq>' contains invalid characters for a symbol sequence.` |
 
-### 13.3 Hydrator Errors
-
-| Condition | Message |
-|---|---|
-| Unknown property key | `Unknown property: '<key>'` |
-| Property value fails validation | `Invalid value for property '<key>': '<value>'` |
-| Class applied before definition | `Class '<n>' used before definition` |
-| Class redefined in same scope | `Class '<n>' already defined in this scope` |
-| `merge` references undefined class | `Cannot merge undefined class '<n>'` |
-| `kind` value not in registry | `Unknown kind: '<value>'` |
-| Placeholder field value fails validation | `Invalid value for field '<n>': '<value>'` |
-
-### 13.4 Generator Errors
-
-Generator errors are format-specific and are not part of the core `CompilerError` type. Each Generator defines its own error set. The HTML Generator defines:
+### 13.3 Lowerer Errors
 
 | Condition | Message |
 |---|---|
-| `kind` structurally incompatible with block children | `kind '<value>' is not valid on a non-leaf block` |
+| Unknown property key | `Warning: Unknown property '<key>'.` |
+| Property value fails validation | `Warning: Invalid value '<value>' for property '<key>'.` |
+| Unknown property in `DEFINE` | `Warning: Invalid or unknown property '<key>' ignored in DEFINE.` |
+| `DEFINE` without `class` property | `DEFINE directive requires a 'class' property.` |
+| `merge` references undefined class | `Warning: Base class '<name>' not found in merge.` |
+| Class referenced but not defined | `Warning: Class '<name>' not found.` |
+| `-class` toggle with no active class | `'-class' toggle has no matching '+class' in the current scope.` |
+| Leaf-compatible `kind` on non-leaf block | `kind '<value>' is only valid on leaf blocks but contains child blocks.` |
+
+### 13.4 HTML Generator Errors
+
+Generator errors indicate that a node passed semantic validation in the Lowerer but contains values that are unsafe or incompatible with the specific output format. The Generator neutralizes the unsafe property and continues rendering.
+
+| Condition | Message |
+|---|---|
+| Global CSS injection pattern detected (e.g. `expression()`) | `Property '<key>': Global HTML/CSS injection pattern detected.` |
+| Forbidden URL/Expression in font rendering | `Property 'font': URL or Expression vectors are strictly forbidden in HTML font rendering.` |
+| Invalid CSS value formatting | `Property '<key>': <validation error message>` |
 
 ### 13.5 Error Recovery
 
@@ -955,13 +971,13 @@ Data values are supplied at the **invocation site** — the point in the documen
 
 **Via JSON** — the value is resolved from `data/data.json` inside the `.atz` package using a dot-notation key path (e.g. `client.cpf`). The key path supports only property access by name — no functions, no filters, no computed expressions. This mechanism allows external systems (APIs, databases, batch processors) to populate documents without modifying the `.atxt` source.
 
-When a placeholder is resolved, the Hydrator produces a text node marked as computed. The resolved value is stored in the node's content. The original placeholder expression is preserved separately for serialization purposes — the Serializer never writes the resolved content back to the `.atxt` source.
+When a placeholder is resolved, the Lowerer produces a text node marked as computed. The resolved value is stored in the node's content. The original placeholder expression is preserved separately for serialization purposes — the Serializer never writes the resolved content back to the `.atxt` source.
 
 ### 15.3 Validation
 
 > **Syntax: to be specified.**
 
-A placeholder may declare a validation rule expressed as a regular expression. The regex is evaluated against the resolved value before the IR is produced. If the value does not match, the Hydrator emits a `HYDRATOR` error with a human-readable message and halts rendering for that field.
+A placeholder may declare a validation rule expressed as a regular expression. The regex is evaluated against the resolved value before the IR is produced. If the value does not match, the Lowerer emits a `LOWERER` error with a human-readable message and halts rendering for that field.
 
 The regex subset used for validation is deliberately restricted: backreferences and lookahead/lookbehind assertions are not supported. This restriction preserves Turing-incompleteness — the validation predicate terminates in bounded time and produces no side effects.
 
@@ -969,13 +985,13 @@ The regex subset used for validation is deliberately restricted: backreferences 
 
 > **Syntax: to be specified.**
 
-A trigger declares a rule of the form: if a selector matches a condition, inject text at a specified location in the document. Triggers are evaluated by the Hydrator after all placeholders have been resolved.
+A trigger declares a rule of the form: if a selector matches a condition, inject text at a specified location in the document. Triggers are evaluated by the Lowerer after all placeholders have been resolved.
 
 **Selectors** query the IR by node properties, class names, or field names. They do not match computed nodes — nodes with `computed: true` are invisible to selectors. This structural invisibility is the mechanism that prevents trigger chains: a trigger cannot observe the output of another trigger, making cascading reactions architecturally impossible without requiring any runtime cycle detection.
 
 **Injected text** is inserted into the IR as computed text nodes. These nodes are rendered normally by all Generators but are treated as read-only in the WYSIWYG editor (see §15.5) and are serialized back to their original trigger expression, not their resolved content.
 
-The trigger system is **single-pass by design**: the Hydrator evaluates all triggers exactly once against the source IR. The order of evaluation is deterministic (document order). No trigger may reference the output of another trigger.
+The trigger system is **single-pass by design**: the Lowerer evaluates all triggers exactly once against the source IR. The order of evaluation is deterministic (document order). No trigger may reference the output of another trigger.
 
 ### 15.5 WYSIWYG Presentation of Computed Nodes
 
@@ -1017,15 +1033,15 @@ The Serializer applies the following rules to produce canonical output:
 
 **Class definitions** are emitted at the top of the document, one per line, sorted alphabetically by class name. Properties within each `DEFINE` are sorted alphabetically by key.
 
-**Blocks** always serialize as explicit `{ }` delimiters, with or without an annotation. Anonymous scope blocks (those with no classes and no inlineProps) serialize as bare `{ }`. This preserves the structural intent of the author — anonymous blocks are never flattened into their parent scope.
+**Blocks** always serialize as explicit `{ }` delimiters, with or without an annotation. Anonymous scope blocks (those with no classes and no ownProps) serialize as bare `{ }`. This preserves the structural intent of the author — anonymous blocks are never flattened into their parent scope.
 
-**Annotations** emit `class` before `inlineProps`. Within each group, properties are sorted alphabetically.
+**Annotations** emit `class` before `ownProps`. Within each group, properties are sorted alphabetically.
 
 **Inline toggles** are emitted as `[[+key: val; ...]]` and `[[-key; ...]]` annotations between `IR.Text` nodes within a run. Added properties are sorted alphabetically. Removed properties are sorted alphabetically and listed after added properties.
 
 **`Newline` nodes** serialize as a line break in the output file. The number of consecutive `Newline` nodes in the IR is preserved exactly — if the author wrote two blank lines, two `Newline` nodes exist in the IR and two blank lines appear in the serialized output. The Serializer never collapses or adds blank lines.
 
-**Shorthand symbols** (`# `, `**`, `_`, etc.) are **not** used in canonical output. The Serializer always emits explicit annotation syntax. This makes canonical ATXT unambiguous and easier to process with external tooling.
+**Symbol sequences** are **not** used in canonical output. The Serializer always emits explicit annotation syntax. This makes canonical ATXT unambiguous and easier to process with external tooling.
 
 **Computed nodes** serialize as their original placeholder expression, never as the resolved content value. See §15 for the full specification of computed nodes.
 
@@ -1041,12 +1057,27 @@ Every `IR.Block` in the IR serializes as a block in the output. The Serializer n
 
 The Serializer reconstructs semantics, not syntax. The following source-level constructs are not reconstructed:
 
-- **Shorthand symbols**: `# Heading` becomes `[[class: h1]] { ... }`.
+- **Symbol sequences**: `# Heading` becomes `[[kind: heading1; size: 32; weight: bold]] { Heading }`.
 - **SET directives**: `[[SET class: foo]]` becomes an annotated block `[[class: foo]] { ... }`. The SET keyword is not emitted because the IR does not distinguish SET-originated blocks from annotation-targeted blocks.
 - **Original property order**: properties are always sorted alphabetically in canonical output.
 - **Original whitespace**: indentation and blank lines in the source are not preserved; canonical whitespace rules apply.
 
 These losses are acceptable because the canonical form retains full semantic equivalence — the compiled IR is identical in all properties that matter for rendering and selection.
+
+### 16.5 The Idempotency Invariant (Canonical IR Equivalence)
+
+The compiler guarantees that compiling a source document and recompiling its canonical serialized form yields semantically equivalent IR.
+
+**Equivalence Rule:**
+Let `S` be the original source text. If `IR1 = compile(S)` and `S_canon = serialize(IR1)`, then `IR2 = compile(S_canon)` must be semantically equivalent to `IR1`.
+
+#### 16.5.1 Normalization Rules for Comparison
+
+For the purpose of integrity validation (as implemented in testing utilities like `ir.canon.test.ts`), equality between `IR1` and `IR2` is defined strictly after a normalization step:
+
+1. **ID Ephemerality:** The `id` field (UUID v4) of each node must be ignored or stripped, as it is generated independently per compilation session (see §11.2).
+2. **Map Stability:** The insertion order of properties within `props` and `ownProps` must be ignored. Equality is established strictly by matching key-value parity.
+3. **Symbol Expansion:** Because the Serializer does not use symbol sequences (see §16.2), `S_canon` will contain explicit annotations where `S` may have used syntactic sugar (e.g., `# ` expanded to `kind: heading1`). This equivalence requires that the `SymbolParser` and the Serializer share identical semantics.
 
 ---
 

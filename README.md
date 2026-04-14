@@ -61,12 +61,12 @@ Shorthand sugar for common cases:
 Source .atxt → Lexer → Parser → Lowerer → IR → Generator
 ```
 
-| Stage         | Responsibility                                                |
-| ------------- | ------------------------------------------------------------- |
-| **Lexer**     | Tokenizes raw text. Manages annotation mode stack.            |
-| **Parser**    | Builds the AST. Resolves annotation targets. Expands symbols. |
-| **Lowerer**  | Resolves classes and properties. Produces the IR.             |
-| **Generator** | Consumes the IR. Produces the target format.                  |
+| Stage         | Responsibility                                                                  |
+| ------------- | ------------------------------------------------------------------------------- |
+| **Lexer**     | Tokenizes raw text. Manages annotation mode stack.                              |
+| **Parser**    | Builds the AST. Resolves annotation targets. Expands symbols.                   |
+| **Lowerer**   | Resolves classes and validates property semantics. Produces the IR.             |
+| **Generator** | Consumes the IR. Enforces target-specific security. Produces the output format. |
 
 Generators are pluggable. The same IR produces HTML today; DOCX and PDF generators are planned.
 
