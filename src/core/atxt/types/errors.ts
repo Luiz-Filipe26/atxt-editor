@@ -2,6 +2,7 @@ export const CompilerErrorType = {
     Lexer: "LEXER",
     Parser: "PARSER",
     Lowerer: "LOWERER",
+    HtmlGenerator: "HTML_GENERATOR"
 } as const;
 
 export type CompilerErrorType = (typeof CompilerErrorType)[keyof typeof CompilerErrorType];

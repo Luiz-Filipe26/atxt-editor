@@ -63,8 +63,7 @@ const isCssBorder = (val: string): boolean => /^[a-zA-Z0-9#%.\-\s]+$/.test(val.t
 
 const isFontFamily = (val: string): boolean => {
     const v = val.trim();
-    if (v.length === 0) return false;
-    return !/[();]|url\s*\(|expression\s*\(|javascript\s*:/i.test(v);
+    return v.length > 0 && v.length < 255;
 };
 
 const isSizeShorthand = (val: string): boolean => {

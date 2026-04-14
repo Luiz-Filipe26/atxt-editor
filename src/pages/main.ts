@@ -34,9 +34,10 @@ function runCompiler(source: string) {
         if (loweringErrors.length) console.error("Lowerer Errors:", loweringErrors);
         console.groupEnd();
 
-        const finalHtml = Atxt.HtmlGenerator.generate(irDocument.root);
+        const { html: finalHtml, errors: htmlErrors } = Atxt.HtmlGenerator.generate(irDocument);
         console.groupCollapsed("4. HtmlGenerator Output");
-        console.log(finalHtml);
+        console.log("HTML Output: ", finalHtml);
+        if (htmlErrors.length) console.error("HtmlGenerator Errors:", htmlErrors);
         console.groupEnd();
 
         const allErrors = [...lexerErrors, ...parserErrors, ...loweringErrors];

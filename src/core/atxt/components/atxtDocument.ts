@@ -13,13 +13,13 @@ export class AtxtDocument extends HTMLElement {
 
     public render(source: string): IRDocument {
         const { ir } = compileToIR(source);
-        this.shadowRoot_.innerHTML = HtmlGenerator.generate(ir.root);
+        this.shadowRoot_.innerHTML = HtmlGenerator.generate(ir).html;
         this.currentIr = ir;
         return ir;
     }
 
     public renderIr(ir: IRDocument): void {
-        this.shadowRoot_.innerHTML = HtmlGenerator.generate(ir.root);
+        this.shadowRoot_.innerHTML = HtmlGenerator.generate(ir).html;
         this.currentIr = ir;
     }
 

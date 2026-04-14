@@ -15,6 +15,10 @@ export type { CompilerError } from "./types/errors";
 
 export { COMPILER_DEFAULTS } from "./domain/propertyDefinitions";
 export type { PropertyDefinition, KindDefinition } from "./domain/propertyDefinitions";
-export type { CssPropertyMapping, CssUnit } from "./domain/cssPropertyMapping";
+export {
+    type CssPropertyMapping,
+    type CssUnit,
+    getCssMapping,
+    validateForCssProperty,
+} from "./domain/cssDefinitions";
 export { getPropertyDefinition, getKindDefinition } from "./domain/propertyDefinitions";
-export { getCssMapping } from "./domain/cssPropertyMapping";

@@ -11,8 +11,8 @@ function roundTripHtml(source: string) {
     const canonical = serialize(ir1);
     const { errors: errors2 } = compileToIR(canonical);
     return {
-        html1: normalizeHtml(compileToHTML(source)),
-        html2: normalizeHtml(compileToHTML(canonical)),
+        html1: normalizeHtml(compileToHTML(source).html),
+        html2: normalizeHtml(compileToHTML(canonical).html),
         errors1,
         errors2,
     };

@@ -35,7 +35,7 @@ function makeText(content: string, props: Record<string, string> = {}): IR.Text 
 }
 
 function generate(root: IR.Block): string {
-    return HtmlGenerator.generate(root);
+    return HtmlGenerator.generate({ root, nodeMap: new Map(), classDefinitions: new Map() }).html;
 }
 
 describe("Generator", () => {
