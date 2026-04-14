@@ -1,111 +1,129 @@
 <!doctype html>
 <html lang="pt-BR">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>ATXT Studio</title>
-    <style>
-      body {
-        margin: 0;
-        display: flex;
-        height: 100vh;
-        background: #1e1e1e;
-        color: #cccccc;
-        font-family: "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-        overflow: hidden;
-      }
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <title>ATXT Studio</title>
+        <style>
+            body {
+                margin: 0;
+                display: flex;
+                height: 100vh;
+                background: #1e1e1e;
+                color: #cccccc;
+                font-family: "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+                overflow: hidden;
+            }
 
-      .pane {
-        flex: 1;
-        display: flex;
-        flex-direction: column;
-        height: 100vh;
-        box-sizing: border-box;
-      }
+            .pane {
+                flex: 1;
+                display: flex;
+                flex-direction: column;
+                height: 100vh;
+                box-sizing: border-box;
+            }
 
-      #editor-pane {
-        border-right: 1px solid #333;
-        background: #1e1e1e;
-      }
+            #editor-pane {
+                border-right: 1px solid #333;
+                background: #1e1e1e;
+            }
 
-      #preview-pane {
-        background: #fdfdfd;
-        color: #1a1a1a;
-      }
+            #preview-pane {
+                background: #fdfdfd;
+                color: #1a1a1a;
+            }
 
-      .header {
-        padding: 12px 20px;
-        font-size: 12px;
-        font-weight: 600;
-        letter-spacing: 1px;
-        text-transform: uppercase;
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-      }
+            .header {
+                padding: 12px 20px;
+                font-size: 12px;
+                font-weight: 600;
+                letter-spacing: 1px;
+                text-transform: uppercase;
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+            }
 
-      .btn-action {
-          background: #2d2d2d;
-          color: #cccccc;
-          border: 1px solid #555;
-          padding: 6px 12px;
-          font-size: 14px;
-          font-family: inherit;
-          letter-spacing: 0.5px;
-          cursor: pointer;
-          border-radius: 3px;
-      }
+            .btn-action {
+                background: #2d2d2d;
+                color: #cccccc;
+                border: 1px solid #555;
+                padding: 6px 12px;
+                font-size: 14px;
+                font-family: inherit;
+                letter-spacing: 0.5px;
+                cursor: pointer;
+                border-radius: 3px;
+            }
 
-      #editor-pane .header {
-        background: #252526;
-        color: #858585;
-        border-bottom: 1px solid #333;
-      }
+            #editor-pane .header {
+                background: #252526;
+                color: #858585;
+                border-bottom: 1px solid #333;
+            }
 
-      #preview-pane .header {
-        background: #f3f3f3;
-        color: #666;
-        border-bottom: 1px solid #e1e1e1;
-      }
+            #preview-pane .header {
+                background: #f3f3f3;
+                color: #666;
+                border-bottom: 1px solid #e1e1e1;
+            }
 
-      textarea {
-        flex: 1;
-        background: transparent;
-        color: #d4d4d4;
-        border: none;
-        padding: 20px;
-        font-family: "Consolas", "Monaco", "Courier New", monospace;
-        font-size: 14px;
-        line-height: 1.6;
-        outline: none;
-        resize: none;
-      }
+            textarea {
+                flex: 1;
+                background: transparent;
+                color: #d4d4d4;
+                border: none;
+                padding: 20px;
+                font-family: "Consolas", "Monaco", "Courier New", monospace;
+                font-size: 14px;
+                line-height: 1.6;
+                outline: none;
+                resize: none;
+            }
 
-      #output {
-        flex: 1;
-        padding: 40px;
-        overflow-y: auto;
-      }
-    </style>
-  </head>
-  <body>
-    <div id="editor-pane" class="pane">
-      <div class="header">Editor ATXT</div>
-      <textarea
-        id="input"
-        spellcheck="false"
-        placeholder="Escreva seu manifesto aqui..."
-      ></textarea>
-    </div>
+            atxt-document {
+                flex: 1;
+                padding: 40px;
+                overflow-y: auto;
+                display: block;
+            }
 
-    <div id="preview-pane" class="pane">
-        <div class="header">
-            Live Preview
-            <button id="btn-serialize" class="btn-action">↓ ATXT Canônico</button>
+            @keyframes caret-highlight-ping {
+                0% {
+                    caret-color: #00ff00;
+                }
+                100% {
+                    caret-color: inherit;
+                }
+            }
+
+            #input {
+                caret-color: currentColor;
+            }
+
+            .caret-active {
+                animation: caret-highlight-ping 0.8s ease-out;
+            }
+        </style>
+    </head>
+    <body>
+        <div id="editor-pane" class="pane">
+            <div class="header">Editor ATXT</div>
+            <textarea
+                id="input"
+                spellcheck="false"
+                placeholder="Escreva seu manifesto aqui..."
+            ></textarea>
         </div>
-      <div id="output"></div>
-    </div>
 
-    <script type="module" src="./main.ts"></script>
-  </body>
+        <div id="preview-pane" class="pane">
+            <div class="header">
+                Live Preview
+                <button id="btn-serialize" class="btn-action">↓ ATXT Canônico</button>
+            </div>
+            <atxt-document></atxt-document>
+        </div>
+
+        <script type="module" src="./main.ts"></script>
+    </body>
 </html>

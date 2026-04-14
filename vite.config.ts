@@ -34,7 +34,12 @@ export default defineConfig({
             reporter: ["text", "html"],
             reportsDirectory: path.resolve(__dirname, "coverage"),
             include: ["src/core/atxt/**/*.ts"],
-            exclude: ["src/core/atxt/types/**/*.ts", "src/core/atxt/index.ts", "src/pages/main.ts"],
+            exclude: [
+                "src/core/atxt/types/**/*.ts",
+                "src/core/atxt/index.ts",
+                "src/pages/main.ts",
+                "src/components/atxtDocument.ts",
+            ],
             thresholds: {
                 statements: 90,
                 branches: 85,

@@ -1,3 +1,4 @@
+import { AtxtDocument } from "@/core/atxt/components/atxtDocument";
 import atxtExample from "./assets/example.atxt?raw";
 import * as Atxt from "@atxt";
 
@@ -6,7 +7,7 @@ const GO_TO_SOURCE_FOCUS_DELAY = 100;
 const COMPILE_DEBOUNCE_TIME = 100;
 
 const inputEl = document.getElementById("input") as HTMLTextAreaElement;
-const outputEl = document.getElementById("output") as HTMLDivElement;
+const outputEl = document.querySelector("atxt-document") as AtxtDocument;
 
 let currentNodeMap: Map<string, Atxt.IR.IRNodeEntry> = new Map();
 
@@ -45,8 +46,8 @@ function runCompiler(source: string) {
             console.log("✅ Compilation finished with no errors.");
         }
 
+        outputEl.renderIr(irDocument);
         currentNodeMap = irDocument.nodeMap;
-        outputEl.innerHTML = finalHtml;
     } catch (e) {
         console.error("❌ Critical failure in pipeline:", e);
     }
@@ -74,8 +75,6 @@ inputEl.addEventListener("input", handleInput);
 
 runCompiler(initialContent);
 
-let pendingOffset = 0;
-
 document.getElementById("btn-serialize")!.addEventListener("click", () => {
     const { ir, errors } = Atxt.compileToIR(inputEl.value);
     if (errors.length > 0) console.warn("Serializing IR with errors:", errors);
@@ -89,61 +88,88 @@ document.getElementById("btn-serialize")!.addEventListener("click", () => {
     URL.revokeObjectURL(url);
 });
 
-outputEl.addEventListener("mousedown", (e) => {
-    if ("caretPositionFromPoint" in document) {
-        const pos = document.caretPositionFromPoint(e.clientX, e.clientY);
-        pendingOffset = pos?.offset ?? 0;
-    } else if ("caretRangeFromPoint" in document) {
-        const range = (
-            document as {
-                caretRangeFromPoint: (x: number, y: number) => Range | null;
-            }
-        ).caretRangeFromPoint(e.clientX, e.clientY);
-        pendingOffset = range?.startOffset ?? 0;
-    }
+const inputMirror = document.createElement("div");
+inputMirror.style.cssText = `
+    position: absolute;
+    top: -9999px;
+    left: -9999px;
+    white-space: pre-wrap;
+    word-wrap: break-word;
+    overflow-wrap: break-word;
+    visibility: hidden;
+`;
+document.body.appendChild(inputMirror);
+const resizeObserver = new ResizeObserver(() => {
+    const style = getComputedStyle(inputEl);
+    inputMirror.style.width = `${inputEl.clientWidth}px`;
+    inputMirror.style.font = style.font;
+    inputMirror.style.padding = style.padding;
+    inputMirror.style.lineHeight = style.lineHeight;
 });
 
-outputEl.addEventListener("dblclick", (e) => {
-    if (!(e.target instanceof Element)) return;
-    const mappedEl = e.target.closest("[data-id]");
+resizeObserver.observe(inputEl);
+
+outputEl.addEventListener("click", (e) => {
+    if (!e.ctrlKey) return;
+    const target = e.composedPath()[0];
+    if (!(target instanceof Element)) return;
+    const mappedEl = target.closest("[data-id]");
     if (!(mappedEl instanceof HTMLElement)) return;
     const id = mappedEl.dataset.id!;
     const entry = currentNodeMap.get(id);
     if (!entry) return;
     let column = entry.column;
-    if (entry.node.type === Atxt.IR.NodeType.Text) column += pendingOffset;
+    if (entry.node.type === Atxt.IR.NodeType.Text) {
+        const textNode = target.childNodes[0];
+        if (textNode instanceof Text) {
+            column += getCharOffsetAtPoint(textNode, e.clientX, e.clientY);
+        }
+    }
     jumpToEditorPosition(entry.line, column);
 });
 
+function getCharOffsetAtPoint(textNode: Text, clientX: number, clientY: number): number {
+    const range = document.createRange();
+    const length = textNode.textContent?.length ?? 0;
+    for (let i = 0; i < length; i++) {
+        range.setStart(textNode, i);
+        range.setEnd(textNode, i + 1);
+        const rect = range.getBoundingClientRect();
+        if (rect.width === 0 && rect.height === 0) return 0;
+        if (clientY <= rect.bottom && clientX <= rect.right) return i;
+    }
+    return length;
+}
+
 function jumpToEditorPosition(targetLine: number, targetColumn: number) {
-    const { lineStartIndex, charIndex, lineEndIndex } = calculateSelectionIndices(
-        inputEl.value,
-        targetLine,
-        targetColumn,
-    );
-
-    inputEl.focus();
-    inputEl.setSelectionRange(lineStartIndex, lineEndIndex);
-
-    inputEl.blur();
-    inputEl.focus();
-    inputEl.setSelectionRange(lineStartIndex, lineEndIndex);
-
+    const charIndex = calculateCharIndex(inputEl.value, targetLine, targetColumn);
     setTimeout(() => {
-        if (document.activeElement === inputEl) inputEl.setSelectionRange(charIndex, charIndex);
+        inputEl.focus({ preventScroll: true });
+        inputEl.setSelectionRange(charIndex, charIndex);
+        inputEl.scrollTop = getScrollTopForChar(charIndex);
+        inputEl.classList.remove("caret-active");
+        inputEl.offsetWidth; // use getter to force reflow and restart animation
+        inputEl.classList.add("caret-active");
     }, GO_TO_SOURCE_FOCUS_DELAY);
 }
 
-function calculateSelectionIndices(text: string, line: number, column: number) {
+function getScrollTopForChar(charIndex: number): number {
+    const before = document.createElement("span");
+    before.textContent = inputEl.value.substring(0, charIndex);
+    const cursor = document.createElement("span");
+    cursor.textContent = "|";
+
+    inputMirror.replaceChildren(before, cursor);
+
+    const scrollTop = cursor.offsetTop - inputEl.clientHeight / 2;
+    return Math.max(0, scrollTop);
+}
+
+function calculateCharIndex(text: string, line: number, column: number): number {
     let lineStartIndex = 0;
     for (let i = 1; i < line; i++) {
         lineStartIndex = text.indexOf("\n", lineStartIndex) + 1;
         if (lineStartIndex === 0) break;
     }
-    const charIndex = lineStartIndex + column - 1;
-    let lineEndIndex = text.indexOf("\n", lineStartIndex);
-    if (lineEndIndex === -1) {
-        lineEndIndex = text.length;
-    }
-    return { lineStartIndex, charIndex, lineEndIndex };
+    return lineStartIndex + column - 1;
 }
