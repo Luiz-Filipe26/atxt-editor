@@ -2,16 +2,162 @@ import { AtxtDocument } from "@/core/atxt/components/atxtDocument";
 import atxtExample from "./assets/example.atxt?raw";
 import * as Atxt from "@atxt";
 
-const STORAGE_KEY = "atxt_saved_content";
+// ─── Constants ────────────────────────────────────────────────────────────────
+
+const FILES_KEY = "atxt_files";
+const CURRENT_KEY = "atxt_current";
 const GO_TO_SOURCE_FOCUS_DELAY = 100;
-const COMPILE_DEBOUNCE_TIME = 100;
+const COMPILE_DEBOUNCE_MS = 100;
+
+// ─── Types ────────────────────────────────────────────────────────────────────
+
+interface AtxtFile {
+    name: string;
+    content: string;
+}
+
+type FileStore = Record<string, AtxtFile>;
+
+// ─── DOM refs ─────────────────────────────────────────────────────────────────
 
 const inputEl = document.getElementById("input") as HTMLTextAreaElement;
 const outputEl = document.querySelector("atxt-document") as AtxtDocument;
+const fileSelectEl = document.getElementById("file-select") as HTMLSelectElement;
+const errorPanel = document.getElementById("error-panel") as HTMLDivElement;
+const errorBadge = document.getElementById("error-badge") as HTMLSpanElement;
+const errorList = document.getElementById("error-list") as HTMLDivElement;
+const errorHeader = document.getElementById("error-panel-header") as HTMLDivElement;
+const zoomInBtn = document.getElementById('btn-zoom-in') as HTMLButtonElement;
+const zoomOutBtn = document.getElementById('btn-zoom-out') as HTMLButtonElement;
+const zoomLabel = document.getElementById('zoom-level') as HTMLSpanElement;
+
+// ─── Runtime state ────────────────────────────────────────────────────────────
 
 let currentNodeMap: Map<string, Atxt.IR.IRNodeEntry> = new Map();
+let currentFileId: string | null = null;
 
-function runCompiler(source: string) {
+// ─── Storage helpers ──────────────────────────────────────────────────────────
+
+function loadStore(): FileStore {
+    try {
+        return JSON.parse(localStorage.getItem(FILES_KEY) || "{}");
+    } catch {
+        return {};
+    }
+}
+
+function saveStore(store: FileStore): void {
+    localStorage.setItem(FILES_KEY, JSON.stringify(store));
+}
+
+function generateId(): string {
+    return Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+}
+
+// ─── File manager ─────────────────────────────────────────────────────────────
+
+function initFileManager(): void {
+    const store = loadStore();
+    // Create default file if store is empty
+    if (Object.keys(store).length === 0) {
+        const id = generateId();
+        store[id] = { name: "exemplo", content: atxtExample.replace(/\n$/, "") };
+        saveStore(store);
+        localStorage.setItem(CURRENT_KEY, id);
+    }
+
+    const savedCurrent = localStorage.getItem(CURRENT_KEY);
+    const validCurrent = savedCurrent && store[savedCurrent] ? savedCurrent : Object.keys(store)[0];
+
+    renderFileSelect(store, validCurrent);
+    loadFile(validCurrent);
+}
+
+function renderFileSelect(store: FileStore, selectedId: string): void {
+    fileSelectEl.innerHTML = "";
+    for (const [id, file] of Object.entries(store)) {
+        const opt = document.createElement("option");
+        opt.value = id;
+        opt.textContent = file.name;
+        if (id === selectedId) opt.selected = true;
+        fileSelectEl.appendChild(opt);
+    }
+}
+
+function saveCurrentFile(): void {
+    if (!currentFileId) return;
+    const store = loadStore();
+    if (!store[currentFileId]) return;
+    store[currentFileId].content = inputEl.value;
+    saveStore(store);
+}
+
+function loadFile(id: string): void {
+    const store = loadStore();
+    const file = store[id];
+    if (!file) return;
+
+    currentFileId = id;
+    localStorage.setItem(CURRENT_KEY, id);
+    inputEl.value = file.content;
+    runCompiler(file.content);
+}
+
+function createFile(): void {
+    const name = prompt("Nome do arquivo:", "novo")?.trim();
+    if (!name) return;
+
+    saveCurrentFile();
+
+    const store = loadStore();
+    const id = generateId();
+    store[id] = { name, content: "" };
+    saveStore(store);
+
+    renderFileSelect(store, id);
+    loadFile(id);
+}
+
+function renameCurrentFile(): void {
+    if (!currentFileId) return;
+    const store = loadStore();
+    const file = store[currentFileId];
+    if (!file) return;
+
+    const name = prompt("Novo nome:", file.name)?.trim();
+    if (!name || name === file.name) return;
+
+    file.name = name;
+    saveStore(store);
+    renderFileSelect(store, currentFileId);
+}
+
+function deleteCurrentFile(): void {
+    if (!currentFileId) return;
+    const store = loadStore();
+    const file = store[currentFileId];
+    if (!file) return;
+    if (!confirm(`Deletar "${file.name}"?`)) return;
+
+    delete store[currentFileId];
+
+    const remaining = Object.keys(store);
+    if (remaining.length === 0) {
+        const id = generateId();
+        store[id] = { name: "novo", content: "" };
+        remaining.push(id);
+    }
+
+    saveStore(store);
+
+    const nextId = remaining[0];
+    renderFileSelect(store, nextId);
+    loadFile(nextId);
+}
+
+// ─── Compiler ─────────────────────────────────────────────────────────────────
+
+function runCompiler(source: string): void {
     console.clear();
     console.group("🚀 Starting ATXT Compilation");
 
@@ -36,11 +182,12 @@ function runCompiler(source: string) {
 
         const { html: finalHtml, errors: htmlErrors } = Atxt.HtmlGenerator.generate(irDocument);
         console.groupCollapsed("4. HtmlGenerator Output");
-        console.log("HTML Output: ", finalHtml);
+        console.log("HTML Output:", finalHtml);
         if (htmlErrors.length) console.error("HtmlGenerator Errors:", htmlErrors);
         console.groupEnd();
 
-        const allErrors = [...lexerErrors, ...parserErrors, ...loweringErrors];
+        const allErrors = [...lexerErrors, ...parserErrors, ...loweringErrors, ...htmlErrors];
+
         if (allErrors.length > 0) {
             console.warn(`⚠️ Total errors found: ${allErrors.length}`, allErrors);
         } else {
@@ -49,12 +196,68 @@ function runCompiler(source: string) {
 
         outputEl.renderIr(irDocument);
         currentNodeMap = irDocument.nodeMap;
+        renderErrors(allErrors);
     } catch (e) {
         console.error("❌ Critical failure in pipeline:", e);
     }
 
     console.groupEnd();
 }
+
+// ─── Zoom sysmtem ────────────────────────────────────────────────────────────
+
+let currentZoom = 1.0;
+function updateZoom(delta: number) {
+    currentZoom = Math.min(Math.max(0.2, currentZoom + delta), 5.0);
+    outputEl.style.setProperty('--atxt-doc-zoom', currentZoom.toString());
+    zoomLabel.textContent = `${Math.round(currentZoom * 100)}%`;
+}
+
+zoomInBtn.addEventListener('click', () => updateZoom(0.1));
+zoomOutBtn.addEventListener('click', () => updateZoom(-0.1));
+
+// ─── Error panel ─────────────────────────────────────────────────────────────
+
+function renderErrors(errors: Atxt.CompilerError[]): void {
+    const count = errors.length;
+
+    errorBadge.textContent = String(count);
+    errorBadge.classList.toggle("no-errors", count === 0);
+
+    if (count === 0) {
+        errorList.innerHTML = `<div class="no-errors-msg">Nenhum erro.</div>`;
+        if (!errorPanel.classList.contains("collapsed")) {
+            errorPanel.classList.add("collapsed");
+        }
+        return;
+    }
+
+    errorList.innerHTML = errors
+        .map((e) => {
+            const tag = e.type.replace(Atxt.CompilerErrorType.HtmlGenerator, "").toLowerCase();
+            const loc = `${e.line}:${e.column}`;
+            return `<div class="error-item">
+            <span class="error-tag ${tag}">${tag}</span>
+            <span class="error-location">${loc}</span>
+            <span class="error-message">${escapeHtml(e.message)}</span>
+        </div>`;
+        })
+        .join("");
+}
+
+function escapeHtml(str: string): string {
+    return str
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;");
+}
+
+errorHeader.addEventListener("click", () => {
+    errorPanel.classList.toggle("collapsed");
+});
+
+// ─── Debounce ─────────────────────────────────────────────────────────────────
 
 const debounce = <T extends (...args: any[]) => void>(fn: T, ms = 300) => {
     let timeoutId: ReturnType<typeof setTimeout>;
@@ -64,42 +267,61 @@ const debounce = <T extends (...args: any[]) => void>(fn: T, ms = 300) => {
     };
 };
 
-const handleInput = debounce(() => {
-    const value = inputEl.value;
-    localStorage.setItem(STORAGE_KEY, value);
-    runCompiler(value);
-}, COMPILE_DEBOUNCE_TIME);
+// ─── Input handling ───────────────────────────────────────────────────────────
 
-const initialContent = (localStorage.getItem(STORAGE_KEY) || atxtExample).replace(/\n$/, "");
-inputEl.value = initialContent;
+const handleInput = debounce(() => {
+    saveCurrentFile();
+    runCompiler(inputEl.value);
+}, COMPILE_DEBOUNCE_MS);
+
 inputEl.addEventListener("input", handleInput);
 
-runCompiler(initialContent);
+// ─── File select ──────────────────────────────────────────────────────────────
+
+fileSelectEl.addEventListener("change", () => {
+    const nextId = fileSelectEl.value;
+    if (nextId === currentFileId) return;
+    saveCurrentFile();
+    loadFile(nextId);
+});
+
+document.getElementById("btn-new-file")!.addEventListener("click", createFile);
+document.getElementById("btn-rename-file")!.addEventListener("click", renameCurrentFile);
+document.getElementById("btn-delete-file")!.addEventListener("click", deleteCurrentFile);
+
+// ─── Export buttons ───────────────────────────────────────────────────────────
+
+function downloadBlob(content: string, filename: string): void {
+    const blob = URL.createObjectURL(new Blob([content], { type: "text/plain" }));
+    const a = Object.assign(document.createElement("a"), { href: blob, download: filename });
+    a.click();
+    URL.revokeObjectURL(blob);
+}
+
+document.getElementById("btn-export-raw")!.addEventListener("click", () => {
+    const store = loadStore();
+    const name = currentFileId ? (store[currentFileId]?.name ?? "documento") : "documento";
+    downloadBlob(inputEl.value, `${name}.atxt`);
+});
 
 document.getElementById("btn-serialize")!.addEventListener("click", () => {
     const { ir, errors } = Atxt.compileToIR(inputEl.value);
     if (errors.length > 0) console.warn("Serializing IR with errors:", errors);
-    const canonical = Atxt.serialize(ir);
-    const blob = new Blob([canonical], { type: "text/plain" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = "document.atxt";
-    a.click();
-    URL.revokeObjectURL(url);
+    const store = loadStore();
+    const name = currentFileId ? (store[currentFileId]?.name ?? "documento") : "documento";
+    downloadBlob(Atxt.serialize(ir), `${name}.canonical.atxt`);
 });
+
+// ─── Source mapping (Ctrl+Click) ──────────────────────────────────────────────
 
 const inputMirror = document.createElement("div");
 inputMirror.style.cssText = `
-    position: absolute;
-    top: -9999px;
-    left: -9999px;
-    white-space: pre-wrap;
-    word-wrap: break-word;
-    overflow-wrap: break-word;
-    visibility: hidden;
+    position: absolute; top: -9999px; left: -9999px;
+    white-space: pre-wrap; word-wrap: break-word;
+    overflow-wrap: break-word; visibility: hidden;
 `;
 document.body.appendChild(inputMirror);
+
 const resizeObserver = new ResizeObserver(() => {
     const style = getComputedStyle(inputEl);
     inputMirror.style.width = `${inputEl.clientWidth}px`;
@@ -107,7 +329,6 @@ const resizeObserver = new ResizeObserver(() => {
     inputMirror.style.padding = style.padding;
     inputMirror.style.lineHeight = style.lineHeight;
 });
-
 resizeObserver.observe(inputEl);
 
 outputEl.addEventListener("click", (e) => {
@@ -142,14 +363,14 @@ function getCharOffsetAtPoint(textNode: Text, clientX: number, clientY: number):
     return length;
 }
 
-function jumpToEditorPosition(targetLine: number, targetColumn: number) {
+function jumpToEditorPosition(targetLine: number, targetColumn: number): void {
     const charIndex = calculateCharIndex(inputEl.value, targetLine, targetColumn);
     setTimeout(() => {
         inputEl.focus({ preventScroll: true });
         inputEl.setSelectionRange(charIndex, charIndex);
         inputEl.scrollTop = getScrollTopForChar(charIndex);
         inputEl.classList.remove("caret-active");
-        inputEl.offsetWidth; // use getter to force reflow and restart animation
+        inputEl.offsetWidth;
         inputEl.classList.add("caret-active");
     }, GO_TO_SOURCE_FOCUS_DELAY);
 }
@@ -159,11 +380,8 @@ function getScrollTopForChar(charIndex: number): number {
     before.textContent = inputEl.value.substring(0, charIndex);
     const cursor = document.createElement("span");
     cursor.textContent = "|";
-
     inputMirror.replaceChildren(before, cursor);
-
-    const scrollTop = cursor.offsetTop - inputEl.clientHeight / 2;
-    return Math.max(0, scrollTop);
+    return Math.max(0, cursor.offsetTop - inputEl.clientHeight / 2);
 }
 
 function calculateCharIndex(text: string, line: number, column: number): number {
@@ -174,3 +392,7 @@ function calculateCharIndex(text: string, line: number, column: number): number 
     }
     return lineStartIndex + column - 1;
 }
+
+(function main() {
+    initFileManager();
+})();

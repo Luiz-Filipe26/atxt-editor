@@ -4,124 +4,64 @@
         <meta charset="UTF-8" />
         <meta name="viewport" content="width=device-width, initial-scale=1.0" />
         <title>ATXT Studio</title>
-        <style>
-            body {
-                margin: 0;
-                display: flex;
-                height: 100vh;
-                background: #1e1e1e;
-                color: #cccccc;
-                font-family: "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-                overflow: hidden;
-            }
-
-            .pane {
-                flex: 1;
-                display: flex;
-                flex-direction: column;
-                height: 100vh;
-                box-sizing: border-box;
-            }
-
-            #editor-pane {
-                border-right: 1px solid #333;
-                background: #1e1e1e;
-            }
-
-            #preview-pane {
-                background: #fdfdfd;
-                color: #1a1a1a;
-            }
-
-            .header {
-                padding: 12px 20px;
-                font-size: 12px;
-                font-weight: 600;
-                letter-spacing: 1px;
-                text-transform: uppercase;
-                display: flex;
-                justify-content: space-between;
-                align-items: center;
-            }
-
-            .btn-action {
-                background: #2d2d2d;
-                color: #cccccc;
-                border: 1px solid #555;
-                padding: 6px 12px;
-                font-size: 14px;
-                font-family: inherit;
-                letter-spacing: 0.5px;
-                cursor: pointer;
-                border-radius: 3px;
-            }
-
-            #editor-pane .header {
-                background: #252526;
-                color: #858585;
-                border-bottom: 1px solid #333;
-            }
-
-            #preview-pane .header {
-                background: #f3f3f3;
-                color: #666;
-                border-bottom: 1px solid #e1e1e1;
-            }
-
-            textarea {
-                flex: 1;
-                background: transparent;
-                color: #d4d4d4;
-                border: none;
-                padding: 20px;
-                font-family: "Consolas", "Monaco", "Courier New", monospace;
-                font-size: 14px;
-                line-height: 1.6;
-                outline: none;
-                resize: none;
-            }
-
-            atxt-document {
-                flex: 1;
-                padding: 40px;
-                overflow-y: auto;
-                display: block;
-            }
-
-            @keyframes caret-highlight-ping {
-                0% {
-                    caret-color: #00ff00;
-                }
-                100% {
-                    caret-color: inherit;
-                }
-            }
-
-            #input {
-                caret-color: currentColor;
-            }
-
-            .caret-active {
-                animation: caret-highlight-ping 0.8s ease-out;
-            }
-        </style>
+        <link rel="stylesheet" href="main.css" />
     </head>
     <body>
-        <div id="editor-pane" class="pane">
-            <div class="header">Editor ATXT</div>
-            <textarea
-                id="input"
-                spellcheck="false"
-                placeholder="Escreva seu manifesto aqui..."
-            ></textarea>
+        <div class="workspace">
+            <div id="editor-pane" class="pane">
+                <div class="header">
+                    <span class="header-title">ATXT</span>
+                    <div class="file-controls">
+                        <select id="file-select" title="Arquivo atual"></select>
+                        <button id="btn-new-file" class="btn-icon" title="Novo arquivo">+</button>
+                        <button id="btn-rename-file" class="btn-icon" title="Renomear">✎</button>
+                        <button
+                            id="btn-delete-file"
+                            class="btn-icon btn-danger"
+                            title="Deletar arquivo"
+                        >
+                            🗑
+                        </button>
+                    </div>
+                </div>
+                <textarea
+                    id="input"
+                    spellcheck="false"
+                    placeholder="Escreva seu documento aqui..."
+                ></textarea>
+            </div>
+
+            <div id="preview-pane" class="pane">
+                <div class="header">
+                    <span class="header-title">Preview</span>
+                    <div class="preview-actions">
+                        <button id="btn-zoom-out" class="btn-icon">-</button>
+                        <span
+                            id="zoom-level"
+                            style="
+                                font-size: 11px;
+                                align-self: center;
+                                min-width: 35px;
+                                text-align: center;
+                            "
+                            >100%</span
+                        >
+                        <button id="btn-zoom-in" class="btn-icon">+</button>
+                        <button id="btn-export-raw" class="btn-action">↓ .atxt</button>
+                        <button id="btn-serialize" class="btn-action">↓ Canônico</button>
+                    </div>
+                </div>
+                <atxt-document></atxt-document>
+            </div>
         </div>
 
-        <div id="preview-pane" class="pane">
-            <div class="header">
-                Live Preview
-                <button id="btn-serialize" class="btn-action">↓ ATXT Canônico</button>
+        <div id="error-panel" class="collapsed">
+            <div id="error-panel-header">
+                <span class="error-panel-title">Erros do compilador</span>
+                <span id="error-badge" class="no-errors">0</span>
+                <span id="error-toggle-icon">▼</span>
             </div>
-            <atxt-document></atxt-document>
+            <div id="error-list"></div>
         </div>
 
         <script type="module" src="./main.ts"></script>

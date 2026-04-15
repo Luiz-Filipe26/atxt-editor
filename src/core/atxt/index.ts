@@ -11,7 +11,7 @@ export * as IR from "./types/ir";
 
 export { TokenType } from "./types/tokens";
 export type { Token } from "./types/tokens";
-export type { CompilerError } from "./types/errors";
+export { CompilerErrorType, type CompilerError } from "./types/errors";
 
 export { COMPILER_DEFAULTS } from "./domain/propertyDefinitions";
 export type { PropertyDefinition, KindDefinition } from "./domain/propertyDefinitions";
