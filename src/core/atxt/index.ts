@@ -22,3 +22,5 @@ export {
     validateForCssProperty,
 } from "./domain/cssDefinitions";
 export { getPropertyDefinition, getKindDefinition } from "./domain/propertyDefinitions";
+
+export { AtxtDocument } from "./components/atxtDocument";
