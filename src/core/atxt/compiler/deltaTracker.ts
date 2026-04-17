@@ -4,6 +4,12 @@ import {
     type PendingNodeEntry,
 } from "../types/mutationDelta";
 
+export interface CollectedDelta {
+    deletedNodes: string[];
+    pendingNodes: PendingNodeEntry[];
+    updatedNodes: UpdatedNodeEntry[];
+}
+
 /**
  * Gerencia a contabilidade de mutações atômicas na árvore IR.
  * Resolve conflitos de ciclo de vida (ex: nó criado e deletado na mesma transação).
@@ -39,7 +45,7 @@ export class DeltaTracker {
         this.updated.set(id, existing);
     }
 
-    public collect() {
+    public collect() : CollectedDelta {
         return {
             deletedNodes: [...this.deleted],
             pendingNodes: [...this.created.values()],

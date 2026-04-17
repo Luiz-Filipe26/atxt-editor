@@ -10,7 +10,7 @@ import {
 } from "../types/mutationIntent";
 import { type IRDelta, type CreatedNodeEntry } from "../types/mutationDelta";
 import type { SourceLocation } from "../types/location";
-import { DeltaTracker } from "./deltaTracker";
+import { DeltaTracker, type CollectedDelta } from "./deltaTracker";
 
 interface NodeTarget {
     node: IR.Text;
@@ -42,13 +42,7 @@ export class Mutator {
     }
 
     private mutate(intent: MutationIntent): IRDelta {
-        if (intent.type === MutationType.MutateRange) {
-            this.handleMutateRange(intent);
-        } else if (intent.type === MutationType.MutateBlock) {
-            this.handleMutateBlock(intent);
-        }
-
-        const raw = this.tracker.collect();
+        const raw = this.collectDeltas(intent);
 
         const createdNodes: CreatedNodeEntry[] = raw.pendingNodes.map((p) => {
             const parent = this.parentMap.get(p.parentId);
@@ -61,6 +55,17 @@ export class Mutator {
             updatedNodes: raw.updatedNodes,
             createdNodes,
         };
+    }
+
+    private collectDeltas(intent: MutationIntent): CollectedDelta {
+        switch (intent.type) {
+            case MutationType.MutateRange:
+                this.handleMutateRange(intent);
+                return this.tracker.collect();
+            case MutationType.MutateBlock:
+                this.handleMutateBlock(intent);
+                return this.tracker.collect();
+        }
     }
 
     // ── Operações de Bloco ───────────────────────────────────────────────────
