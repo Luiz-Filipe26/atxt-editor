@@ -6,14 +6,14 @@ import {
     type MutateRangePropsIntent,
     type MutateRangeInsertIntent,
     type MutateRangeDeleteIntent,
-    type MutateBlockProps,
+    type MutateBlockPropsIntent,
     type MutateBlockDeleteIntent,
-    MutationType,
     type MutateRangeIntent,
+    MutationType,
 } from "../types/mutationIntent";
-import { type IRDelta, type CreatedNodeEntry } from "../types/mutationDelta";
-import type { Range, SourceLocation } from "../types/location";
-import { DeltaTracker, type CollectedDelta } from "./deltaTracker";
+import { type IRDelta, type CreatedNodeEntry, type CollectedDelta } from "../types/mutationDelta";
+import { DeltaTracker } from "./deltaTracker";
+import type { Range } from "../types/location";
 
 interface NodeTarget {
     node: IR.Text;
@@ -62,8 +62,8 @@ export class Mutator {
 
     private collectDeltas(intent: MutationIntent): CollectedDelta {
         switch (intent.type) {
-            case MutationType.MutateRangeSet:
-                this.handleRangeSet(intent);
+            case MutationType.MutateRangeProps:
+                this.handleRangeProps(intent);
                 break;
             case MutationType.MutateRangeInsert:
                 this.handleRangeInsert(intent);
@@ -71,8 +71,8 @@ export class Mutator {
             case MutationType.MutateRangeDelete:
                 this.handleRangeDelete(intent);
                 break;
-            case MutationType.MutateBlockSet:
-                this.handleBlockSet(intent);
+            case MutationType.MutateBlockProps:
+                this.handleBlockProps(intent);
                 break;
             case MutationType.MutateBlockDelete:
                 this.handleBlockDelete(intent);
@@ -85,19 +85,19 @@ export class Mutator {
 
     // ── Block Operations ─────────────────────────────────────────────────────
 
-    private handleBlockSet(intent: MutateBlockProps): void {
-        const entry = this.doc.nodeMap.get(intent.targetId);
-        if (entry?.node.type !== IR.NodeType.Block) return;
-        this.applyBlockProperties(entry.node, intent.props);
+    private handleBlockProps(intent: MutateBlockPropsIntent): void {
+        const node = this.doc.nodeMap.get(intent.targetId);
+        if (node?.type !== IR.NodeType.Block) return;
+        this.applyBlockProperties(node, intent.props);
     }
 
     private handleBlockDelete(intent: MutateBlockDeleteIntent): void {
-        const entry = this.doc.nodeMap.get(intent.targetId);
-        if (entry?.node.type !== IR.NodeType.Block) return;
+        const node = this.doc.nodeMap.get(intent.targetId);
+        if (node?.type !== IR.NodeType.Block) return;
         const parent = this.parentMap.get(intent.targetId);
-        const idx = parent?.children.indexOf(entry.node) ?? -1;
+        const idx = parent?.children.indexOf(node) ?? -1;
         if (parent && idx !== -1) {
-            this.swapNodes(parent, { index: idx, count: 1 }, [], this.locOf(intent.targetId));
+            this.swapNodes(parent, { index: idx, count: 1 }, []);
         }
     }
 
@@ -109,7 +109,7 @@ export class Mutator {
 
     // ── Range Operations ─────────────────────────────────────────────────────
 
-    private handleRangeSet(intent: MutateRangePropsIntent): void {
+    private handleRangeProps(intent: MutateRangePropsIntent): void {
         const parent = this.resolveSharedParent(intent);
         if (!parent) return;
         const ctx = this.resolveRangeContext(intent, parent);
@@ -159,7 +159,6 @@ export class Mutator {
             parent,
             { index: ctx.startIdx, count: ctx.endIdx - ctx.startIdx + 1 },
             newNodes,
-            this.locOf(ctx.startNode.id),
         );
     }
 
@@ -208,7 +207,7 @@ export class Mutator {
         }
 
         const replacements = this.buildReplacements(node, range, props);
-        this.swapNodes(parent, { index, count: 1 }, replacements, this.locOf(node.id));
+        this.swapNodes(parent, { index, count: 1 }, replacements);
     }
 
     private buildReplacements(node: IR.Text, range: Range, props: IR.ResolvedProps): IR.Node[] {
@@ -250,7 +249,7 @@ export class Mutator {
         if (!this.propsEqual(curr.props, next.props)) return false;
 
         curr.content += next.content;
-        this.swapNodes(parent, { index: index + 1, count: 1 }, [], this.locOf(curr.id));
+        this.swapNodes(parent, { index: index + 1, count: 1 }, []);
         this.tracker.recordUpdate(curr.id, { newContent: curr.content });
         return true;
     }
@@ -261,11 +260,10 @@ export class Mutator {
         parent: IR.Block,
         splice: { index: number; count: number },
         newNodes: IR.Node[],
-        loc: SourceLocation,
     ): void {
         const removed = parent.children.splice(splice.index, splice.count, ...newNodes);
         for (const n of removed) this.unregister(n);
-        for (const n of newNodes) this.register(n, parent, loc);
+        for (const n of newNodes) this.register(n, parent);
     }
 
     private resolveSharedParent(intent: MutateRangeIntent): IR.Block | null {
@@ -321,8 +319,8 @@ export class Mutator {
     }
 
     private getTextNode(id: string): IR.Text | null {
-        const entry = this.doc.nodeMap.get(id);
-        return entry?.node.type === IR.NodeType.Text ? entry.node : null;
+        const node = this.doc.nodeMap.get(id);
+        return node?.type === IR.NodeType.Text ? node : null;
     }
 
     private filterByScope(props: IR.ResolvedProps, scope: PropertyScope): IR.ResolvedProps {
@@ -345,15 +343,8 @@ export class Mutator {
         return true;
     }
 
-    private locOf(nodeId: string): SourceLocation {
-        const entry = this.doc.nodeMap.get(nodeId);
-        /* v8 ignore next -- @preserve */
-        if (!entry) throw new Error(`Invariant violation: nodeMap missing entry for '${nodeId}'.`);
-        return { line: entry.line, column: entry.column };
-    }
-
-    private register(node: IR.Node, parent: IR.Block, loc: SourceLocation): void {
-        this.doc.nodeMap.set(node.id, { ...loc, node });
+    private register(node: IR.Node, parent: IR.Block): void {
+        this.doc.nodeMap.set(node.id, node);
         this.parentMap.set(node.id, parent);
         this.tracker.recordCreate({ node, parentId: parent.id });
     }

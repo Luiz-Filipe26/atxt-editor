@@ -1,11 +1,9 @@
 import * as IR from "../types/ir";
-import { type UpdatedNodeEntry, type PendingNodeEntry } from "../types/mutationDelta";
-
-export interface CollectedDelta {
-    deletedNodes: string[];
-    pendingNodes: PendingNodeEntry[];
-    updatedNodes: UpdatedNodeEntry[];
-}
+import {
+    type UpdatedNodeEntry,
+    type PendingNodeEntry,
+    type CollectedDelta,
+} from "../types/mutationDelta";
 
 /**
  * Manages the accounting of atomic mutations in the IR tree.

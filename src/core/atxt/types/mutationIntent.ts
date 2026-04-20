@@ -1,10 +1,10 @@
 import type * as IR from "./ir";
 
 export const MutationType = {
-    MutateRangeSet: "MUTATE_RANGE_SET",
+    MutateRangeProps: "MUTATE_RANGE_SET",
     MutateRangeInsert: "MUTATE_RANGE_INSERT",
     MutateRangeDelete: "MUTATE_RANGE_DELETE",
-    MutateBlockSet: "MUTATE_BLOCK_SET",
+    MutateBlockProps: "MUTATE_BLOCK_SET",
     MutateBlockDelete: "MUTATE_BLOCK_DELETE",
 } as const;
 
@@ -18,7 +18,7 @@ interface MutateRangeBase {
 }
 
 export interface MutateRangePropsIntent extends MutateRangeBase {
-    type: typeof MutationType.MutateRangeSet;
+    type: typeof MutationType.MutateRangeProps;
     props: IR.ResolvedProps;
 }
 
@@ -36,8 +36,8 @@ export type MutateRangeIntent =
     | MutateRangeInsertIntent
     | MutateRangeDeleteIntent;
 
-export interface MutateBlockProps {
-    type: typeof MutationType.MutateBlockSet;
+export interface MutateBlockPropsIntent {
+    type: typeof MutationType.MutateBlockProps;
     targetId: string;
     props: IR.ResolvedProps;
 }
@@ -47,6 +47,6 @@ export interface MutateBlockDeleteIntent {
     targetId: string;
 }
 
-export type MutateBlockIntent = MutateBlockProps | MutateBlockDeleteIntent;
+export type MutateBlockIntent = MutateBlockPropsIntent | MutateBlockDeleteIntent;
 
 export type MutationIntent = MutateRangeIntent | MutateBlockIntent;
