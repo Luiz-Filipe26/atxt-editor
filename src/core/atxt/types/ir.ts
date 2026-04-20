@@ -36,12 +36,12 @@ export interface Newline extends PositionalNode {
 
 export type Node = Block | Text | Newline;
 
-export interface IRNodeEntry extends SourceLocation {
-    node: Node;
-}
+export type NodeMap = Map<string, Node>;
+export type SourceMap = Map<string, SourceLocation>;
 
 export interface IRDocument {
     root: Block;
-    nodeMap: Map<string, IRNodeEntry>;
+    nodeMap: NodeMap;
+    sourceMap: SourceMap;
     classDefinitions: Map<string, ResolvedProps>;
 }

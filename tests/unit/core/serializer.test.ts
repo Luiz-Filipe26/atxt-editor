@@ -51,6 +51,7 @@ function makeDoc(
     return {
         root: makeBlock({}, children),
         nodeMap: new Map(),
+        sourceMap: new Map(),
         classDefinitions: classDefMap,
     };
 }
@@ -210,14 +211,7 @@ describe("Serializer", () => {
         });
 
         it("text nodes directly in root without a block wrapper are serialized as plain text", () => {
-            const doc: IR.IRDocument = {
-                root: {
-                    ...makeBlock(),
-                    children: [makeText("orphan")],
-                },
-                nodeMap: new Map(),
-                classDefinitions: new Map(),
-            };
+            const doc = makeDoc([makeText("orphan")]);
             expect(serialize(doc)).toBe("orphan");
         });
 

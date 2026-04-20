@@ -1,5 +1,5 @@
 import * as Atxt from "@atxt";
-import { AtxtDocument } from "@/core/atxt/components/atxtDocument";
+import { AtxtDocument } from "@atxt/components/atxtDocument";
 
 const GO_TO_SOURCE_FOCUS_DELAY = 100;
 
@@ -8,10 +8,12 @@ interface SourceMapElements {
     output: AtxtDocument;
 }
 
-let currentNodeMap: Map<string, Atxt.IR.IRNodeEntry> = new Map();
+let currentNodeMap: Atxt.IR.NodeMap = new Map();
+let currentSourceMap: Atxt.IR.SourceMap = new Map();
 
-export function updateNodeMap(newMap: Map<string, Atxt.IR.IRNodeEntry>) {
-    currentNodeMap = newMap;
+export function updateNodeAndSourceMap(newNodeMap: Atxt.IR.NodeMap, newSourceMap: Atxt.IR.SourceMap) {
+    currentNodeMap = newNodeMap;
+    currentSourceMap = newSourceMap;
 }
 
 export function initSourceMap(elements: SourceMapElements) {
@@ -51,18 +53,19 @@ function handleOutputClick(
     if (!(mappedEl instanceof HTMLElement)) return;
 
     const id = mappedEl.dataset.id!;
-    const entry = currentNodeMap.get(id);
-    if (!entry) return;
+    const nodeEntry = currentNodeMap.get(id);
+    const sourceEntry = currentSourceMap.get(id);
+    if (!sourceEntry || !nodeEntry) return;
 
-    let column = entry.column;
-    if (entry.node.type === Atxt.IR.NodeType.Text) {
+    let column = sourceEntry.column;
+    if (nodeEntry.type === Atxt.IR.NodeType.Text) {
         const textNode = target.childNodes[0];
         if (textNode instanceof Text) {
             column += getCharOffsetAtPoint(textNode, event.clientX, event.clientY);
         }
     }
 
-    jumpToEditorPosition(entry.line, column, inputEl, inputMirror);
+    jumpToEditorPosition(sourceEntry.line, column, inputEl, inputMirror);
 }
 
 function getCharOffsetAtPoint(textNode: Text, clientX: number, clientY: number): number {

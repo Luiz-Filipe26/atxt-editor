@@ -28,7 +28,8 @@ interface TransformBlockArgs {
 export class Lowerer {
     private compilerErrors: CompilerError[] = [];
     private propertyResolver: PropertyResolver;
-    private nodeMap: Map<string, IR.IRNodeEntry> = new Map();
+    private nodeMap: IR.NodeMap = new Map();
+    private sourceMap: IR.SourceMap = new Map();
 
     private constructor() {
         this.propertyResolver = new PropertyResolver(this.pushError.bind(this));
@@ -50,6 +51,7 @@ export class Lowerer {
             document: {
                 root: rootBlock,
                 nodeMap: this.nodeMap,
+                sourceMap: this.sourceMap,
                 classDefinitions: this.propertyResolver.getClassDefinitions(),
             },
             errors: this.compilerErrors,
@@ -61,7 +63,8 @@ export class Lowerer {
     }
 
     private register<T extends IR.Node>(node: T, source: SourceLocation): T {
-        this.nodeMap.set(node.id, { line: source.line, column: source.column, node });
+        this.nodeMap.set(node.id, node);
+        this.sourceMap.set(node.id, source);
         return node;
     }
 
