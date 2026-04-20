@@ -1,3 +1,4 @@
+/* 
 import * as fs from "node:fs";
 import * as readline from "node:readline";
 import * as path from "node:path";
@@ -301,3 +302,4 @@ function printHelp(): void {
 
   IDs aceitam prefixos (mínimo 4 chars) desde que não sejam ambíguos.`);
 }
+*/

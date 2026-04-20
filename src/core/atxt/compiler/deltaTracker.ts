@@ -1,8 +1,5 @@
-import * as IR from "../types/ir"
-import {
-    type UpdatedNodeEntry,
-    type PendingNodeEntry,
-} from "../types/mutationDelta";
+import * as IR from "../types/ir";
+import { type UpdatedNodeEntry, type PendingNodeEntry } from "../types/mutationDelta";
 
 export interface CollectedDelta {
     deletedNodes: string[];
@@ -11,8 +8,8 @@ export interface CollectedDelta {
 }
 
 /**
- * Gerencia a contabilidade de mutações atômicas na árvore IR.
- * Resolve conflitos de ciclo de vida (ex: nó criado e deletado na mesma transação).
+ * Manages the accounting of atomic mutations in the IR tree.
+ * Resolves lifecycle conflicts (e.g., a node created and deleted within the same transaction).
  */
 export class DeltaTracker {
     private deleted = new Set<string>();
@@ -36,7 +33,7 @@ export class DeltaTracker {
         id: string,
         updates: { newContent?: string; newProps?: IR.ResolvedProps },
     ): void {
-        if (this.deleted.has(id) || this.created.has(id)) return;
+        if (this.isTransientNode(id)) return;
 
         const existing = this.updated.get(id) ?? { id };
         if (updates.newContent !== undefined) existing.newContent = updates.newContent;
@@ -45,11 +42,15 @@ export class DeltaTracker {
         this.updated.set(id, existing);
     }
 
-    public collect() : CollectedDelta {
+    public collect(): CollectedDelta {
         return {
             deletedNodes: [...this.deleted],
             pendingNodes: [...this.created.values()],
             updatedNodes: [...this.updated.values()],
         };
+    }
+
+    private isTransientNode(id: string): boolean {
+        return this.created.has(id) || this.deleted.has(id);
     }
 }

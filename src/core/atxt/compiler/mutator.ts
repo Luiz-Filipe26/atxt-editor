@@ -3,13 +3,16 @@ import { getPropertyDefinition, PropertyScope } from "../domain/propertyDefiniti
 import { buildTextNode, buildNewlineNode } from "./irBuilders";
 import {
     type MutationIntent,
-    type MutateRangeIntent,
-    type MutateBlockIntent,
+    type MutateRangePropsIntent,
+    type MutateRangeInsertIntent,
+    type MutateRangeDeleteIntent,
+    type MutateBlockProps,
+    type MutateBlockDeleteIntent,
     MutationType,
-    MutationAction,
+    type MutateRangeIntent,
 } from "../types/mutationIntent";
 import { type IRDelta, type CreatedNodeEntry } from "../types/mutationDelta";
-import type { SourceLocation } from "../types/location";
+import type { Range, SourceLocation } from "../types/location";
 import { DeltaTracker, type CollectedDelta } from "./deltaTracker";
 
 interface NodeTarget {
@@ -59,26 +62,42 @@ export class Mutator {
 
     private collectDeltas(intent: MutationIntent): CollectedDelta {
         switch (intent.type) {
-            case MutationType.MutateRange:
-                this.handleMutateRange(intent);
-                return this.tracker.collect();
-            case MutationType.MutateBlock:
-                this.handleMutateBlock(intent);
-                return this.tracker.collect();
+            case MutationType.MutateRangeSet:
+                this.handleRangeSet(intent);
+                break;
+            case MutationType.MutateRangeInsert:
+                this.handleRangeInsert(intent);
+                break;
+            case MutationType.MutateRangeDelete:
+                this.handleRangeDelete(intent);
+                break;
+            case MutationType.MutateBlockSet:
+                this.handleBlockSet(intent);
+                break;
+            case MutationType.MutateBlockDelete:
+                this.handleBlockDelete(intent);
+                break;
+            default:
+                intent satisfies never;
         }
+        return this.tracker.collect();
     }
 
-    // ── Operações de Bloco ───────────────────────────────────────────────────
+    // ── Block Operations ─────────────────────────────────────────────────────
 
-    private handleMutateBlock(intent: MutateBlockIntent): void {
+    private handleBlockSet(intent: MutateBlockProps): void {
         const entry = this.doc.nodeMap.get(intent.targetId);
         if (entry?.node.type !== IR.NodeType.Block) return;
-        const block = entry.node as IR.Block;
+        this.applyBlockProperties(entry.node, intent.props);
+    }
 
-        if (intent.payload.action === MutationAction.SetProperties) {
-            this.applyBlockProperties(block, intent.payload.props);
-        } else if (intent.payload.action === MutationAction.Delete) {
-            this.deleteBlock(intent.targetId, block);
+    private handleBlockDelete(intent: MutateBlockDeleteIntent): void {
+        const entry = this.doc.nodeMap.get(intent.targetId);
+        if (entry?.node.type !== IR.NodeType.Block) return;
+        const parent = this.parentMap.get(intent.targetId);
+        const idx = parent?.children.indexOf(entry.node) ?? -1;
+        if (parent && idx !== -1) {
+            this.swapNodes(parent, { index: idx, count: 1 }, [], this.locOf(intent.targetId));
         }
     }
 
@@ -88,61 +107,15 @@ export class Mutator {
         this.tracker.recordUpdate(block.id, { newProps: new Map(block.props) });
     }
 
-    private deleteBlock(targetId: string, block: IR.Block): void {
-        const parent = this.parentMap.get(targetId);
-        const idx = parent?.children.indexOf(block) ?? -1;
-        if (parent && idx !== -1) {
-            this.swapNodes(parent, { index: idx, count: 1 }, [], this.locOf(targetId));
-        }
-    }
+    // ── Range Operations ─────────────────────────────────────────────────────
 
-    // ── Operações de Range ───────────────────────────────────────────────────
-
-    private handleMutateRange(intent: MutateRangeIntent): void {
-        const parent = this.parentMap.get(intent.startNodeId);
-        if (!parent || parent !== this.parentMap.get(intent.endNodeId)) return;
-
-        switch (intent.payload.action) {
-            case MutationAction.SetProperties:
-                this.handleSetProperties(intent, parent);
-                break;
-            case MutationAction.InsertText:
-                this.handleReplaceText(intent, parent, intent.payload.literal);
-                break;
-            case MutationAction.Delete:
-                this.handleReplaceText(intent, parent, "");
-                break;
-        }
-
-        this.normalize(parent);
-    }
-
-    private handleReplaceText(intent: MutateRangeIntent, parent: IR.Block, literal: string): void {
+    private handleRangeSet(intent: MutateRangePropsIntent): void {
+        const parent = this.resolveSharedParent(intent);
+        if (!parent) return;
         const ctx = this.resolveRangeContext(intent, parent);
         if (!ctx) return;
 
-        const mergedLiteral = this.buildMergedLiteral(intent, ctx, literal);
-        let newNodes: IR.Node[] = [];
-
-        if (mergedLiteral.length > 0) {
-            // Nodes criados aqui ainda não estão registrados, não têm loc vinculada neles.
-            newNodes = this.buildNodesFromLiteral(mergedLiteral, ctx.startNode.props);
-        }
-
-        this.swapNodes(
-            parent,
-            { index: ctx.startIdx, count: ctx.endIdx - ctx.startIdx + 1 },
-            newNodes,
-            this.locOf(ctx.startNode.id), // Passa a origem explicitamente!
-        );
-    }
-
-    private handleSetProperties(intent: MutateRangeIntent, parent: IR.Block): void {
-        if (intent.payload.action !== MutationAction.SetProperties) return;
-        const ctx = this.resolveRangeContext(intent, parent);
-        if (!ctx) return;
-
-        const inlineProps = this.filterByScope(intent.payload.props, PropertyScope.Inline);
+        const inlineProps = this.filterByScope(intent.props, PropertyScope.Inline);
 
         if (ctx.startNode === ctx.endNode) {
             this.sliceAndApplyProps(
@@ -153,34 +126,70 @@ export class Mutator {
         } else {
             this.applyMultiNodeProps(ctx, intent, inlineProps);
         }
+
+        this.normalize(parent);
+    }
+
+    private handleRangeInsert(intent: MutateRangeInsertIntent): void {
+        const parent = this.resolveSharedParent(intent);
+        if (!parent) return;
+        this.replaceRange(intent, parent, intent.literal);
+        this.normalize(parent);
+    }
+
+    private handleRangeDelete(intent: MutateRangeDeleteIntent): void {
+        if (this.isInvalidTextRange(intent)) return;
+        const parent = this.resolveSharedParent(intent);
+        if (!parent) return;
+        this.replaceRange(intent, parent, "");
+        this.normalize(parent);
+    }
+
+    private replaceRange(intent: MutateRangeIntent, parent: IR.Block, literal: string): void {
+        const ctx = this.resolveRangeContext(intent, parent);
+        if (!ctx) return;
+
+        const mergedLiteral = this.buildMergedLiteral(intent, ctx, literal);
+        const newNodes =
+            mergedLiteral.length > 0
+                ? this.buildNodesFromLiteral(mergedLiteral, ctx.startNode.props)
+                : [];
+
+        this.swapNodes(
+            parent,
+            { index: ctx.startIdx, count: ctx.endIdx - ctx.startIdx + 1 },
+            newNodes,
+            this.locOf(ctx.startNode.id),
+        );
+    }
+
+    private isInvalidTextRange(intent: MutateRangeDeleteIntent): boolean {
+        return intent.startNodeId === intent.endNodeId && intent.startOffset === intent.endOffset;
     }
 
     private applyMultiNodeProps(
         ctx: RangeContext,
-        intent: MutateRangeIntent,
+        intent: MutateRangePropsIntent,
         props: IR.ResolvedProps,
     ): void {
         const { parent, startNode, endNode, startIdx, endIdx } = ctx;
 
-        /**
-         * IMPORTANTE: Processamos do fim para o início (Reverse Order).
-         * Isso garante que o fatiamento (slicing) dos nós à esquerda não altere
-         * os índices dos nós à direita que ainda precisam ser processados.
-         */
+        // Process right-to-left: each splice only affects positions ≥ current index,
+        // leaving lower indices stable for subsequent operations.
 
-        // 1. Fim
+        // 1. End node: apply props to [0, endOffset)
         this.sliceAndApplyProps(
             { node: endNode, parent, index: endIdx },
             { start: 0, end: intent.endOffset },
             props,
         );
 
-        // 2. Meio (nós inteiros permanecem com índices estáveis enquanto processamos à direita)
+        // 2. Middle nodes: apply props in-place (indices remain stable while we process rightward)
         for (let i = startIdx + 1; i < endIdx; i++) {
             this.applyPropsInPlace(parent.children[i], props);
         }
 
-        // 3. Início
+        // 3. Start node: apply props to [startOffset, end)
         this.sliceAndApplyProps(
             { node: startNode, parent, index: startIdx },
             { start: intent.startOffset, end: startNode.content.length },
@@ -188,13 +197,9 @@ export class Mutator {
         );
     }
 
-    // ── Lógica Core de Fatiamento (Slicing) ──────────────────────────────────
+    // ── Slicing ───────────────────────────────────────────────────────────────
 
-    private sliceAndApplyProps(
-        target: NodeTarget,
-        range: { start: number; end: number },
-        props: IR.ResolvedProps,
-    ): void {
+    private sliceAndApplyProps(target: NodeTarget, range: Range, props: IR.ResolvedProps): void {
         const { node, parent, index } = target;
 
         if (range.start === 0 && range.end === node.content.length) {
@@ -206,33 +211,28 @@ export class Mutator {
         this.swapNodes(parent, { index, count: 1 }, replacements, this.locOf(node.id));
     }
 
-    private buildReplacements(
-        node: IR.Text,
-        range: { start: number; end: number },
-        props: IR.ResolvedProps,
-    ): IR.Node[] {
+    private buildReplacements(node: IR.Text, range: Range, props: IR.ResolvedProps): IR.Node[] {
         const before = node.content.slice(0, range.start);
-        const targetText = node.content.slice(range.start, range.end);
+        const target = node.content.slice(range.start, range.end);
         const after = node.content.slice(range.end);
 
         const mergedProps = this.mergeProps(node.props, props);
-        const repl: IR.Node[] = [];
+        const result: IR.Node[] = [];
 
-        if (before) repl.push(buildTextNode(this.nextId(), node.props, before));
-        if (targetText) repl.push(buildTextNode(this.nextId(), mergedProps, targetText));
-        if (after) repl.push(buildTextNode(this.nextId(), node.props, after));
+        if (before) result.push(buildTextNode(this.nextId(), node.props, before));
+        if (target) result.push(buildTextNode(this.nextId(), mergedProps, target));
+        if (after) result.push(buildTextNode(this.nextId(), node.props, after));
 
-        return repl;
+        return result;
     }
 
     private applyPropsInPlace(node: IR.Node, props: IR.ResolvedProps): void {
         if (node.type !== IR.NodeType.Text) return;
-        const textNode = node as IR.Text;
-        textNode.props = this.mergeProps(textNode.props, props);
-        this.tracker.recordUpdate(textNode.id, { newProps: new Map(textNode.props) });
+        node.props = this.mergeProps(node.props, props);
+        this.tracker.recordUpdate(node.id, { newProps: new Map(node.props) });
     }
 
-    // ── Normalização ─────────────────────────────────────────────────────────
+    // ── Normalization ─────────────────────────────────────────────────────────
 
     private normalize(block: IR.Block): void {
         let i = 0;
@@ -247,20 +247,15 @@ export class Mutator {
         const next = parent.children[index + 1];
 
         if (curr.type !== IR.NodeType.Text || next.type !== IR.NodeType.Text) return false;
+        if (!this.propsEqual(curr.props, next.props)) return false;
 
-        const tCurr = curr as IR.Text;
-        const tNext = next as IR.Text;
-        if (!this.propsEqual(tCurr.props, tNext.props)) return false;
-
-        tCurr.content += tNext.content;
-
-        // Remove tNext passando a loc original de tCurr
-        this.swapNodes(parent, { index: index + 1, count: 1 }, [], this.locOf(tCurr.id));
-        this.tracker.recordUpdate(tCurr.id, { newContent: tCurr.content });
+        curr.content += next.content;
+        this.swapNodes(parent, { index: index + 1, count: 1 }, [], this.locOf(curr.id));
+        this.tracker.recordUpdate(curr.id, { newContent: curr.content });
         return true;
     }
 
-    // ── Utilitários & Plumbing ───────────────────────────────────────────────
+    // ── Utilities & Plumbing ──────────────────────────────────────────────────
 
     private swapNodes(
         parent: IR.Block,
@@ -270,9 +265,13 @@ export class Mutator {
     ): void {
         const removed = parent.children.splice(splice.index, splice.count, ...newNodes);
         for (const n of removed) this.unregister(n);
+        for (const n of newNodes) this.register(n, parent, loc);
+    }
 
-        // Agora sim a SourceLocation correta é propagada
-        newNodes.forEach((n) => this.register(n, parent, loc));
+    private resolveSharedParent(intent: MutateRangeIntent): IR.Block | null {
+        const parent = this.parentMap.get(intent.startNodeId);
+        if (!parent || parent !== this.parentMap.get(intent.endNodeId)) return null;
+        return parent;
     }
 
     private resolveRangeContext(intent: MutateRangeIntent, parent: IR.Block): RangeContext | null {
@@ -301,12 +300,11 @@ export class Mutator {
         const pieces = literal.split("\n");
         const result: IR.Node[] = [];
 
-        pieces.forEach((piece, i) => {
-            if (piece) result.push(buildTextNode(this.nextId(), props, piece));
+        for (let i = 0; i < pieces.length; i++) {
+            if (pieces[i]) result.push(buildTextNode(this.nextId(), props, pieces[i]));
             if (i < pieces.length - 1) result.push(buildNewlineNode(this.nextId()));
-        });
+        }
 
-        // locMap registration removido daqui. O swapNodes assume isso agora!
         return result;
     }
 
@@ -315,7 +313,7 @@ export class Mutator {
         const visit = (block: IR.Block) => {
             for (const child of block.children) {
                 map.set(child.id, block);
-                if (child.type === IR.NodeType.Block) visit(child as IR.Block);
+                if (child.type === IR.NodeType.Block) visit(child);
             }
         };
         visit(this.doc.root);
@@ -324,7 +322,7 @@ export class Mutator {
 
     private getTextNode(id: string): IR.Text | null {
         const entry = this.doc.nodeMap.get(id);
-        return entry?.node.type === IR.NodeType.Text ? (entry.node as IR.Text) : null;
+        return entry?.node.type === IR.NodeType.Text ? entry.node : null;
     }
 
     private filterByScope(props: IR.ResolvedProps, scope: PropertyScope): IR.ResolvedProps {
@@ -349,10 +347,11 @@ export class Mutator {
 
     private locOf(nodeId: string): SourceLocation {
         const entry = this.doc.nodeMap.get(nodeId);
-        return entry ? { line: entry.line, column: entry.column } : { line: 0, column: 0 };
+        /* v8 ignore next -- @preserve */
+        if (!entry) throw new Error(`Invariant violation: nodeMap missing entry for '${nodeId}'.`);
+        return { line: entry.line, column: entry.column };
     }
 
-    // Recebe o loc explícito em vez de adivinhar no escuro
     private register(node: IR.Node, parent: IR.Block, loc: SourceLocation): void {
         this.doc.nodeMap.set(node.id, { ...loc, node });
         this.parentMap.set(node.id, parent);
