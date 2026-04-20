@@ -23,6 +23,7 @@
         "paths": {
             "@/*": ["./src/*"],
             "@atxt": ["./src/core/atxt/index.ts"],
+            "@atxt/components": ["./src/core/atxt/components/index.ts"],
             "@atxt/*": ["./src/core/atxt/*"]
         }
     },

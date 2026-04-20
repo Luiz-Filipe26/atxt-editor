@@ -147,7 +147,7 @@ export class HtmlGenerator {
 
     private pushError(message: string, nodeId: string) {
         /* v8 ignore next -- @preserve */
-        const { line, column } = this.currentIr.nodeMap.get(nodeId) ?? { line: 0, column: 0 };
+        const { line, column } = this.currentIr.sourceMap.get(nodeId) ?? { line: 0, column: 0 };
         this.generatorErrors.push({
             type: CompilerErrorType.HtmlGenerator,
             message: message,

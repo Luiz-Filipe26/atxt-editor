@@ -3,7 +3,7 @@ import { dom } from "./domProvider";
 import { downloadBlob, debounce } from "./utils";
 import * as FileManager from "./fileManager";
 import { runCompiler } from "./compilerRunner";
-import { initSourceMap, updateNodeMap } from "./sourceMap";
+import { initSourceMap, updateNodeAndSourceMap } from "./sourceMap";
 import { toggleErrorPanel, renderErrors } from "./errorPanelManager";
 
 const COMPILE_DEBOUNCE_MS = 100;
@@ -19,7 +19,7 @@ function compileCurrentSource(source: string) {
     runCompiler(source, (ir, errors) => {
         if (ir) {
             dom.output.renderIr(ir);
-            updateNodeMap(ir.nodeMap);
+            updateNodeAndSourceMap(ir.nodeMap, ir.sourceMap);
         }
         renderErrors(errors, dom);
     });

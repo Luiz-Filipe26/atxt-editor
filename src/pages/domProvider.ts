@@ -1,4 +1,4 @@
-import { AtxtDocument } from "@/core/atxt/components/atxtDocument";
+import { AtxtDocument } from "@atxt/components/atxtDocument";
 
 function getElement<T extends HTMLElement>(id: string): T {
     const element = document.getElementById(id);

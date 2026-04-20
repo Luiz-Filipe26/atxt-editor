@@ -32,7 +32,7 @@ describe("Lowerer", () => {
 
         it("the root block has the source position of the document", () => {
             const { ir } = compileToIR("Hello");
-            const entry = ir.nodeMap.get(ir.root.id);
+            const entry = ir.sourceMap.get(ir.root.id);
             expect(entry?.line).toBe(1);
             expect(entry?.column).toBe(1);
         });
@@ -82,7 +82,7 @@ describe("Lowerer", () => {
         it("preserves the source position on IR.Text nodes", () => {
             const { ir } = compileToIR("Hello");
             const text = texts(ir.root)[0];
-            const entry = ir.nodeMap.get(text.id);
+            const entry = ir.sourceMap.get(text.id);
             expect(entry?.line).toBe(1);
             expect(entry?.column).toBe(1);
         });
@@ -113,7 +113,7 @@ describe("Lowerer", () => {
         it("preserves source position on IR.Block nodes", () => {
             const { ir } = compileToIR("{\nHello\n}");
             const block = blocks(ir.root)[0];
-            const entry = ir.nodeMap.get(block.id);
+            const entry = ir.sourceMap.get(block.id);
             expect(entry?.line).toBeDefined();
             expect(entry?.column).toBeDefined();
         });
